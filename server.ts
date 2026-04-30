@@ -11,11 +11,8 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
-
-  app.use(express.json());
+const app = express();
+app.use(express.json());
 
   // Supabase Admin/Client setup for backend
   const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
@@ -249,9 +246,12 @@ async function startServer() {
     });
   }
 
+// Serving static files (only for local dev)
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = 3000;
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+export default app;
