@@ -1,0 +1,6 @@
+{
+  "name": "Personal flight log",
+  "description": "Calculadora de tiempos de servicio y descansos para pilotos y TCP según normativa aeronáutica.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
