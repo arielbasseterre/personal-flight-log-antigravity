@@ -56,6 +56,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { FlightLogPDF } from './FlightLogPDF';
+import { AnacAuth } from './AnacAuth';
 import { supabase } from '@/src/utils/supabase/client';
 
 interface LibroScreenProps {
@@ -252,6 +253,7 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [anacToken, setAnacToken] = useState('');
+  const [anacSession, setAnacSession] = useState<any>(null);
   const [syncStatus, setSyncStatus] = useState<{ message: string, type: 'info' | 'success' | 'error' | null, debugInfo?: any }>({ message: '', type: null });
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [showDebugDetail, setShowDebugDetail] = useState(false);
@@ -261,6 +263,28 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     if (logs.length === 0 && !profile) {
       refreshData();
     }
+
+    // Escuchador global de login ANAC (por si la prop falla)
+    const handleGlobalLogin = (e: any) => {
+      console.log("!!! EVENTO GLOBAL RECIBIDO !!!", e.detail);
+      const session = e.detail;
+      const authCookie = session.cookies.find((c: any) => 
+        c.name === 'Auth.ANAC.localhost' ||
+        c.name.toLowerCase().includes('auth') || 
+        c.name.includes('ANAC') ||
+        c.name.includes('Session')
+      );
+
+      if (authCookie) {
+        setAnacToken(authCookie.value);
+        setAnacSession(session);
+        setSyncStatus({ message: `Sesión detectada vía Global (${authCookie.name}). Iniciando carga...`, type: 'info' });
+        setTimeout(() => handleSyncANAC(authCookie.value, session), 500);
+      }
+    };
+
+    window.addEventListener('anac-login-success', handleGlobalLogin);
+    return () => window.removeEventListener('anac-login-success', handleGlobalLogin);
   }, []);
 
   const fetchAirports = async () => {
@@ -309,10 +333,14 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     return search;
   };
 
-  const handleSyncANAC = async () => {
+  const handleSyncANAC = async (tokenOverride?: string, sessionOverride?: any) => {
     if (!supabase || !profile) return;
-    if (!anacToken) {
-      setSyncStatus({ message: 'Por favor, ingresa el token Auth.ANAC', type: 'error' });
+    
+    const tokenToUse = tokenOverride || anacToken;
+    const sessionToUse = sessionOverride || anacSession;
+    
+    if (!tokenToUse && !sessionToUse) {
+      setSyncStatus({ message: 'Por favor, ingresa el token Auth.ANAC o inicia sesión', type: 'error' });
       return;
     }
 
@@ -339,7 +367,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: profile.id,
-          anac_token: anacToken,
+          anac_token: tokenToUse,
+          storageState: sessionToUse,
           logs_to_sync: logsWithDetails
         })
       });
@@ -2577,98 +2606,60 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         {showSyncDialog && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-[#1a2233] w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800"
             >
-              <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <Globe className="text-blue-500" size={20} /> Smart Sync ANAC
-                  </h3>
-                  <button onClick={() => setShowSyncDialog(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                    <X size={20} />
-                  </button>
-                </div>
+              <div className="p-1 text-right">
+                <button 
+                  onClick={() => setShowSyncDialog(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="px-6 pb-8">
+                <AnacAuth onAuthSuccess={(session) => {
+                  console.log("!!! SESION RECIBIDA !!!", session);
+                  console.log("Nombres de cookies encontradas:", session.cookies.map((c: any) => c.name));
+                  
+                  // Buscamos la cookie de autenticación (Intentamos varias posibilidades)
+                  let authCookie = session.cookies.find((c: any) => 
+                    c.name === 'Auth.ANAC.localhost' ||
+                    c.name.toLowerCase().includes('auth') || 
+                    c.name.includes('ANAC')
+                  );
 
-                {!isSyncing && (
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="anacToken" className="text-xs font-semibold uppercase opacity-60">Cookie de Sesión (Copia todo el valor 'Cookie')</Label>
-                      <Input 
-                        id="anacToken" 
-                        type="password"
-                        placeholder="Auth.ANAC=...; ASP.NET_SessionId=..." 
-                        value={anacToken}
-                        onChange={(e) => setAnacToken(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-800 border-none h-11 font-mono text-[10px]"
-                      />
-                      <p className="text-[10px] text-slate-500 text-center italic">
-                        "Tip: En las herramientas de desarrollador, copia el contenido COMPLETO de la cabecera Cookie."
-                      </p>
-                    </div>
+                  if (authCookie) {
+                    setAnacToken(authCookie.value);
+                    setAnacSession(session);
+                    setSyncStatus({ message: 'Sesión válida. Iniciando carga...', type: 'info' });
+                    setTimeout(() => handleSyncANAC(authCookie.value, session), 500);
+                  } else {
+                    setSyncStatus({ message: 'Error: Credenciales inválidas.', type: 'error' });
+                  }
+                }} />
 
-                    {syncStatus.message && (
-                      <div className="space-y-2">
-                        <div className={`p-3 rounded-xl text-xs font-medium flex items-start gap-2 ${
-                          syncStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                          syncStatus.type === 'error' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                          'bg-blue-50 text-blue-700 border border-blue-100'
-                        }`}>
-                          {syncStatus.type === 'success' ? <CheckCircle2 size={14} className="mt-0.5 shrink-0" /> : <AlertTriangle size={14} className="mt-0.5 shrink-0" />}
-                          <div className="flex-1">
-                            {syncStatus.message}
-                            {syncStatus.debugInfo && (
-                              <button 
-                                onClick={() => setShowDebugDetail(!showDebugDetail)}
-                                className="block mt-1 text-[9px] underline opacity-70 hover:opacity-100"
-                              >
-                                {showDebugDetail ? 'Ocultar Detalle Técnico' : 'Ver Detalle Técnico (Avanzado)'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {showDebugDetail && syncStatus.debugInfo && (
-                          <motion.div 
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            className="p-2 bg-slate-900 border border-slate-800 rounded-lg overflow-hidden"
-                          >
-                            <pre className="text-[9px] font-mono text-blue-400 overflow-x-auto whitespace-pre-wrap max-h-40">
-                              {JSON.stringify(syncStatus.debugInfo, null, 2)}
-                            </pre>
-                            <div className="mt-2 pt-2 border-t border-slate-800">
-                              <p className="text-[9px] text-slate-500 italic">
-                                Ayuda: Si ves "Object reference not set", suele significar que ANAC espera un dato que falta (posiblemente AuthID, Matrícula o Aeródromo).
-                              </p>
-                            </div>
-                          </motion.div>
-                        )}
-                      </div>
-                    )}
-
-                    <Button 
-                      className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 font-bold gap-2 shadow-lg shadow-blue-500/20"
-                      onClick={handleSyncANAC}
-                    >
-                      Iniciar Carga Secuencial
-                    </Button>
+                {/* Status messages for sync process (post-login) */}
+                {isSyncing && (
+                  <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col items-center gap-3">
+                    <RefreshCw className="text-blue-500 animate-spin" size={24} />
+                    <p className="text-xs font-bold text-blue-600 uppercase tracking-widest animate-pulse">Sincronizando vuelos...</p>
+                    <p className="text-[10px] text-blue-500 text-center">{syncStatus.message}</p>
                   </div>
                 )}
 
-                {isSyncing && (
-                  <div className="py-8 flex flex-col items-center justify-center space-y-4">
-                    <div className="relative">
-                      <RefreshCw className="text-blue-500 animate-spin" size={48} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Globe size={18} className="text-blue-500" />
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest animate-pulse">Sincronizando...</div>
-                      <div className="text-xs text-slate-500 mt-1">{syncStatus.message}</div>
+                {syncStatus.type && !isSyncing && (
+                  <div className={`mt-4 p-4 rounded-xl border text-xs flex items-start gap-3 ${
+                    syncStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 
+                    syncStatus.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 
+                    'bg-blue-500/10 border-blue-500/20 text-blue-500'
+                  }`}>
+                    {syncStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                    <div className="flex-1">
+                      <p className="font-bold">{syncStatus.message}</p>
                     </div>
                   </div>
                 )}
@@ -2677,7 +2668,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 };

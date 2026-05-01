@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import axios from "axios";
 import dns from "dns";
+import { chromium } from "playwright";
 
 // Fix for ENOTFOUND errors in some environments
 dns.setDefaultResultOrder('ipv4first');
@@ -39,27 +40,114 @@ app.use(express.json());
     }
   });
 
+  // --- ANAC Auth API (Playwright) ---
+  app.post("/api/auth-anac", async (req, res) => {
+    const { user_id, cuil, password, rememberMe } = req.body;
+
+    if (!user_id || !cuil || !password) {
+      return res.status(400).json({ error: "user_id, cuil y password son requeridos" });
+    }
+
+    console.log(`[AUTH_ANAC] Iniciando login para CUIL: ${cuil}`);
+    let browser;
+    try {
+      // Volvemos al modo invisible (segundo plano)
+      browser = await chromium.launch({ headless: true });
+      
+      const context = await browser.newContext({
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        viewport: { width: 1280, height: 720 },
+        locale: "es-AR"
+      });
+
+      const page = await context.newPage();
+      
+      console.log("[AUTH_ANAC] Navegando a ANAC...");
+      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "networkidle" });
+
+      await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
+
+      console.log("[AUTH_ANAC] Completando credenciales (tecleo humano)...");
+      await page.type("#Username", cuil, { delay: 100 });
+      await page.type("#Password", password, { delay: 100 });
+
+      console.log("[AUTH_ANAC] Enviando formulario...");
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "load", timeout: 60000 }).catch(() => {}),
+        page.click("#loginButton")
+      ]);
+
+      // --- VALIDACIÓN DE ÉXITO (Solo cookies reales de portal) ---
+      const cookies = await context.cookies();
+      const hasAuthCookie = cookies.some(c => 
+        c.name.includes("Auth.ANAC") || 
+        c.name.includes("ASPXROLES")
+      );
+
+      if (!hasAuthCookie) {
+        console.log("[AUTH_ANAC] No se encontró cookie de sesión del portal. Esperando un poco más...");
+        // Damos una última oportunidad de 5 segundos
+        await page.waitForTimeout(5000);
+        const finalCookies = await context.cookies();
+        if (!finalCookies.some(c => c.name.includes("Auth.ANAC") || c.name.includes("ASPXROLES"))) {
+          const portalError = await page.locator(".text-danger, .validation-summary-errors").first().innerText().catch(() => null);
+          throw new Error(portalError || "No se pudo detectar la sesión del portal. Verifica tus datos.");
+        }
+      }
+
+      console.log("[AUTH_ANAC] Login exitoso confirmado.");
+
+      // Capturar cookies y localStorage
+      const storageState = await context.storageState();
+      console.log(`[AUTH_ANAC] Finalizado. Cookies capturadas: ${storageState.cookies.length}`);
+
+      // Persistencia en Supabase
+      if (rememberMe) {
+        try {
+          const { error: dbError } = await supabase
+            .from('user_remote_sessions')
+            .upsert({
+              user_id: user_id,
+              session_data: storageState,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+          if (dbError) console.error("[AUTH_ANAC] Error DB:", dbError.message);
+        } catch (e) {}
+      }
+
+      await browser.close();
+      res.json({ success: true, storageState });
+
+    } catch (error: any) {
+      if (browser) await browser.close();
+      console.error("[AUTH_ANAC] Error:", error.message);
+      res.status(error.message.includes("Credenciales") ? 401 : 500).json({ 
+        error: error.message 
+      });
+    }
+  });
+
   // --- ANAC Sincronización API ---
   app.post("/api/sync-anac", async (req, res) => {
-    const { user_id, anac_token, logs_to_sync } = req.body;
+    const { user_id, anac_token, storageState, logs_to_sync } = req.body;
 
-    if (!user_id || !anac_token) {
-      return res.status(400).json({ error: "user_id y anac_token son requeridos" });
+    if (!user_id || (!anac_token && !storageState)) {
+      return res.status(400).json({ error: "user_id y sesión son requeridos" });
     }
 
     try {
       const results = [];
       const logs = logs_to_sync || [];
       
-      // Sort logs chronologically (Oldest first)
-      logs.sort((a: any, b: any) => new Date(a.fechaHoraSalida).getTime() - new Date(b.fechaHoraSalida).getTime());
-
-      // Flexible cookie handling
-      let cookieHeader = anac_token.trim();
-      // If it doesn't look like a full cookie string, wrap it in Auth.ANAC
-      if (!cookieHeader.includes("=")) {
-        cookieHeader = `Auth.ANAC=${cookieHeader}`;
+      // Construir Cookie Header completo
+      let cookieHeader = "";
+      if (storageState && storageState.cookies) {
+        cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      } else {
+        cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
       }
+
+      console.log(`[SYNC_ANAC] Iniciando sincronización con ${storageState ? 'sesión completa' : 'token simple'}`);
 
       for (const log of logs) {
         try {

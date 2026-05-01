@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx --watch server.ts",
+    "dev": "tsx watch --ignore .env --ignore node_modules --ignore dist server.ts",
     "start": "node server.ts",
     "build": "vite build",
     "preview": "vite preview",
@@ -33,6 +33,7 @@
     "file-saver": "^2.0.5",
     "lucide-react": "^1.8.0",
     "motion": "^12.23.24",
+    "playwright": "^1.59.1",
     "react": "^19.0.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.0.0",

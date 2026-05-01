@@ -38,6 +38,7 @@ import {
 import { Screen, CalculationResult, FlightLog, Profile } from './types';
 import { LibroScreen } from './components/LibroScreen';
 import { AuthScreen } from './components/AuthScreen';
+import { AnacAuth } from './components/AnacAuth';
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
 
