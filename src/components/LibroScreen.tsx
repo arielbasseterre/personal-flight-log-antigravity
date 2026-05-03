@@ -1049,8 +1049,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       const workbook = new ExcelJS.Workbook();
       
       const sortedLogs = [...logs].sort((a, b) => {
-        const dateA = new Date(a.year, a.month - 1, a.day).getTime();
-        const dateB = new Date(b.year, b.month - 1, b.day).getTime();
+        const dateA = new Date(a.fechaHoraSalida).getTime();
+        const dateB = new Date(b.fechaHoraSalida).getTime();
         if (dateA !== dateB) return dateA - dateB;
         return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       });
