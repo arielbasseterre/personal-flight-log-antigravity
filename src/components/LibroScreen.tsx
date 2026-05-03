@@ -662,10 +662,26 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
     const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
 
+    const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
+    const checkLlegada = buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!, crossesMidnight);
+
+    const isDuplicate = logs.some(log => 
+      log.fechaHoraSalida === checkSalida && 
+      log.fechaHoraLlegada === checkLlegada &&
+      log.origenID === resolvedOrigin &&
+      log.destinoID === resolvedDest &&
+      log.matriculaAvion === (formData.registration || '')
+    );
+
+    if (isDuplicate) {
+      alert("Registro duplicado: Ya existe un vuelo cargado con esta misma fecha, horarios, ruta y matrícula.");
+      return;
+    }
+
     const finalData: any = {
       user_id: user_id,
-      fechaHoraSalida: buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!),
-      fechaHoraLlegada: buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!, crossesMidnight),
+      fechaHoraSalida: checkSalida,
+      fechaHoraLlegada: checkLlegada,
       origenID: resolvedOrigin,
       destinoID: resolvedDest,
       finalidadID: formData.flight_purpose || '',
