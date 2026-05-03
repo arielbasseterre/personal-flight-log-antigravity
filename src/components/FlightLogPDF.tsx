@@ -603,7 +603,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
                     <View style={[styles.cell, { width: col.sim }]}><Text style={styles.cellText}>{log?.sim_instructor ? log.sim_instructor.toFixed(1) : ''}</Text></View>
                     <View style={[styles.cell, { width: col.sim, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log?.sim_student ? log.sim_student.toFixed(1) : ''}</Text></View>
                     
-                    <View style={[styles.cell, { width: col.cert, borderRightWidth: 0 }]}><Text style={[styles.cellText, { fontSize: 4 }]}>{idx === 0 ? 'CERTIFICO ACTIVIDAD SEGUN REGISTROS' : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.cert, borderRightWidth: 0 }]}><Text style={[styles.cellText, { fontSize: 4 }]}></Text></View>
                   </View>
                 );
               })}

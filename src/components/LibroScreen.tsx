@@ -1395,7 +1395,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
             cell.alignment = { ...centerMiddle, wrapText: false };
             cell.font = { size: 7.5, name: 'Arial' };
             if (colNumber === 30 && idx === 0) {
-              cell.value = "CERTIFICO ACTIVIDAD SEGUN REGISTROS";
+              // Removed CERTIFICO string
               cell.font = { size: 6.5, bold: true, name: 'Arial' };
             }
           });
