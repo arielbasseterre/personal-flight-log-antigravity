@@ -210,22 +210,32 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [dbAirports, setDbAirports] = useState<any[]>([]);
 
+  // Helper to read from localStorage safely
+  const getSavedField = (key: string, defaultVal: string) => {
+    try {
+      const val = localStorage.getItem(`saved_${key}`);
+      return val !== null ? val : defaultVal;
+    } catch (e) {
+      return defaultVal;
+    }
+  };
+
   // Initial state for the form
   const initialFormState: Partial<FlightLog> = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     day: new Date().getDate(),
-    departure_time_utc: "12:00",
-    arrival_time_utc: "14:00",
+    departure_time_utc: "",
+    arrival_time_utc: "",
     origin_ad: "",
     destination_ad: "",
-    flight_purpose: "78",
-    aircraft_model: "",
+    flight_purpose: getSavedField("flight_purpose", "78"),
+    aircraft_model: getSavedField("aircraft_model", ""),
     registration: "",
-    power_rating: 0,
+    power_rating: Number(getSavedField("power_rating", "0")),
     aircraft_class: "MULT-T",
-    certifier_name: "",
-    certifier_role_id: "2",
+    certifier_name: getSavedField("certifier_name", ""),
+    certifier_role_id: getSavedField("certifier_role_id", "2"),
     airfield_day_pilot: 0,
     airfield_day_copilot: 0,
     airfield_night_pilot: 0,
@@ -512,6 +522,15 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   const saveLog = async () => {
     if (!supabase) return;
 
+    if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
+      alert("Por favor ingrese un horario de salida válido (HH:MM).");
+      return;
+    }
+    if (!formData.arrival_time_utc || formData.arrival_time_utc.length < 5) {
+      alert("Por favor ingrese un horario de llegada válido (HH:MM).");
+      return;
+    }
+
     // Validation: Cumulative times cannot exceed Block Duration
     const totalRef = parseFloat(calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc) || '0');
     const currentSum = (
@@ -660,12 +679,22 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         if (error) throw error;
       }
       
+      // Persist values in localStorage for future sessions
+      try {
+        localStorage.setItem("saved_flight_purpose", String(formData.flight_purpose || ""));
+        localStorage.setItem("saved_aircraft_model", String(formData.aircraft_model || ""));
+        localStorage.setItem("saved_power_rating", String(formData.power_rating || 0));
+        localStorage.setItem("saved_certifier_name", String(formData.certifier_name || ""));
+        localStorage.setItem("saved_certifier_role_id", String(formData.certifier_role_id || "2"));
+      } catch(e) {}
+
       setFormData({
         ...initialFormState,
         aircraft_model: formData.aircraft_model,
         power_rating: formData.power_rating,
         aircraft_class: formData.aircraft_class,
         certifier_name: formData.certifier_name,
+        certifier_role_id: formData.certifier_role_id,
         flight_purpose: formData.flight_purpose,
       });
       setEditingId(null);
