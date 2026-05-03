@@ -665,13 +665,15 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
     const checkLlegada = buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!, crossesMidnight);
 
-    const isDuplicate = logs.some(log => 
-      log.fechaHoraSalida === checkSalida && 
-      log.fechaHoraLlegada === checkLlegada &&
-      log.origenID === resolvedOrigin &&
-      log.destinoID === resolvedDest &&
-      log.matriculaAvion === (formData.registration || '')
-    );
+    const isDuplicate = logs.some(log => {
+      const isSameSalida = new Date(log.fechaHoraSalida).getTime() === new Date(checkSalida).getTime();
+      const isSameLlegada = new Date(log.fechaHoraLlegada).getTime() === new Date(checkLlegada).getTime();
+      const isSameOrigen = log.origenID === resolvedOrigin;
+      const isSameDestino = log.destinoID === resolvedDest;
+      const isSameMatricula = (log.matriculaAvion || '').toUpperCase() === (formData.registration || '').toUpperCase();
+      
+      return isSameSalida && isSameLlegada && isSameOrigen && isSameDestino && isSameMatricula;
+    });
 
     if (isDuplicate) {
       alert("Registro duplicado: Ya existe un vuelo cargado con esta misma fecha, horarios, ruta y matrícula.");
