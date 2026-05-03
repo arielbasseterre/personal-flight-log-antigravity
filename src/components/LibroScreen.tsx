@@ -1082,8 +1082,20 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         ifr_real_copilot: profile?.total_ifr_real_copilot || 0,
         ifr_hood: profile?.total_ifr_hood || 0,
         sim_instructor: profile?.total_sim_instructor || 0,
-        sim_student: profile?.total_sim_student || 0
+        sim_student: profile?.total_sim_student || 0,
+        grand_total_hours: 0
       };
+
+      initialTotals.grand_total_hours = (
+        initialTotals.airfield_day_pilot +
+        initialTotals.airfield_day_copilot +
+        initialTotals.airfield_night_pilot +
+        initialTotals.airfield_night_copilot +
+        initialTotals.cross_country_day_pilot +
+        initialTotals.cross_country_day_copilot +
+        initialTotals.cross_country_night_pilot +
+        initialTotals.cross_country_night_copilot
+      );
 
       const getTotalsUpToPage = (pageIdx: number) => {
         const t = { ...initialTotals };
@@ -1113,6 +1125,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
             }
 
             t.landings += Number(log.aterrizajes || 0);
+            t.grand_total_hours += (hDia + hNoche);
             t.multi_engine += Number((log as any).multi_engine || (log.clase?.includes('MULT') ? (hDia + hNoche) : 0));
             t.jet += Number((log as any).jet || 0);
             t.turboprop += Number((log as any).turboprop || 0);
@@ -1327,7 +1340,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           ant.landings, ant.instruction_time.toFixed(1),
           ant.multi_engine.toFixed(1), ant.jet.toFixed(1), ant.turboprop.toFixed(1), ant.ag_application.toFixed(1),
           ant.ifr_real_pilot.toFixed(1), ant.ifr_real_copilot.toFixed(1), ant.ifr_hood.toFixed(1),
-          ant.sim_instructor.toFixed(1), ant.sim_student.toFixed(1), "Total horas de vuelo de la pagina anterior   }"
+          ant.sim_instructor.toFixed(1), ant.sim_student.toFixed(1), `${ant.grand_total_hours.toFixed(1)}    Total horas de vuelo de la pagina anterior`
         ]);
         sheet.mergeCells(antRow.number, 1, antRow.number, 6);
         sheet.mergeCells(antRow.number, 7, antRow.number, 10);
@@ -1368,13 +1381,20 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
             }
           };
 
+          const isCargo1 = log.cargoID === "1";
           const finalidadLabel = FLIGHT_PURPOSES.find(f => f.key === log.finalidadID)?.sigla || log.finalidadID;
 
           const lRow = sheet.addRow([
             depDate.getUTCDate(), depDate.getUTCMonth() + 1, formatTime(log.fechaHoraSalida), `${log.origenID} - ${log.destinoID}`, formatTime(log.fechaHoraLlegada),
             finalidadLabel, log.Marca_Modelo || "", log.matriculaAvion, log.potencia || "", log.clase || "",
-            isLocal ? hDia : "", "", isLocal ? hNoche : "", "",
-            !isLocal ? hDia : "", "", !isLocal ? hNoche : "", "",
+            isLocal && isCargo1 && hDia > 0 ? hDia : "", 
+            isLocal && !isCargo1 && hDia > 0 ? hDia : "", 
+            isLocal && isCargo1 && hNoche > 0 ? hNoche : "", 
+            isLocal && !isCargo1 && hNoche > 0 ? hNoche : "",
+            !isLocal && isCargo1 && hDia > 0 ? hDia : "", 
+            !isLocal && !isCargo1 && hDia > 0 ? hDia : "", 
+            !isLocal && isCargo1 && hNoche > 0 ? hNoche : "", 
+            !isLocal && !isCargo1 && hNoche > 0 ? hNoche : "",
             log.aterrizajes || "", 
             (log as any).instruction_time ? Number((log as any).instruction_time).toFixed(1) : "", 
             (log as any).multi_engine ? Number((log as any).multi_engine).toFixed(1) : "", 
@@ -1422,7 +1442,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           sig.landings, sig.instruction_time.toFixed(1),
           sig.multi_engine.toFixed(1), sig.jet.toFixed(1), sig.turboprop.toFixed(1), sig.ag_application.toFixed(1),
           sig.ifr_real_pilot.toFixed(1), sig.ifr_real_copilot.toFixed(1), sig.ifr_hood.toFixed(1),
-          sig.sim_instructor.toFixed(1), sig.sim_student.toFixed(1), "Total horas de vuelo de la pagina siguiente   }"
+          sig.sim_instructor.toFixed(1), sig.sim_student.toFixed(1), `${sig.grand_total_hours.toFixed(1)}    Total horas de vuelo de la pagina siguiente`
         ]);
         sheet.mergeCells(sigRow.number, 1, sigRow.number, 2);
         sheet.mergeCells(sigRow.number, 3, sigRow.number, 10);
