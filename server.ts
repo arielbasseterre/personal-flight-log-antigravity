@@ -22,6 +22,8 @@ app.use(express.json());
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   // --- Connectivity Test API ---
+  app.get("/ping", (req, res) => res.send("pong"));
+
   app.get("/api/test-connectivity", async (req, res) => {
     try {
       const google = await axios.get("https://www.google.com", { timeout: 5000 });
