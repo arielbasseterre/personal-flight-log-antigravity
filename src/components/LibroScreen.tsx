@@ -265,6 +265,7 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [anacToken, setAnacToken] = useState('');
   const [anacSession, setAnacSession] = useState<any>(null);
   const [syncStatus, setSyncStatus] = useState<{ message: string, type: 'info' | 'success' | 'error' | null, debugInfo?: any }>({ message: '', type: null });
+  const [showDetailedStats, setShowDetailedStats] = useState(false);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [showDebugDetail, setShowDebugDetail] = useState(false);
   const [anacLogs, setAnacLogs] = useState<AnacLog[]>([]);
@@ -1433,6 +1434,22 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   const totalNightHours = (totalNightHoursLogs + initialNightHours).toFixed(1);
   const totalIfrHours = logs.reduce((acc, log) => acc + (Number(log.Discriminaciones?.find(d => d.tipoDiscriminacionID === 15)?.hora || 0)), 0);
 
+  // Detailed hour breakdowns for dashboard
+  const detailStats = {
+    pilotDay: logs.reduce((acc, log) => acc + (Number((log as any).airfield_day_pilot || 0) + Number((log as any).cross_country_day_pilot || 0)), 0)
+               + (Number(profile?.total_airfield_day_pilot || 0) + Number(profile?.total_cross_country_day_pilot || 0)),
+    copilotDay: logs.reduce((acc, log) => acc + (Number((log as any).airfield_day_copilot || 0) + Number((log as any).cross_country_day_copilot || 0)), 0)
+               + (Number(profile?.total_airfield_day_copilot || 0) + Number(profile?.total_cross_country_day_copilot || 0)),
+    pilotNight: logs.reduce((acc, log) => acc + (Number((log as any).airfield_night_pilot || 0) + Number((log as any).cross_country_night_pilot || 0)), 0)
+               + (Number(profile?.total_airfield_night_pilot || 0) + Number(profile?.total_cross_country_night_pilot || 0)),
+    copilotNight: logs.reduce((acc, log) => acc + (Number((log as any).airfield_night_copilot || 0) + Number((log as any).cross_country_night_copilot || 0)), 0)
+               + (Number(profile?.total_airfield_night_copilot || 0) + Number(profile?.total_cross_country_night_copilot || 0)),
+    multiEngine: logs.reduce((acc, log) => acc + Number((log as any).multi_engine || 0), 0),
+    jet: logs.reduce((acc, log) => acc + Number((log as any).jet || 0), 0),
+    ifrPilot: logs.reduce((acc, log) => acc + Number((log as any).ifr_real_pilot || 0), 0),
+    ifrCopilot: logs.reduce((acc, log) => acc + Number((log as any).ifr_real_copilot || 0), 0),
+  };
+
   const chartData = React.useMemo(() => {
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     const now = new Date();
@@ -1624,6 +1641,85 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Detailed Stats Expandable Section */}
+            <Card className="border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+              <button
+                className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                onClick={() => setShowDetailedStats(prev => !prev)}
+              >
+                <div className="flex items-center gap-2">
+                  <BarChart3 size={14} className="text-blue-500" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">Detalle por Categoría</span>
+                </div>
+                <ChevronRight
+                  size={16}
+                  className={`text-slate-400 transition-transform duration-300 ${showDetailedStats ? 'rotate-90' : ''}`}
+                />
+              </button>
+              <AnimatePresence initial={false}>
+                {showDetailedStats && (
+                  <motion.div
+                    key="detail-stats"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 pt-1 space-y-3">
+                      {/* Day/Night split */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-blue-500 mb-2">Horas Diurnas / Nocturnas</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: 'Piloto Diurno',    value: detailStats.pilotDay,    color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+                            { label: 'Copiloto Diurno',  value: detailStats.copilotDay,  color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' },
+                            { label: 'Piloto Nocturno',  value: detailStats.pilotNight,  color: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' },
+                            { label: 'Copiloto Nocturno',value: detailStats.copilotNight,'color': 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' },
+                          ].map(item => (
+                            <div key={item.label} className={`rounded-lg px-3 py-2 flex items-center justify-between ${item.color}`}>
+                              <span className="text-[10px] font-semibold uppercase leading-tight">{item.label}</span>
+                              <span className="text-sm font-black ml-2 whitespace-nowrap">{item.value.toFixed(1)}<span className="text-[9px] font-normal ml-0.5">h</span></span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Multimotor / Reactor */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-violet-500 mb-2">Multimotor / Reactor</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: 'Multimotor', value: detailStats.multiEngine, color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300' },
+                            { label: 'Reactor / Jet', value: detailStats.jet,       color: 'bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400' },
+                          ].map(item => (
+                            <div key={item.label} className={`rounded-lg px-3 py-2 flex items-center justify-between ${item.color}`}>
+                              <span className="text-[10px] font-semibold uppercase leading-tight">{item.label}</span>
+                              <span className="text-sm font-black ml-2 whitespace-nowrap">{item.value.toFixed(1)}<span className="text-[9px] font-normal ml-0.5">h</span></span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Instrumental IFR */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-2">Instrumental (IFR Real)</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: 'Instrumental Piloto',   value: detailStats.ifrPilot,   color: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' },
+                            { label: 'Instrumental Copiloto', value: detailStats.ifrCopilot,  color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' },
+                          ].map(item => (
+                            <div key={item.label} className={`rounded-lg px-3 py-2 flex items-center justify-between ${item.color}`}>
+                              <span className="text-[10px] font-semibold uppercase leading-tight">{item.label}</span>
+                              <span className="text-sm font-black ml-2 whitespace-nowrap">{item.value.toFixed(1)}<span className="text-[9px] font-normal ml-0.5">h</span></span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Card>
 
             <Card>
               <CardHeader className="pb-2">
