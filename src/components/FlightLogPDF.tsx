@@ -445,7 +445,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
               totals.ag_application += Number((log as any).ag_application || 0);
               totals.ifr_real_pilot += Number((log as any).ifr_real_pilot || 0);
               totals.ifr_real_copilot += Number((log as any).ifr_real_copilot || 0);
-              totals.ifr_hood += Number((log as any).ifr_hood || (log as any).ifr_instrument || 0);
+              totals.ifr_hood += Number((log as any).ifr_hood || 0);
               totals.sim_instructor += Number((log as any).sim_instructor || 0);
               totals.sim_student += Number((log as any).sim_student || 0);
               totals.instruction_time += Number((log as any).instruction_time || (log as any).instruccion || 0);
