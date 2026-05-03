@@ -665,18 +665,34 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
     const checkLlegada = buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!, crossesMidnight);
 
-    const isDuplicate = logs.some(log => {
-      const isSameSalida = new Date(log.fechaHoraSalida).getTime() === new Date(checkSalida).getTime();
-      const isSameLlegada = new Date(log.fechaHoraLlegada).getTime() === new Date(checkLlegada).getTime();
+    const checkSalidaMs = new Date(checkSalida).getTime();
+    const checkLlegadaMs = new Date(checkLlegada).getTime();
+
+    // Check for duplicates or overlapping flights
+    const conflictingLog = logs.find(log => {
+      // If we are editing, ignore the current log
+      if (editingId && log.id === editingId) return false;
+
+      const logSalidaMs = new Date(log.fechaHoraSalida).getTime();
+      const logLlegadaMs = new Date(log.fechaHoraLlegada).getTime();
+
+      // Duplicate check: Exact same route, aircraft and times
+      const isSameSalida = logSalidaMs === checkSalidaMs;
+      const isSameLlegada = logLlegadaMs === checkLlegadaMs;
       const isSameOrigen = log.origenID === resolvedOrigin;
       const isSameDestino = log.destinoID === resolvedDest;
       const isSameMatricula = (log.matriculaAvion || '').toUpperCase() === (formData.registration || '').toUpperCase();
       
-      return isSameSalida && isSameLlegada && isSameOrigen && isSameDestino && isSameMatricula;
+      const isDuplicate = isSameSalida && isSameLlegada && isSameOrigen && isSameDestino && isSameMatricula;
+
+      // Overlap check: New flight departs before old flight arrives AND new flight arrives after old flight departs
+      const isOverlapping = checkSalidaMs < logLlegadaMs && checkLlegadaMs > logSalidaMs;
+
+      return isDuplicate || isOverlapping;
     });
 
-    if (isDuplicate) {
-      alert("Registro duplicado: Ya existe un vuelo cargado con esta misma fecha, horarios, ruta y matrícula.");
+    if (conflictingLog) {
+      alert("Error: El horario de este vuelo se superpone o duplica con otro vuelo ya registrado en esa misma fecha y hora.");
       return;
     }
 
