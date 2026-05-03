@@ -149,7 +149,14 @@ app.use(express.json());
 
       console.log(`[SYNC_ANAC] Iniciando sincronización con ${storageState ? 'sesión completa' : 'token simple'}`);
 
-      for (const log of logs) {
+      // ANAC exige orden cronológico estricto (el más antiguo primero)
+      const sortedLogs = [...logs].sort((a: any, b: any) => {
+        const dateA = new Date(a.fechaHoraSalida || 0).getTime();
+        const dateB = new Date(b.fechaHoraSalida || 0).getTime();
+        return dateA - dateB;
+      });
+
+      for (const log of sortedLogs) {
         try {
           // Exact payload mapping based on your model provided in screenshot
           let authId = String(log.autoridadCertificanteID || "15");
@@ -162,8 +169,15 @@ app.use(express.json());
           }
 
           // Handle Airport codes directly in ID fields as seen in successful example
-          const oriID = String(log.origenID || "").trim();
-          const destID = String(log.destinoID || "").trim();
+          const mapAirportCode = (code: string) => {
+            const c = code.trim().toUpperCase();
+            // ANAC portal specific mappings
+            if (c === "AEP" || c === "SABE") return "AER";
+            return c;
+          };
+
+          const oriID = mapAirportCode(String(log.origenID || ""));
+          const destID = mapAirportCode(String(log.destinoID || ""));
 
           // Prepare hours as simple strings (e.g., "1" instead of "1.0" if possible)
           const formatHours = (val: any) => {
@@ -226,8 +240,16 @@ app.use(express.json());
           const adjustDate = (dateStr: string) => {
             const d = new Date(dateStr);
             d.setHours(d.getHours() + offsetHours);
-            return d.toISOString();
+            return d;
           };
+
+          const dSalida = adjustDate(log.fechaHoraSalida);
+          const dLlegada = adjustDate(log.fechaHoraLlegada);
+
+          // Si el horario de llegada quedó registrado antes que el de salida (cruzó medianoche), le sumamos un día
+          if (dLlegada < dSalida) {
+            dLlegada.setDate(dLlegada.getDate() + 1);
+          }
 
           const payload = {
             Discriminaciones: uniqueDiscriminaciones,
@@ -238,8 +260,8 @@ app.use(express.json());
             destinoID: destID,
             destinoPersonalizado: "",
             discriminaciones: [],
-            fechaHoraLlegada: adjustDate(log.fechaHoraLlegada),
-            fechaHoraSalida: adjustDate(log.fechaHoraSalida),
+            fechaHoraLlegada: dLlegada.toISOString(),
+            fechaHoraSalida: dSalida.toISOString(),
             finalidadID: parseInt(log.finalidadID || "79"),
             horasDia: parseFloat(log.horasDia || "0"),
             horasNoche: parseFloat(log.horasNoche || "0"),
@@ -316,6 +338,68 @@ app.use(express.json());
     } catch (error: any) {
       console.error("Sync error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ANAC Get Logs API ---
+  app.post("/api/get-anac-logs", async (req, res) => {
+    const { anac_token, storageState, pageNumber = 1, rowsPerPage = 50 } = req.body;
+
+    if (!anac_token && !storageState) {
+      return res.status(400).json({ error: "Sesión de ANAC es requerida" });
+    }
+
+    try {
+      // Construir Cookie Header completo
+      let cookieHeader = "";
+      if (storageState && storageState.cookies) {
+        cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      } else {
+        cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
+      }
+
+      console.log(`[GET_ANAC_LOGS] Solicitando página ${pageNumber} de ANAC...`);
+
+      const url = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TM&sortField=fechaSalida&sortDirection=DESC&pageNumber=${pageNumber}&rowsPerPage=${rowsPerPage}&mostrarIngresados=true&solicitudFoliadoId=null`;
+      
+      let anacResponse;
+      try {
+        anacResponse = await axios.get(url, {
+          headers: {
+            "Cookie": cookieHeader,
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json, text/plain, */*",
+            "Origin": "https://cad.anac.gob.ar",
+            "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          },
+          timeout: 15000
+        });
+      } catch (err: any) {
+        // Fallback strategy
+        if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+          const fallbackUrl = `https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/GetPagedList?description=&sortField=fechaSalida&sortDirection=DESC&pageNumber=${pageNumber}&rowsPerPage=${rowsPerPage}`;
+          anacResponse = await axios.get(fallbackUrl, {
+            headers: {
+              "Cookie": cookieHeader,
+              "X-Requested-With": "XMLHttpRequest",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+            },
+            timeout: 15000
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      res.json(anacResponse.data);
+    } catch (error: any) {
+      console.error("Error fetching ANAC logs:", error.response?.status, error.response?.data || error.message);
+      // We send back the exact error string so the frontend can display it
+      res.status(500).json({ 
+        error: error.message, 
+        detail: typeof error.response?.data === 'string' ? error.response.data : JSON.stringify(error.response?.data) 
+      });
     }
   });
 

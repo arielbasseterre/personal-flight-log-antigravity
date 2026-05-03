@@ -49,7 +49,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
-import { FlightLog, Profile } from '@/src/types';
+import { FlightLog, Profile, AnacLog } from '@/src/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import ExcelJS from 'exceljs';
@@ -257,6 +257,10 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [syncStatus, setSyncStatus] = useState<{ message: string, type: 'info' | 'success' | 'error' | null, debugInfo?: any }>({ message: '', type: null });
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [showDebugDetail, setShowDebugDetail] = useState(false);
+  const [anacLogs, setAnacLogs] = useState<AnacLog[]>([]);
+  const [pendingLogs, setPendingLogs] = useState<FlightLog[]>([]);
+  const [isComparing, setIsComparing] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
 
   useEffect(() => {
     fetchAirports();
@@ -278,8 +282,13 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
       if (authCookie) {
         setAnacToken(authCookie.value);
         setAnacSession(session);
-        setSyncStatus({ message: `Sesión detectada vía Global (${authCookie.name}). Iniciando carga...`, type: 'info' });
-        setTimeout(() => handleSyncANAC(authCookie.value, session), 500);
+        setSyncStatus({ message: `Sesión detectada. Verificando vuelos pendientes...`, type: 'info' });
+        
+        // Llamamos a la comparación, NO a la sincronización automática
+        setTimeout(() => {
+          setShowSyncDialog(false);
+          compareWithAnac(authCookie.value, session);
+        }, 1000);
       }
     };
 
@@ -288,14 +297,29 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   }, []);
 
   const fetchAirports = async () => {
-    if (!supabase) return;
     try {
-      const { data, error } = await supabase.from('airports').select('*').order('iata_code');
+      // Intentar cargar desde caché interna primero
+      const cached = localStorage.getItem('airports_cache');
+      if (cached) {
+        try {
+          setDbAirports(JSON.parse(cached));
+        } catch (e) {
+          console.error("Error parsing cached airports", e);
+        }
+      }
+
+      if (!supabase) return;
+      
+      const { data, error } = await supabase.from('airports').select('*');
+      if (error) {
+        console.error("Supabase fetch airports error:", error);
+      }
       if (!error && data && data.length > 0) {
         setDbAirports(data);
+        // Actualizar la base de datos interna local
+        localStorage.setItem('airports_cache', JSON.stringify(data));
       } else {
-        // Fallback or debug log
-        console.log("No airports found in DB or error. Using local list.");
+        console.log("No airports found in DB or error. Using local list.", error);
       }
     } catch (err) {
       console.error("Fetch airports error:", err);
@@ -333,101 +357,153 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     return search;
   };
 
-  const handleSyncANAC = async (tokenOverride?: string, sessionOverride?: any) => {
-    if (!supabase || !profile) return;
-    
+  const fetchAnacLogs = async (tokenOverride?: string, sessionOverride?: any) => {
     const tokenToUse = tokenOverride || anacToken;
     const sessionToUse = sessionOverride || anacSession;
+    if (!tokenToUse && !sessionToUse) return [];
+    try {
+      const response = await fetch('/api/get-anac-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anac_token: tokenToUse, storageState: sessionToUse, rowsPerPage: 100 })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.dataSource as AnacLog[];
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        console.error("Error from server fetching ANAC logs:", errData.detail || errData.error || response.statusText);
+      }
+      return [];
+    } catch (err) {
+      console.error("Error fetching ANAC logs:", err);
+      return [];
+    }
+  };
+
+  const compareWithAnac = async (tokenOverride?: any, sessionOverride?: any) => {
+    // Si se llama desde un onClick de React, tokenOverride será un objeto Event, no un string.
+    const actualToken = typeof tokenOverride === 'string' ? tokenOverride : undefined;
     
+    const tokenToUse = actualToken || anacToken;
+    const sessionToUse = sessionOverride || anacSession;
+
     if (!tokenToUse && !sessionToUse) {
-      setSyncStatus({ message: 'Por favor, ingresa el token Auth.ANAC o inicia sesión', type: 'error' });
+      setSyncStatus({ message: 'Primero inicia sesión en ANAC para comparar', type: 'error' });
+      setShowSyncDialog(true);
+      return;
+    }
+    setIsComparing(true);
+    setSyncStatus({ message: 'Obteniendo registros de ANAC...', type: 'info' });
+    const remoteLogs = await fetchAnacLogs(tokenOverride, sessionOverride);
+    setAnacLogs(remoteLogs);
+    if (remoteLogs.length === 0) {
+      setSyncStatus({ message: 'No se pudieron obtener registros de ANAC o la lista está vacía.', type: 'error' });
+      setIsComparing(false);
       return;
     }
 
+    const missing = logs.filter(localLog => {
+      try {
+        const localStart = new Date(localLog.fechaHoraSalida).toISOString().substring(0, 16);
+        const localEnd = new Date(localLog.fechaHoraLlegada).toISOString().substring(0, 16);
+        const localMat = (localLog.matriculaAvion || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
+        const exists = remoteLogs.some(remoteLog => {
+          const remoteStart = (remoteLog.fechaSalida || "").substring(0, 16);
+          const remoteEnd = (remoteLog.fechaLlegada || "").substring(0, 16);
+          const remoteMat = (remoteLog.matricula || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+          
+          const matchTime = localStart === remoteStart && localEnd === remoteEnd;
+          const matchMat = localMat === remoteMat || !localMat || !remoteMat;
+          
+          if (matchTime && !matchMat) {
+            console.log(`⏱️ Coincidencia de TIEMPO pero distinta MATRÍCULA: Local(${localMat}) vs ANAC(${remoteMat})`);
+          }
+
+          return matchTime && matchMat;
+        });
+
+        if (!exists) {
+          console.log(`📌 Vuelo PENDIENTE detectado: ${localLog.origenID}->${localLog.destinoID} (${localStart}) [Mat: ${localMat}]`);
+        }
+
+        return !exists;
+      } catch (e) {
+        console.error("Error comparando log:", localLog, e);
+        return true;
+      }
+    });
+
+    console.log(`📊 Resumen: ${logs.length} locales vs ${remoteLogs.length} en ANAC. Pendientes: ${missing.length}`);
+
+    setPendingLogs(missing);
+    setIsComparing(false);
+    if (missing.length === 0) {
+      setSyncStatus({ message: 'Todos tus vuelos ya están en el portal de ANAC.', type: 'success' });
+    } else {
+      setSyncStatus({ message: `Se encontraron ${missing.length} vuelos pendientes de sincronizar.`, type: 'info' });
+    }
+    setShowPendingModal(true);
+  };
+
+  const handleSyncANAC = async (tokenOverride?: string, sessionOverride?: any, logsToSyncOverride?: FlightLog[]) => {
+    if (!supabase || !profile) return;
+    const tokenToUse = tokenOverride || anacToken;
+    const sessionToUse = sessionOverride || anacSession;
+    if (!tokenToUse && !sessionToUse) {
+      setSyncStatus({ message: 'Por favor, inicia sesión', type: 'error' });
+      return;
+    }
     setIsSyncing(true);
-    setSyncStatus({ message: 'Iniciando sincronización con ANAC...', type: 'info' });
+    
+    // Mapeo inteligente de aeropuertos usando la base de datos local
+    console.log("[DEBUG_MAPPER] dbAirports cargados en memoria:", dbAirports.length);
+    const mappedLogsToSync = (logsToSyncOverride || logs).map(l => {
+      const mapAirportCode = (code: string) => {
+        const c = (code || "").trim().toUpperCase();
+        if (!c) return c;
+        
+        // Buscar coincidencia en la base de datos de aeropuertos (por IATA, OACI o Local)
+        const airport = dbAirports.find(a => 
+          (a.iata_code && a.iata_code.toUpperCase() === c) || 
+          (a.oaci_code && a.oaci_code.toUpperCase() === c) || 
+          (a.local_code && a.local_code.toUpperCase() === c) ||
+          (a.key_code && a.key_code.toUpperCase() === c) ||
+          (a.code && a.code.toUpperCase() === c) // fallback for generic 'code' column
+        );
+        
+        console.log(`[DEBUG_MAPPER] Mapeando '${c}' -> Encontrado en DB:`, !!airport, airport ? `(key_code: ${airport.key_code})` : '');
+
+        // Si encontramos el aeropuerto y tiene un key_code definido, lo usamos.
+        if (airport && airport.key_code) {
+          return airport.key_code;
+        }
+        
+        // Fallback genérico por seguridad (mantiene el parche anterior)
+        if (c === "AEP" || c === "SABE") return "AER";
+        return c;
+      };
+
+      return {
+        ...l,
+        potencia: Number(l.potencia || 0),
+        origenID: mapAirportCode(l.origenID || (l as any).origin_ad),
+        destinoID: mapAirportCode(l.destinoID || (l as any).destination_ad)
+      };
+    });
 
     try {
-      // Prepare logs - the backend handles the mapping, but we ensure the fields are present
-      const logsWithDetails = logs.map(log => {
-        const potenciaVal = typeof log.potencia === 'string' ? parseInt(log.potencia) : (log.potencia || 0);
-
-        return {
-          ...log,
-          potencia: potenciaVal
-        };
-      });
-
-      console.log("DATOS QUE SE ENVIARÁN AL SERVIDOR:", {
-        logs_to_sync: logsWithDetails
-      });
-
       const response = await fetch('/api/sync-anac', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: profile.id,
-          anac_token: tokenToUse,
-          storageState: sessionToUse,
-          logs_to_sync: logsWithDetails
-        })
+        body: JSON.stringify({ user_id: profile.id, anac_token: tokenToUse, storageState: sessionToUse, logs_to_sync: mappedLogsToSync })
       });
-
       const data = await response.json();
-
-      if (response.ok) {
-        const successes = data.results.filter((r: any) => r.status === 'success');
-        const errors = data.results.filter((r: any) => r.status === 'error');
-        
-        if (errors.length > 0) {
-          const rawError = errors[0].error;
-          let errorMessage = '';
-          
-          if (typeof rawError === 'object' && rawError !== null) {
-            // Recursive helper to find the most specific error message
-            const findDeepMessage = (err: any): string => {
-              if (err.innerException) return findDeepMessage(err.innerException);
-              if (err.exceptionMessage) return err.exceptionMessage;
-              if (err.message) return err.message;
-              return '';
-            };
-
-            const deepMsg = findDeepMessage(rawError);
-            
-            if (rawError.modelState) {
-              const details = Object.values(rawError.modelState).flat().join(' | ');
-              errorMessage = `Validación: ${details}`;
-            } else if (deepMsg) {
-              errorMessage = `Error ANAC: ${deepMsg}`;
-            } else {
-              errorMessage = JSON.stringify(rawError);
-            }
-          } else {
-            errorMessage = String(rawError);
-          }
-
-          setSyncStatus({ 
-            message: `Sincronización parcial: ${successes.length} cargados, ${errors.length} errores. ${errorMessage}`, 
-            type: successes.length > 0 ? 'info' : 'error',
-            debugInfo: rawError
-          });
-        } else {
-          setSyncStatus({ message: `Sincronización exitosa: ${successes.length} vuelos cargados en ANAC.`, type: 'success' });
-        }
-      } else {
-        setSyncStatus({ 
-          message: `Error al sincronizar: ${data.error || 'Desconocido'}`, 
-          type: 'error',
-          debugInfo: data
-        });
-      }
-    } catch (error) {
-      console.error('ANAC Sync error:', error);
-      setSyncStatus({ 
-        message: 'Error de conexión con el servidor de sincronización.', 
-        type: 'error',
-        debugInfo: error
-      });
+      if (response.ok) setSyncStatus({ message: 'Sincronización finalizada.', type: 'success' });
+      else setSyncStatus({ message: `Error: ${data.error}`, type: 'error' });
+    } catch (e) {
+      setSyncStatus({ message: 'Error de conexión.', type: 'error' });
     } finally {
       setIsSyncing(false);
     }
@@ -494,9 +570,13 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     }
 
     // Build ISO timestamps (using GMT/UTC for consistency)
-    const buildISO = (y: number, mon: number, d: number, timeStr: string) => {
+    const buildISO = (y: number, mon: number, d: number, timeStr: string, isNextDay: boolean = false) => {
       const [h, m] = timeStr.split(':').map(Number);
-      return new Date(Date.UTC(y, mon - 1, d, h || 0, m || 0)).toISOString();
+      const date = new Date(Date.UTC(y, mon - 1, d, h || 0, m || 0));
+      if (isNextDay) {
+        date.setUTCDate(date.getUTCDate() + 1);
+      }
+      return date.toISOString();
     };
 
     const user_id = (await supabase.auth.getUser()).data.user?.id;
@@ -509,10 +589,12 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     const resolvedOrigin = resolveToAnac(formData.origin_ad, dbAirports);
     const resolvedDest = resolveToAnac(formData.destination_ad, dbAirports);
 
+    const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
+
     const finalData: any = {
       user_id: user_id,
       fechaHoraSalida: buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!),
-      fechaHoraLlegada: buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!),
+      fechaHoraLlegada: buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!, crossesMidnight),
       origenID: resolvedOrigin,
       destinoID: resolvedDest,
       finalidadID: formData.flight_purpose || '',
@@ -1465,14 +1547,17 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">Carga tus vuelos automáticamente al sistema oficial.</p>
                     </div>
                   </div>
-                  <Button 
-                    size="sm" 
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 gap-2 h-9 shadow-md"
-                    onClick={() => setShowSyncDialog(true)}
-                  >
-                    <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-                    Sincronizar
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm" 
+                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 gap-2 h-9 shadow-md"
+                      onClick={() => compareWithAnac()}
+                      disabled={isComparing || isSyncing}
+                    >
+                      <RefreshCw size={14} className={isComparing || isSyncing ? "animate-spin" : ""} />
+                      Sincronizar
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2635,8 +2720,13 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   if (authCookie) {
                     setAnacToken(authCookie.value);
                     setAnacSession(session);
-                    setSyncStatus({ message: 'Sesión válida. Iniciando carga...', type: 'info' });
-                    setTimeout(() => handleSyncANAC(authCookie.value, session), 500);
+                    setSyncStatus({ message: 'Sesión válida. Buscando vuelos pendientes...', type: 'info' });
+                    
+                    // En lugar de sincronizar todo, forzamos la comparación
+                    setTimeout(() => {
+                      setShowSyncDialog(false);
+                      compareWithAnac();
+                    }, 800);
                   } else {
                     setSyncStatus({ message: 'Error: Credenciales inválidas.', type: 'error' });
                   }
@@ -2662,6 +2752,81 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                       <p className="font-bold">{syncStatus.message}</p>
                     </div>
                   </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Pending Sync Modal */}
+      <AnimatePresence>
+        {showPendingModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-[#1a2233] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800"
+            >
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    {syncStatus.type === 'success' && pendingLogs.length > 0 ? 'Vuelos Sincronizados' : 'Vuelos Pendientes'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {syncStatus.type === 'success' && pendingLogs.length > 0 ? 'Estos vuelos han sido subidos exitosamente al portal de ANAC.' : 'Estos vuelos no se encontraron en el portal de ANAC.'}
+                  </p>
+                </div>
+                <button onClick={() => setShowPendingModal(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <ScrollArea className="h-[350px] p-4">
+                {pendingLogs.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4 text-slate-500">
+                    <CheckCircle2 size={48} className="text-emerald-500" />
+                    <div>
+                      <p className="text-lg font-bold text-slate-900 dark:text-white">¡Todo está al día!</p>
+                      <p className="text-sm mt-2">No hay nuevos vuelos para cargar. Tus registros locales y el portal de ANAC se encuentran perfectamente sincronizados.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingLogs.map((log) => {
+                      const date = new Date(log.fechaHoraSalida);
+                      return (
+                        <div key={log.id} className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                          <div>
+                            <div className="font-bold text-sm">{log.origenID || (log as any).origin_ad} → {log.destinoID || (log as any).destination_ad}</div>
+                            <div className="text-[10px] text-slate-500">
+                              {date.getUTCDate()}/{date.getUTCMonth() + 1}/{date.getUTCFullYear()} • {log.matriculaAvion || (log as any).registration}
+                            </div>
+                          </div>
+                          <Badge variant="outline" className={syncStatus.type === 'success' ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/40"}>
+                            {syncStatus.type === 'success' ? 'Sincronizado' : 'Pendiente'}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+
+              <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowPendingModal(false)}>
+                  Cerrar
+                </Button>
+                {pendingLogs.length > 0 && syncStatus.type !== 'success' && (
+                  <Button 
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl gap-2"
+                    onClick={() => handleSyncANAC(undefined, undefined, pendingLogs)}
+                    disabled={isSyncing}
+                  >
+                    <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
+                    {isSyncing ? 'Sincronizando...' : `Sincronizar ${pendingLogs.length}`}
+                  </Button>
                 )}
               </div>
             </motion.div>

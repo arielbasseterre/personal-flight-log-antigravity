@@ -118,3 +118,28 @@ export interface CalculationResult {
   descansoMinimo: string;
   proximaDisponibilidad: string;
 }
+
+export interface AnacLog {
+  vueloTripulanteID: number;
+  cargoDesc: string;
+  origenDesc: string;
+  destinoDesc: string;
+  finalidad: string;
+  fechaSalida: string; // ISO format "2026-04-29T18:07:00"
+  fechaLlegada: string; // ISO format
+  clase: string;
+  matricula: string;
+  marcaModelo: string;
+  potencia: number;
+  aterrizajes: number;
+  horasDia: number;
+  horasNoche: number;
+  tipoVuelo: string;
+  autoridadCertificante: string;
+  observaciones: string;
+}
+
+export interface AnacPagedResponse {
+  totalRows: number;
+  dataSource: AnacLog[];
+}

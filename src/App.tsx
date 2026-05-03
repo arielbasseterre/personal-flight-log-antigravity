@@ -188,6 +188,17 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "1 de Mayo, 2026",
+    version: "1.2.0",
+    items: [
+      "Implementación de flujo de sincronización manual y controlada con el portal de la ANAC.",
+      "Resolución de error Circular JSON e integración de sesión estricta (bypassing bot-detection).",
+      "Ordenamiento cronológico estricto automático de los vuelos para evitar rechazos por fechas en la ANAC.",
+      "Nuevo Traductor Inteligente de Aeropuertos (ej. AEP a AER) respaldado por caché de base de datos local offline.",
+      "Nueva ventana visual de revisión de 'Vuelos Pendientes' y mensajes dinámicos de éxito tras la sincronización."
+    ]
+  },
+  {
     date: "27 de Abril, 2026",
     version: "1.1.0",
     items: [
