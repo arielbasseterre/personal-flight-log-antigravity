@@ -1492,7 +1492,9 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       }
 
       const buffer = await workbook.xlsx.writeBuffer();
-      saveAs(new Blob([buffer]), `Libro_Vuelo_${profile?.last_name || 'Piloto'}_Folio_${startFolio}.xlsx`);
+      const endFolio = startFolio + Math.max(0, pages.length - 1);
+      const folioRangeLabel = pages.length > 1 ? `Folios_${startFolio}_al_${endFolio}` : `Folio_${startFolio}`;
+      saveAs(new Blob([buffer]), `Libro_Vuelo_${profile?.last_name || 'Piloto'}_${folioRangeLabel}.xlsx`);
     } catch (err) {
       console.error("Excel export error:", err);
       alert("Error al generar el archivo Excel");
