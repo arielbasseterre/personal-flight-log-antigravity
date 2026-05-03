@@ -1434,24 +1434,16 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   const totalNightHours = (totalNightHoursLogs + initialNightHours).toFixed(1);
   const totalIfrHours = logs.reduce((acc, log) => acc + (Number(log.Discriminaciones?.find(d => d.tipoDiscriminacionID === 15)?.hora || 0)), 0);
 
-  // Detailed hour breakdowns for dashboard (logs + profile carry-forward)
+  // Detailed hour breakdowns for dashboard (logs only, no profile carry-forward)
   const detailStats = {
-    pilotDay: logs.reduce((acc, log) => acc + (Number(log.airfield_day_pilot || 0) + Number(log.cross_country_day_pilot || 0)), 0)
-               + (Number(profile?.total_airfield_day_pilot || 0) + Number(profile?.total_cross_country_day_pilot || 0)),
-    copilotDay: logs.reduce((acc, log) => acc + (Number(log.airfield_day_copilot || 0) + Number(log.cross_country_day_copilot || 0)), 0)
-               + (Number(profile?.total_airfield_day_copilot || 0) + Number(profile?.total_cross_country_day_copilot || 0)),
-    pilotNight: logs.reduce((acc, log) => acc + (Number(log.airfield_night_pilot || 0) + Number(log.cross_country_night_pilot || 0)), 0)
-               + (Number(profile?.total_airfield_night_pilot || 0) + Number(profile?.total_cross_country_night_pilot || 0)),
-    copilotNight: logs.reduce((acc, log) => acc + (Number(log.airfield_night_copilot || 0) + Number(log.cross_country_night_copilot || 0)), 0)
-               + (Number(profile?.total_airfield_night_copilot || 0) + Number(profile?.total_cross_country_night_copilot || 0)),
-    multiEngine: logs.reduce((acc, log) => acc + Number(log.multi_engine || 0), 0)
-               + Number(profile?.total_multi_engine || 0),
-    jet: logs.reduce((acc, log) => acc + Number(log.jet || 0), 0)
-               + Number(profile?.total_jet || 0),
-    ifrPilot: logs.reduce((acc, log) => acc + Number(log.ifr_real_pilot || 0), 0)
-               + Number(profile?.total_ifr_real_pilot || 0),
-    ifrCopilot: logs.reduce((acc, log) => acc + Number(log.ifr_real_copilot || 0), 0)
-               + Number(profile?.total_ifr_real_copilot || 0),
+    pilotDay:     logs.reduce((acc, log) => acc + (Number(log.airfield_day_pilot || 0) + Number(log.cross_country_day_pilot || 0)), 0),
+    copilotDay:   logs.reduce((acc, log) => acc + (Number(log.airfield_day_copilot || 0) + Number(log.cross_country_day_copilot || 0)), 0),
+    pilotNight:   logs.reduce((acc, log) => acc + (Number(log.airfield_night_pilot || 0) + Number(log.cross_country_night_pilot || 0)), 0),
+    copilotNight: logs.reduce((acc, log) => acc + (Number(log.airfield_night_copilot || 0) + Number(log.cross_country_night_copilot || 0)), 0),
+    multiEngine:  logs.reduce((acc, log) => acc + Number(log.multi_engine || 0), 0),
+    jet:          logs.reduce((acc, log) => acc + Number(log.jet || 0), 0),
+    ifrPilot:     logs.reduce((acc, log) => acc + Number(log.ifr_real_pilot || 0), 0),
+    ifrCopilot:   logs.reduce((acc, log) => acc + Number(log.ifr_real_copilot || 0), 0),
   };
 
   const chartData = React.useMemo(() => {
