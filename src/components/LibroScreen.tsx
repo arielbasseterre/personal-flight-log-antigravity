@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   History, 
@@ -1489,6 +1489,13 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     setActiveTab(value);
   };
 
+  // Accepts both comma and dot as decimal separator
+  const parseDecimalInput = (val: string): number => {
+    const normalized = val.replace(',', '.');
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const handleNumericFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     if (e.target.value === '0') {
       const field = e.target.id as keyof Partial<FlightLog>;
@@ -1497,9 +1504,14 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   };
 
   const handleNumericBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    if (e.target.value === '') {
-      const field = e.target.id as keyof Partial<FlightLog>;
+    const field = e.target.id as keyof Partial<FlightLog>;
+    const raw = e.target.value;
+    if (raw === '') {
       setFormData(prev => ({ ...prev, [field]: 0 }));
+    } else {
+      // Normalize comma → dot and store as number
+      const parsed = parseDecimalInput(raw);
+      setFormData(prev => ({ ...prev, [field]: parsed }));
     }
   };
 
@@ -1988,7 +2000,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                           lang="en" 
                           placeholder="Ej: 180" 
                           value={formData.power_rating ?? ''} 
-                          onChange={e => setFormData({...formData, power_rating: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, power_rating: e.target.value})}
                           onFocus={handleNumericFocus}
                           onBlur={handleNumericBlur}
                         />
@@ -2081,12 +2093,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Día (Piloto)</Label>
                             <Input 
                               id="airfield_day_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isCrossCountry || !isItineraryComplete}
                               value={isCrossCountry ? 0 : (formData.airfield_day_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_day_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, airfield_day_pilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2095,12 +2106,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Día (Copiloto)</Label>
                             <Input 
                               id="airfield_day_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isCrossCountry || !isItineraryComplete}
                               value={isCrossCountry ? 0 : (formData.airfield_day_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_day_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, airfield_day_copilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2111,12 +2121,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Noche (Piloto)</Label>
                             <Input 
                               id="airfield_night_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isCrossCountry || !isItineraryComplete}
                               value={isCrossCountry ? 0 : (formData.airfield_night_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_night_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, airfield_night_pilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2125,12 +2134,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Noche (Copiloto)</Label>
                             <Input 
                               id="airfield_night_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isCrossCountry || !isItineraryComplete}
                               value={isCrossCountry ? 0 : (formData.airfield_night_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_night_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, airfield_night_copilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2155,12 +2163,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Día (Piloto)</Label>
                             <Input 
                               id="cross_country_day_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isLocal || !isItineraryComplete}
                               value={isLocal ? 0 : (formData.cross_country_day_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_day_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, cross_country_day_pilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2169,12 +2176,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Día (Copiloto)</Label>
                             <Input 
                               id="cross_country_day_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isLocal || !isItineraryComplete}
                               value={isLocal ? 0 : (formData.cross_country_day_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_day_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, cross_country_day_copilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2185,12 +2191,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Noche (Piloto)</Label>
                             <Input 
                               id="cross_country_night_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isLocal || !isItineraryComplete}
                               value={isLocal ? 0 : (formData.cross_country_night_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_night_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, cross_country_night_pilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2199,12 +2204,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Label className="text-[10px]">Noche (Copiloto)</Label>
                             <Input 
                               id="cross_country_night_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
+                              type="text" 
+                              inputMode="decimal" 
                               disabled={!!isLocal || !isItineraryComplete}
                               value={isLocal ? 0 : (formData.cross_country_night_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_night_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                              onChange={e => setFormData({...formData, cross_country_night_copilot: e.target.value})}
                               onFocus={handleNumericFocus}
                               onBlur={handleNumericBlur}
                             />
@@ -2222,12 +2226,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Real (Piloto)</Label>
                         <Input 
                           id="ifr_real_pilot"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.ifr_real_pilot ?? ''} 
-                          onChange={e => setFormData({...formData, ifr_real_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, ifr_real_pilot: e.target.value})}
                           onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ifr_real_pilot'); }}
                           onBlur={handleNumericBlur}
                         />
@@ -2236,12 +2239,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Real (Copiloto)</Label>
                         <Input 
                           id="ifr_real_copilot"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.ifr_real_copilot ?? ''} 
-                          onChange={e => setFormData({...formData, ifr_real_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, ifr_real_copilot: e.target.value})}
                           onFocus={handleNumericFocus}
                           onBlur={handleNumericBlur}
                         />
@@ -2250,12 +2252,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Capota</Label>
                         <Input 
                           id="ifr_hood"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.ifr_hood ?? ''} 
-                          onChange={e => setFormData({...formData, ifr_hood: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, ifr_hood: e.target.value})}
                           onFocus={handleNumericFocus}
                           onBlur={handleNumericBlur}
                         />
@@ -2271,12 +2272,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Instructor de Vuelo</Label>
                         <Input 
                           id="instruction_time"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.instruction_time ?? ''} 
-                          onChange={e => setFormData({...formData, instruction_time: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, instruction_time: e.target.value})}
                           onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('instruction_time'); }}
                           onBlur={handleNumericBlur}
                         />
@@ -2300,12 +2300,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Multimotor (Hs)</Label>
                         <Input 
                           id="multi_engine"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.multi_engine ?? ''} 
-                          onChange={e => setFormData({...formData, multi_engine: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, multi_engine: e.target.value})}
                           onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('multi_engine'); }}
                           onBlur={handleNumericBlur}
                         />
@@ -2314,12 +2313,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Reactor / Jet (Hs)</Label>
                         <Input 
                           id="jet"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.jet ?? ''} 
-                          onChange={e => setFormData({...formData, jet: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, jet: e.target.value})}
                           onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('jet'); }}
                           onBlur={handleNumericBlur}
                         />
@@ -2330,12 +2328,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Turbohélice (Hs)</Label>
                         <Input 
                           id="turboprop"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.turboprop ?? ''} 
-                          onChange={e => setFormData({...formData, turboprop: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, turboprop: e.target.value})}
                           onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('turboprop'); }}
                           onBlur={handleNumericBlur}
                         />
@@ -2344,12 +2341,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Aeroaplicador (Hs)</Label>
                         <Input 
                           id="ag_application"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.ag_application ?? ''} 
-                          onChange={e => setFormData({...formData, ag_application: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, ag_application: e.target.value})}
                           onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ag_application'); }}
                           onBlur={handleNumericBlur}
                         />
@@ -2365,12 +2361,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Instructor hs</Label>
                         <Input 
                           id="sim_instructor"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.sim_instructor ?? ''} 
-                          onChange={e => setFormData({...formData, sim_instructor: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, sim_instructor: e.target.value})}
                           onFocus={handleNumericFocus}
                           onBlur={handleNumericBlur}
                         />
@@ -2379,12 +2374,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <Label className="text-[10px]">Piloto en Inst. hs</Label>
                         <Input 
                           id="sim_student"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
+                          type="text" 
+                          inputMode="decimal" 
                           disabled={!isItineraryComplete}
                           value={formData.sim_student ?? ''} 
-                          onChange={e => setFormData({...formData, sim_student: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                          onChange={e => setFormData({...formData, sim_student: e.target.value})}
                           onFocus={handleNumericFocus}
                           onBlur={handleNumericBlur}
                         />
@@ -2957,3 +2951,5 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     </div>
   );
 };
+
+
