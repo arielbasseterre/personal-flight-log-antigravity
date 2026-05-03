@@ -1112,9 +1112,17 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
               }
             }
 
-            t.landings += (log.aterrizajes || 0);
-            t.multi_engine += log.clase?.includes('MULT') ? (hDia + hNoche) : 0;
-            // Additional mappings can be added here
+            t.landings += Number(log.aterrizajes || 0);
+            t.multi_engine += Number((log as any).multi_engine || (log.clase?.includes('MULT') ? (hDia + hNoche) : 0));
+            t.jet += Number((log as any).jet || 0);
+            t.turboprop += Number((log as any).turboprop || 0);
+            t.ag_application += Number((log as any).ag_application || 0);
+            t.ifr_real_pilot += Number((log as any).ifr_real_pilot || 0);
+            t.ifr_real_copilot += Number((log as any).ifr_real_copilot || 0);
+            t.ifr_hood += Number((log as any).ifr_hood || 0);
+            t.sim_instructor += Number((log as any).sim_instructor || 0);
+            t.sim_student += Number((log as any).sim_student || 0);
+            t.instruction_time += Number((log as any).instruction_time || (log as any).instruccion || 0);
           });
         }
         return t;
@@ -1367,9 +1375,18 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
             finalidadLabel, log.Marca_Modelo || "", log.matriculaAvion, log.potencia || "", log.clase || "",
             isLocal ? hDia : "", "", isLocal ? hNoche : "", "",
             !isLocal ? hDia : "", "", !isLocal ? hNoche : "", "",
-            log.aterrizajes || "", "", "", "", "", "",
-            "", "", "",
-            "", "", ""
+            log.aterrizajes || "", 
+            (log as any).instruction_time ? Number((log as any).instruction_time).toFixed(1) : "", 
+            (log as any).multi_engine ? Number((log as any).multi_engine).toFixed(1) : "", 
+            (log as any).jet ? Number((log as any).jet).toFixed(1) : "", 
+            (log as any).turboprop ? Number((log as any).turboprop).toFixed(1) : "", 
+            (log as any).ag_application ? Number((log as any).ag_application).toFixed(1) : "",
+            (log as any).ifr_real_pilot ? Number((log as any).ifr_real_pilot).toFixed(1) : "", 
+            (log as any).ifr_real_copilot ? Number((log as any).ifr_real_copilot).toFixed(1) : "", 
+            (log as any).ifr_hood ? Number((log as any).ifr_hood).toFixed(1) : "",
+            (log as any).sim_instructor ? Number((log as any).sim_instructor).toFixed(1) : "", 
+            (log as any).sim_student ? Number((log as any).sim_student).toFixed(1) : "", 
+            ""
           ]);
           lRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
             cell.border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
