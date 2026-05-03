@@ -13,6 +13,9 @@ RUN npm install
 # Copiar el código fuente
 COPY . .
 
+# Establecer variable de entorno para producción
+ENV NODE_ENV=production
+
 # Compilar el frontend (React/Vite)
 RUN npm run build
 
