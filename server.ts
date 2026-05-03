@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs/promises";
 import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
@@ -412,9 +413,24 @@ app.use(express.json());
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.use(express.static(distPath, { index: false })); // Disable default index.html serving
+    
+    app.get("*", async (req, res) => {
+      try {
+        const html = await fs.readFile(path.join(distPath, "index.html"), 'utf-8');
+        // Inject environment variables into the <head>
+        const injectedHtml = html.replace(
+          '<head>',
+          `<head>
+            <script>
+              window.VITE_SUPABASE_URL = "${process.env.VITE_SUPABASE_URL || ''}";
+              window.VITE_SUPABASE_ANON_KEY = "${process.env.VITE_SUPABASE_ANON_KEY || ''}";
+            </script>`
+        );
+        res.send(injectedHtml);
+      } catch (e) {
+        res.status(500).send("Error loading index.html");
+      }
     });
   }
 
