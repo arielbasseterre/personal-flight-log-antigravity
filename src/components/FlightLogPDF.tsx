@@ -16,13 +16,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     fontFamily: 'Helvetica',
   },
-  topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 10,
-    backgroundColor: '#777',
+  cuttingLineTop: {
+    marginBottom: 17, // Approx 6mm
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+    borderBottomStyle: 'dashed',
+    width: '100%',
   },
   topHeaderContainer: {
     flexDirection: 'row',
@@ -126,6 +125,13 @@ const styles = StyleSheet.create({
   signatureText: {
     fontSize: 8,
     fontWeight: 'bold',
+  },
+  cuttingLine: {
+    marginTop: 14, // Approx 5mm
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    borderTopStyle: 'dashed',
+    width: '100%',
   }
 });
 
@@ -463,8 +469,8 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
 
         return (
           <Page key={pageIndex} size="LEGAL" style={styles.page} orientation="landscape">
-            {/* Grey Top Bar like in the image */}
-            <View style={styles.topBar} />
+            {/* Top Cutting Line */}
+            <View style={styles.cuttingLineTop} />
 
             {/* Header Info */}
             <View style={styles.topHeaderContainer}>
@@ -663,6 +669,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
               <View style={styles.signatureSection}>
                   <Text style={styles.signatureText}>FIRMA DEL TITULAR</Text>
               </View>
+              <View style={styles.cuttingLine} />
             </View>
           </Page>
         );

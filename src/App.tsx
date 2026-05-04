@@ -188,6 +188,15 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "4 de Mayo, 2026",
+    version: "1.2.1",
+    items: [
+      "Incorporación de líneas de corte punteadas en la parte superior e inferior de cada folio del PDF.",
+      "Eliminación de la barra gris decorativa en el encabezado del PDF para optimizar la impresión.",
+      "Ajuste de precisión en márgenes superiores (6mm) e inferiores (5mm) para facilitar el foliado manual."
+    ]
+  },
+  {
     date: "1 de Mayo, 2026",
     version: "1.2.0",
     items: [
@@ -242,7 +251,7 @@ const CHANGELOG_DATA = [
   },
 ];
 
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.1";
 
 // --- Screens ---
 
