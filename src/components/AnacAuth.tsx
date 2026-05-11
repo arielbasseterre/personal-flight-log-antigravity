@@ -5,7 +5,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     cuil: '',
     password: '',
@@ -43,16 +43,16 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
 
       setSuccess(true);
       console.log("Sesión capturada:", result.storageState);
-      
+
       if (onAuthSuccess) {
         console.log("Ejecutando prop onAuthSuccess...");
         onAuthSuccess(result.storageState);
       }
-      
+
       // Fallback: Evento global
       console.log("Lanzando evento global 'anac-login-success'...");
       window.dispatchEvent(new CustomEvent('anac-login-success', { detail: result.storageState }));
-      
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -75,7 +75,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
             required
             className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             value={formData.cuil}
-            onChange={(e) => setFormData({...formData, cuil: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, cuil: e.target.value })}
             placeholder="20XXXXXXXX9"
             autoComplete="username"
           />
@@ -88,7 +88,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
             required
             className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             value={formData.password}
-            onChange={(e) => setFormData({...formData, password: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             autoComplete="current-password"
           />
         </div>
@@ -99,7 +99,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
             id="rememberMe"
             className="h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded"
             checked={formData.rememberMe}
-            onChange={(e) => setFormData({...formData, rememberMe: e.target.checked})}
+            onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
           />
           <label htmlFor="rememberMe" className="ml-2 block text-sm text-slate-900">
             Recordar credenciales de ANAC
@@ -111,7 +111,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
           disabled={loading}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-slate-400"
         >
-          {loading ? 'Sincronizando...' : 'Iniciar Sesión'}
+          {loading ? 'Iniciando Sesión en ANAC...' : 'Iniciar Sesión'}
         </button>
       </form>
 
