@@ -188,6 +188,16 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "11 de Mayo, 2026",
+    version: "1.3.0",
+    items: [
+      "Nueva funcionalidad de 'Restablecer registros': permite consolidar las horas del historial en los totales del perfil y limpiar la base de datos para optimizar el rendimiento.",
+      "Validación inteligente de sincronización: el sistema verifica automáticamente el estado con la ANAC antes de permitir el restablecimiento para asegurar la integridad de los datos.",
+      "Autocompletado optimizado para IFR: los campos de vuelo por instrumentos ahora sugieren automáticamente el Total - 0.2 hs (12 min) por defecto para agilizar la carga manual.",
+      "Gestión proactiva de límites: implementación de avisos de capacidad al alcanzar 120 registros y bloqueo preventivo de carga a los 150 registros."
+    ]
+  },
+  {
     date: "4 de Mayo, 2026",
     version: "1.2.1",
     items: [
@@ -275,7 +285,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onChangelog,
       </button>
     </div>
     
-    <div className="flex-1 overflow-y-auto pb-24">
+    <div className="flex-1 overflow-y-auto pb-32">
       <div className="p-4">
         <div 
           className="w-full bg-slate-200 dark:bg-slate-800 flex flex-col justify-end overflow-hidden rounded-xl min-h-[45vh] shadow-2xl relative"
@@ -357,7 +367,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onChangelog,
 
         <button 
           onClick={onChangelog}
-          className="text-slate-500 text-[10px] mt-8 hover:text-[#1152d4] transition-colors font-medium tracking-widest uppercase"
+          className="text-slate-500 text-[10px] mt-12 mb-10 hover:text-[#1152d4] transition-colors font-medium tracking-widest uppercase p-4"
         >
           Versión {APP_VERSION} • Desarrollado por Ariel Basseterre
         </button>

@@ -64,7 +64,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
     <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-md space-y-4 border border-slate-200">
       <h2 className="text-xl font-bold text-slate-800">Sincronizar con ANAC</h2>
       <p className="text-sm text-slate-500">
-        Esto abrirá una ventana automática para loguearse en el portal CAD.
+        Ingrese sus credenciales de ANAC
       </p>
 
       <form onSubmit={handleSync} className="space-y-4">
@@ -77,6 +77,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
             value={formData.cuil}
             onChange={(e) => setFormData({...formData, cuil: e.target.value})}
             placeholder="20XXXXXXXX9"
+            autoComplete="username"
           />
         </div>
 
@@ -88,6 +89,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
             className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             value={formData.password}
             onChange={(e) => setFormData({...formData, password: e.target.value})}
+            autoComplete="current-password"
           />
         </div>
 
@@ -100,7 +102,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
             onChange={(e) => setFormData({...formData, rememberMe: e.target.checked})}
           />
           <label htmlFor="rememberMe" className="ml-2 block text-sm text-slate-900">
-            Recordar sesión (Guardar en Supabase)
+            Recordar credenciales de ANAC
           </label>
         </div>
 
@@ -109,7 +111,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
           disabled={loading}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-slate-400"
         >
-          {loading ? 'Sincronizando...' : 'Iniciar Sincronización'}
+          {loading ? 'Sincronizando...' : 'Iniciar Sesión'}
         </button>
       </form>
 

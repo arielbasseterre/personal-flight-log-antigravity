@@ -174,6 +174,7 @@ export const AuthScreen = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    autoComplete={isLogin ? "current-password" : "new-password"}
                   />
                 </div>
               </div>

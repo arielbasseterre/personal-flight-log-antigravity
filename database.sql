@@ -35,6 +35,7 @@ CREATE TABLE profiles (
   total_sim_instructor NUMERIC DEFAULT 0,
   total_sim_student NUMERIC DEFAULT 0,
   grand_total_hours NUMERIC DEFAULT 0,
+  last_synced_flight_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

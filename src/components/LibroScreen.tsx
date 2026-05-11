@@ -18,6 +18,7 @@ import {
   User,
   X,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   Globe,
   RefreshCw,
@@ -260,6 +261,53 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [dbAirports, setDbAirports] = useState<any[]>([]);
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'info' | 'warning' | 'danger';
+    isAlert?: boolean;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  // Helper para mostrar alertas estilizadas
+  const showAlert = (title: string, message: string, type: 'info' | 'warning' | 'danger' = 'info') => {
+    setConfirmModal({
+      show: true,
+      title,
+      message,
+      onConfirm: () => setConfirmModal(prev => ({ ...prev, show: false })),
+      type,
+      isAlert: true,
+      confirmText: 'Entendido'
+    });
+  };
+
+  // Helper para mostrar confirmaciones estilizadas
+  const askConfirm = (title: string, message: string, onConfirm: () => void, type: 'warning' | 'danger' | 'info' = 'warning') => {
+    setConfirmModal({
+      show: true,
+      title,
+      message,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, show: false }));
+        onConfirm();
+      },
+      onCancel: () => setConfirmModal(prev => ({ ...prev, show: false })),
+      type,
+      isAlert: false,
+      confirmText: 'Confirmar',
+      cancelText: 'Cancelar'
+    });
+  };
 
   // Helper to read from localStorage safely
   const getSavedField = (key: string, defaultVal: string) => {
@@ -329,33 +377,6 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     if (logs.length === 0 && !profile) {
       refreshData();
     }
-
-    // Escuchador global de login ANAC (por si la prop falla)
-    const handleGlobalLogin = (e: any) => {
-      console.log("!!! EVENTO GLOBAL RECIBIDO !!!", e.detail);
-      const session = e.detail;
-      const authCookie = session.cookies.find((c: any) => 
-        c.name === 'Auth.ANAC.localhost' ||
-        c.name.toLowerCase().includes('auth') || 
-        c.name.includes('ANAC') ||
-        c.name.includes('Session')
-      );
-
-      if (authCookie) {
-        setAnacToken(authCookie.value);
-        setAnacSession(session);
-        setSyncStatus({ message: `Sesión detectada. Verificando vuelos pendientes...`, type: 'info' });
-        
-        // Llamamos a la comparación, NO a la sincronización automática
-        setTimeout(() => {
-          setShowSyncDialog(false);
-          compareWithAnac(authCookie.value, session);
-        }, 1000);
-      }
-    };
-
-    window.addEventListener('anac-login-success', handleGlobalLogin);
-    return () => window.removeEventListener('anac-login-success', handleGlobalLogin);
   }, []);
 
   const fetchAirports = async () => {
@@ -457,7 +478,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     }
     setIsComparing(true);
     setSyncStatus({ message: 'Obteniendo registros de ANAC...', type: 'info' });
-    const remoteLogs = await fetchAnacLogs(tokenOverride, sessionOverride);
+    const remoteLogs = await fetchAnacLogs(tokenToUse, sessionToUse);
     setAnacLogs(remoteLogs);
     if (remoteLogs.length === 0) {
       setSyncStatus({ message: 'No se pudieron obtener registros de ANAC o la lista está vacía.', type: 'error' });
@@ -489,7 +510,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         if (!exists) {
           console.log(`📌 Vuelo PENDIENTE detectado: ${localLog.origenID}->${localLog.destinoID} (${localStart}) [Mat: ${localMat}]`);
         }
-
         return !exists;
       } catch (e) {
         console.error("Error comparando log:", localLog, e);
@@ -497,12 +517,30 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       }
     });
 
-    console.log(`📊 Resumen: ${logs.length} locales vs ${remoteLogs.length} en ANAC. Pendientes: ${missing.length}`);
-
     setPendingLogs(missing);
     setIsComparing(false);
     if (missing.length === 0) {
       setSyncStatus({ message: 'Todos tus vuelos ya están en el portal de ANAC.', type: 'success' });
+      
+      // Si todo está sincronizado, actualizamos la fecha de última sincronización al último vuelo local
+      if (logs.length > 0 && profile?.id) {
+        const latestFlight = logs.reduce((prev, current) => {
+          const d1 = new Date(prev.fechaHoraSalida).getTime();
+          const d2 = new Date(current.fechaHoraSalida).getTime();
+          return d2 > d1 ? current : prev;
+        });
+        
+        try {
+          await supabase
+            .from('profiles')
+            .update({ last_synced_flight_at: latestFlight.fechaHoraSalida })
+            .eq('id', profile.id);
+            
+          refreshData();
+        } catch (err) {
+          console.error("Error silencioso actualizando última sincronización:", err);
+        }
+      }
     } else {
       setSyncStatus({ message: `Se encontraron ${missing.length} vuelos pendientes de sincronizar.`, type: 'info' });
     }
@@ -520,7 +558,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     setIsSyncing(true);
     
     // Mapeo inteligente de aeropuertos usando la base de datos local
-    console.log("[DEBUG_MAPPER] dbAirports cargados en memoria:", dbAirports.length);
     const mappedLogsToSync = (logsToSyncOverride || logs).map(l => {
       const mapAirportCode = (code: string) => {
         const c = (code || "").trim().toUpperCase();
@@ -535,8 +572,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           (a.code && a.code.toUpperCase() === c) // fallback for generic 'code' column
         );
         
-        console.log(`[DEBUG_MAPPER] Mapeando '${c}' -> Encontrado en DB:`, !!airport, airport ? `(key_code: ${airport.key_code})` : '');
-
         // Si encontramos el aeropuerto y tiene un key_code definido, lo usamos.
         if (airport && airport.key_code) {
           return airport.key_code;
@@ -562,7 +597,25 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         body: JSON.stringify({ user_id: profile.id, anac_token: tokenToUse, storageState: sessionToUse, logs_to_sync: mappedLogsToSync })
       });
       const data = await response.json();
-      if (response.ok) setSyncStatus({ message: 'Sincronización finalizada.', type: 'success' });
+      if (response.ok) {
+        setSyncStatus({ message: 'Sincronización finalizada.', type: 'success' });
+        
+        // Actualizar fecha de última sincronización en el perfil
+        if (mappedLogsToSync.length > 0 && profile?.id) {
+          const latestFlight = mappedLogsToSync.reduce((prev, current) => {
+            const d1 = new Date(prev.fechaHoraSalida).getTime();
+            const d2 = new Date(current.fechaHoraSalida).getTime();
+            return d2 > d1 ? current : prev;
+          });
+          
+          await supabase
+            .from('profiles')
+            .update({ last_synced_flight_at: latestFlight.fechaHoraSalida })
+            .eq('id', profile.id);
+            
+          refreshData();
+        }
+      }
       else setSyncStatus({ message: `Error: ${data.error}`, type: 'error' });
     } catch (e) {
       setSyncStatus({ message: 'Error de conexión.', type: 'error' });
@@ -571,225 +624,304 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     }
   };
 
+  const resetDatabase = async () => {
+    if (!supabase || !profile || logs.length === 0) return;
+
+    // 1. Verificar sincronización con ANAC
+    const latestLocalFlight = logs.reduce((prev, current) => {
+      const d1 = new Date(prev.fechaHoraSalida).getTime();
+      const d2 = new Date(current.fechaHoraSalida).getTime();
+      return d2 > d1 ? current : prev;
+    });
+
+    const performReset = async () => {
+      try {
+        setIsSavingProfile(true);
+        setSyncStatus({ message: 'Procesando totales y restableciendo base de datos...', type: 'info' });
+
+        const newTotals: any = {
+          total_airfield_day_pilot: (Number(profile.total_airfield_day_pilot) || 0) + logs.reduce((s, l) => s + (Number(l.airfield_day_pilot) || 0), 0),
+          total_airfield_day_copilot: (Number(profile.total_airfield_day_copilot) || 0) + logs.reduce((s, l) => s + (Number(l.airfield_day_copilot) || 0), 0),
+          total_airfield_night_pilot: (Number(profile.total_airfield_night_pilot) || 0) + logs.reduce((s, l) => s + (Number(l.airfield_night_pilot) || 0), 0),
+          total_airfield_night_copilot: (Number(profile.total_airfield_night_copilot) || 0) + logs.reduce((s, l) => s + (Number(l.airfield_night_copilot) || 0), 0),
+          total_cross_country_day_pilot: (Number(profile.total_cross_country_day_pilot) || 0) + logs.reduce((s, l) => s + (Number(l.cross_country_day_pilot) || 0), 0),
+          total_cross_country_day_copilot: (Number(profile.total_cross_country_day_copilot) || 0) + logs.reduce((s, l) => s + (Number(l.cross_country_day_copilot) || 0), 0),
+          total_cross_country_night_pilot: (Number(profile.total_cross_country_night_pilot) || 0) + logs.reduce((s, l) => s + (Number(l.cross_country_night_pilot) || 0), 0),
+          total_cross_country_night_copilot: (Number(profile.total_cross_country_night_copilot) || 0) + logs.reduce((s, l) => s + (Number(l.cross_country_night_copilot) || 0), 0),
+          total_landings: (Number(profile.total_landings) || 0) + logs.reduce((s, l) => s + (Number(l.aterrizajes) || 0), 0),
+          total_instruction_time: (Number(profile.total_instruction_time) || 0) + logs.reduce((s, l) => s + (Number(l.instruccion) || 0), 0),
+          total_multi_engine: (Number(profile.total_multi_engine) || 0) + logs.reduce((s, l) => s + (Number(l.multi_engine) || 0), 0),
+          total_jet: (Number(profile.total_jet) || 0) + logs.reduce((s, l) => s + (Number(l.jet) || 0), 0),
+          total_turboprop: (Number(profile.total_turboprop) || 0) + logs.reduce((s, l) => s + (Number(l.turboprop) || 0), 0),
+          total_ag_application: (Number(profile.total_ag_application) || 0) + logs.reduce((s, l) => s + (Number(l.ag_application) || 0), 0),
+          total_ifr_real_pilot: (Number(profile.total_ifr_real_pilot) || 0) + logs.reduce((s, l) => s + (Number(l.ifr_real_pilot) || 0), 0),
+          total_ifr_real_copilot: (Number(profile.total_ifr_real_copilot) || 0) + logs.reduce((s, l) => s + (Number(l.ifr_real_copilot) || 0), 0),
+          total_ifr_hood: (Number(profile.total_ifr_hood) || 0) + logs.reduce((s, l) => s + (Number(l.ifr_hood) || 0), 0),
+          total_sim_instructor: (Number(profile.total_sim_instructor) || 0) + logs.reduce((s, l) => s + (Number(l.sim_instructor) || 0), 0),
+          total_sim_student: (Number(profile.total_sim_student) || 0) + logs.reduce((s, l) => s + (Number(l.sim_student) || 0), 0),
+          initial_folio_number: (Number(profile.initial_folio_number) || 1) + 1,
+        };
+
+        newTotals.grand_total_hours = (Number(profile.initial_total_hours) || 0) + 
+          newTotals.total_airfield_day_pilot + newTotals.total_airfield_day_copilot +
+          newTotals.total_airfield_night_pilot + newTotals.total_airfield_night_copilot +
+          newTotals.total_cross_country_day_pilot + newTotals.total_cross_country_day_copilot +
+          newTotals.total_cross_country_night_pilot + newTotals.total_cross_country_night_copilot +
+          newTotals.total_instruction_time + newTotals.total_sim_instructor + newTotals.total_sim_student;
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(newTotals)
+          .eq('id', profile.id);
+
+        if (updateError) throw updateError;
+
+        const { error: deleteError } = await supabase
+          .from('flight_logs')
+          .delete()
+          .eq('user_id', profile.id);
+
+        if (deleteError) throw deleteError;
+
+        setSyncStatus({ message: '¡Base de datos restablecida con éxito!', type: 'success' });
+        await refreshData();
+        setLogs([]);
+      } catch (err: any) {
+        console.error("Reset error:", err);
+        setSyncStatus({ message: 'Error: ' + err.message, type: 'error' });
+      } finally {
+        setIsSavingProfile(false);
+      }
+    };
+
+    const confirmFinal = () => {
+      askConfirm(
+        "Confirmación Final",
+        "Se borrarán todos los registros locales y se sumarán a los totales de su perfil. Recuerde descargar sus hojas del libro en PDF antes de continuar, ya que una vez restablecida la base de datos ya no será posible. ¿Desea continuar?",
+        performReset,
+        'danger'
+      );
+    };
+
+    if (profile.last_synced_flight_at) {
+      const lastSync = new Date(profile.last_synced_flight_at).getTime();
+      const lastLocal = new Date(latestLocalFlight.fechaHoraSalida).getTime();
+      
+      if (lastLocal > lastSync) {
+        askConfirm(
+          "Vuelos sin Sincronizar",
+          "Hay registros más nuevos en tu historial que aún no han sido sincronizados con ANAC. ¿Deseas continuar con el restablecimiento de todos modos?",
+          confirmFinal,
+          'warning'
+        );
+        return;
+      }
+    } else {
+      askConfirm(
+        "Sincronización Pendiente",
+        "No se encontró registro de sincronización previa con ANAC o tus registros actuales son más nuevos. ¿Deseas continuar con el restablecimiento?",
+        confirmFinal,
+        'warning'
+      );
+      return;
+    }
+
+    confirmFinal();
+  };
+
   const saveLog = async () => {
     if (!supabase) return;
 
-    if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
-      alert("Por favor ingrese un horario de salida válido (HH:MM).");
-      return;
-    }
-    if (!formData.arrival_time_utc || formData.arrival_time_utc.length < 5) {
-      alert("Por favor ingrese un horario de llegada válido (HH:MM).");
-      return;
-    }
-
-    // Validation: Cumulative times cannot exceed Block Duration
-    const totalRef = parseFloat(calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc) || '0');
-    const currentSum = (
-      Number(formData.airfield_day_pilot || 0) +
-      Number(formData.airfield_day_copilot || 0) +
-      Number(formData.airfield_night_pilot || 0) +
-      Number(formData.airfield_night_copilot || 0) +
-      Number(formData.cross_country_day_pilot || 0) +
-      Number(formData.cross_country_day_copilot || 0) +
-      Number(formData.cross_country_night_pilot || 0) +
-      Number(formData.cross_country_night_copilot || 0)
-    );
-
-    if (currentSum > (totalRef + 0.01)) {
-      alert(`La discriminación de horas (${currentSum.toFixed(1)} hs) excede el total del vuelo (${totalRef.toFixed(1)} hs). Por favor corrija los datos.`);
-      return;
-    }
-
-    // Calculate Flight Type (Local vs Travesia vs Simulador)
-    let flight_type_id = "2"; // Default for Travesia
-    const hasSimHours = Number(formData.sim_instructor || 0) > 0 || Number(formData.sim_student || 0) > 0;
-    
-    if (hasSimHours) {
-      flight_type_id = "3"; // Simulador
-    } else {
-      const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
-      const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
-      if (resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck === resolvedDestCheck) {
-        flight_type_id = "1"; // Local
+    const performSave = async () => {
+      // 1. Validaciones básicas
+      if (!formData.year || !formData.month || !formData.day) {
+        showAlert("Campos Incompletos", "Por favor ingrese una fecha válida.", 'warning');
+        return;
       }
-    }
 
-    // Calculate Cargo (Pilot vs Copilot)
-    let determined_cargo_id = "1"; // Default to Pilot
-    const hasPilotHours = (
-      Number(formData.airfield_day_pilot || 0) > 0 ||
-      Number(formData.airfield_night_pilot || 0) > 0 ||
-      Number(formData.cross_country_day_pilot || 0) > 0 ||
-      Number(formData.cross_country_night_pilot || 0) > 0 ||
-      Number(formData.sim_instructor || 0) > 0 ||
-      Number(formData.ifr_real_pilot || 0) > 0 ||
-      Number(formData.ifr_hood || 0) > 0
-    );
-    const hasCopilotHours = (
-      Number(formData.airfield_day_copilot || 0) > 0 ||
-      Number(formData.airfield_night_copilot || 0) > 0 ||
-      Number(formData.cross_country_day_copilot || 0) > 0 ||
-      Number(formData.cross_country_night_copilot || 0) > 0 ||
-      Number(formData.ifr_real_copilot || 0) > 0
-    );
-
-    if (hasCopilotHours && !hasPilotHours) {
-      determined_cargo_id = "2"; // Copilot
-    } else {
-      determined_cargo_id = "1"; // Pilot (Default)
-    }
-
-    // Build ISO timestamps (using GMT/UTC for consistency)
-    const buildISO = (y: number, mon: number, d: number, timeStr: string, isNextDay: boolean = false) => {
-      const [h, m] = timeStr.split(':').map(Number);
-      const date = new Date(Date.UTC(y, mon - 1, d, h || 0, m || 0));
-      if (isNextDay) {
-        date.setUTCDate(date.getUTCDate() + 1);
+      if (!formData.origin_ad || !formData.destination_ad) {
+        showAlert("Ruta Incompleta", "Por favor ingrese aeródromo de origen y destino.", 'warning');
+        return;
       }
-      return date.toISOString();
-    };
 
-    const user_id = (await supabase.auth.getUser()).data.user?.id;
-    if (!user_id) {
-      alert("No se encontró sesión de usuario.");
-      return;
-    }
+      if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
+        showAlert("Horario Inválido", "Por favor ingrese un horario de salida válido (HH:MM).", 'warning');
+        return;
+      }
+      if (!formData.arrival_time_utc || formData.arrival_time_utc.length < 5) {
+        showAlert("Horario Inválido", "Por favor ingrese un horario de llegada válido (HH:MM).", 'warning');
+        return;
+      }
 
-    // Map current formData to the STRICT payload format
-    const resolvedOrigin = resolveToAnac(formData.origin_ad, dbAirports);
-    const resolvedDest = resolveToAnac(formData.destination_ad, dbAirports);
-
-    const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
-
-    const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
-    const checkLlegada = buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!, crossesMidnight);
-
-    const checkSalidaMs = new Date(checkSalida).getTime();
-    const checkLlegadaMs = new Date(checkLlegada).getTime();
-
-    // Check for duplicates or overlapping flights
-    const conflictingLog = logs.find(log => {
-      // If we are editing, ignore the current log
-      if (editingId && log.id === editingId) return false;
-
-      const logSalidaMs = new Date(log.fechaHoraSalida).getTime();
-      const logLlegadaMs = new Date(log.fechaHoraLlegada).getTime();
-
-      // Duplicate check: Exact same route, aircraft and times
-      const isSameSalida = logSalidaMs === checkSalidaMs;
-      const isSameLlegada = logLlegadaMs === checkLlegadaMs;
-      const isSameOrigen = log.origenID === resolvedOrigin;
-      const isSameDestino = log.destinoID === resolvedDest;
-      const isSameMatricula = (log.matriculaAvion || '').toUpperCase() === (formData.registration || '').toUpperCase();
-      
-      const isDuplicate = isSameSalida && isSameLlegada && isSameOrigen && isSameDestino && isSameMatricula;
-
-      // Overlap check: New flight departs before old flight arrives AND new flight arrives after old flight departs
-      const isOverlapping = checkSalidaMs < logLlegadaMs && checkLlegadaMs > logSalidaMs;
-
-      return isDuplicate || isOverlapping;
-    });
-
-    if (conflictingLog) {
-      alert("Error: El horario de este vuelo se superpone o duplica con otro vuelo ya registrado en esa misma fecha y hora.");
-      return;
-    }
-
-    const finalData: any = {
-      user_id: user_id,
-      fechaHoraSalida: checkSalida,
-      fechaHoraLlegada: checkLlegada,
-      origenID: resolvedOrigin,
-      destinoID: resolvedDest,
-      finalidadID: formData.flight_purpose || '',
-      clase: formData.aircraft_class || '',
-      matriculaAvion: formData.registration || '',
-      Marca_Modelo: formData.aircraft_model || '',
-      potencia: Number(formData.power_rating || 0),
-      aterrizajes: Number(formData.landings || 0),
-      horasDia: (
-        Number(formData.airfield_day_pilot || 0) + 
-        Number(formData.airfield_day_copilot || 0) + 
-        Number(formData.cross_country_day_pilot || 0) + 
-        Number(formData.cross_country_day_copilot || 0)
-      ).toString(),
-      horasNoche: (
-        Number(formData.airfield_night_pilot || 0) + 
-        Number(formData.airfield_night_copilot || 0) + 
-        Number(formData.cross_country_night_pilot || 0) + 
+      // Validation: Cumulative times cannot exceed Block Duration
+      const totalRef = parseFloat(calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc) || '0');
+      const currentSum = (
+        Number(formData.airfield_day_pilot || 0) +
+        Number(formData.airfield_day_copilot || 0) +
+        Number(formData.airfield_night_pilot || 0) +
+        Number(formData.airfield_night_copilot || 0) +
+        Number(formData.cross_country_day_pilot || 0) +
+        Number(formData.cross_country_day_copilot || 0) +
+        Number(formData.cross_country_night_pilot || 0) +
         Number(formData.cross_country_night_copilot || 0)
-      ).toString(),
-      tipoVueloID: flight_type_id,
-      cargoID: determined_cargo_id,
-      autoridadCertificanteID: formData.certifier_role_id || '2',
-      observaciones: formData.certifier_name || '',
-      Discriminaciones: [],
-      multi_engine: Number(formData.multi_engine || 0),
-      jet: Number(formData.jet || 0),
-      turboprop: Number(formData.turboprop || 0),
-      ifr_instrument: Number(formData.ifr_real_pilot || 0) + Number(formData.ifr_real_copilot || 0) + Number(formData.ifr_hood || 0),
-      instruccion: Number(formData.instruction_time || 0),
-      airfield_day_pilot: Number(formData.airfield_day_pilot || 0),
-      airfield_day_copilot: Number(formData.airfield_day_copilot || 0),
-      airfield_night_pilot: Number(formData.airfield_night_pilot || 0),
-      airfield_night_copilot: Number(formData.airfield_night_copilot || 0),
-      cross_country_day_pilot: Number(formData.cross_country_day_pilot || 0),
-      cross_country_day_copilot: Number(formData.cross_country_day_copilot || 0),
-      cross_country_night_pilot: Number(formData.cross_country_night_pilot || 0),
-      cross_country_night_copilot: Number(formData.cross_country_night_copilot || 0),
-      ifr_real_pilot: Number(formData.ifr_real_pilot || 0),
-      ifr_real_copilot: Number(formData.ifr_real_copilot || 0),
-      ifr_hood: Number(formData.ifr_hood || 0),
-      sim_instructor: Number(formData.sim_instructor || 0),
-      sim_student: Number(formData.sim_student || 0),
-      ag_application: Number(formData.ag_application || 0),
-      folio_number: formData.folio_number || 1,
-      is_capota: formData.is_capota || false,
+      );
+
+      if (currentSum > (totalRef + 0.01)) {
+        showAlert("Error de Tiempos", `La discriminación de horas (${currentSum.toFixed(1)} hs) excede el total del vuelo (${totalRef.toFixed(1)} hs).`, 'danger');
+        return;
+      }
+
+      // 2. Cálculos de metadatos (Tipo de Vuelo, Cargo, etc.)
+      let flight_type_id = "2"; // Travesia
+      const hasSimHours = Number(formData.sim_instructor || 0) > 0 || Number(formData.sim_student || 0) > 0;
+      
+      if (hasSimHours) {
+        flight_type_id = "3"; // Simulador
+      } else {
+        const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
+        const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
+        if (resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck === resolvedDestCheck) {
+          flight_type_id = "1"; // Local
+        }
+      }
+
+      let determined_cargo_id = "1"; // Piloto
+      const hasPilotHours = (
+        Number(formData.airfield_day_pilot || 0) > 0 ||
+        Number(formData.airfield_night_pilot || 0) > 0 ||
+        Number(formData.cross_country_day_pilot || 0) > 0 ||
+        Number(formData.cross_country_night_pilot || 0) > 0 ||
+        Number(formData.sim_instructor || 0) > 0 ||
+        Number(formData.ifr_real_pilot || 0) > 0 ||
+        Number(formData.ifr_hood || 0) > 0
+      );
+      const hasCopilotHours = (
+        Number(formData.airfield_day_copilot || 0) > 0 ||
+        Number(formData.airfield_night_copilot || 0) > 0 ||
+        Number(formData.cross_country_day_copilot || 0) > 0 ||
+        Number(formData.cross_country_night_copilot || 0) > 0 ||
+        Number(formData.ifr_real_copilot || 0) > 0
+      );
+      if (hasCopilotHours && !hasPilotHours) determined_cargo_id = "2";
+
+      // 3. Preparación de datos y Timestamps
+      const buildISO = (y: number, mon: number, d: number, timeStr: string, isNextDay: boolean = false) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        const date = new Date(Date.UTC(y, mon - 1, d, h || 0, m || 0));
+        if (isNextDay) date.setUTCDate(date.getUTCDate() + 1);
+        return date.toISOString();
+      };
+
+      const user_id = (await supabase.auth.getUser()).data.user?.id;
+      if (!user_id) {
+        showAlert("Sesión Expirada", "Por favor inicie sesión nuevamente.", 'danger');
+        return;
+      }
+
+      const resolvedOrigin = resolveToAnac(formData.origin_ad, dbAirports);
+      const resolvedDest = resolveToAnac(formData.destination_ad, dbAirports);
+      const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
+
+      const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
+      const checkLlegada = buildISO(formData.year!, formData.month!, formData.day!, formData.arrival_time_utc!, crossesMidnight);
+
+      // 4. Verificación de Duplicados/Superposiciones
+      const checkSalidaMs = new Date(checkSalida).getTime();
+      const checkLlegadaMs = new Date(checkLlegada).getTime();
+      const conflictingLog = logs.find(log => {
+        if (editingId && log.id === editingId) return false;
+        const logSalidaMs = new Date(log.fechaHoraSalida).getTime();
+        const logLlegadaMs = new Date(log.fechaHoraLlegada).getTime();
+        const isDuplicate = logSalidaMs === checkSalidaMs && logLlegadaMs === checkLlegadaMs && 
+                            log.origenID === resolvedOrigin && log.destinoID === resolvedDest;
+        const isOverlapping = checkSalidaMs < logLlegadaMs && checkLlegadaMs > logSalidaMs;
+        return isDuplicate || isOverlapping;
+      });
+
+      if (conflictingLog) {
+        showAlert("Vuelo Superpuesto", "Este horario se superpone con otro vuelo ya registrado.", 'danger');
+        return;
+      }
+
+      // 5. Mapeo final y Guardado
+      const logToSave: any = {
+        user_id,
+        fechaHoraSalida: checkSalida,
+        fechaHoraLlegada: checkLlegada,
+        origenID: resolvedOrigin,
+        destinoID: resolvedDest,
+        finalidadID: formData.flight_purpose || '78',
+        clase: formData.aircraft_class || 'MULT-T',
+        matriculaAvion: (formData.registration || '').toUpperCase(),
+        Marca_Modelo: formData.aircraft_model || '',
+        potencia: Number(formData.power_rating || 0),
+        aterrizajes: Number(formData.landings || 1),
+        horasDia: (Number(formData.airfield_day_pilot || 0) + Number(formData.airfield_day_copilot || 0) + Number(formData.cross_country_day_pilot || 0) + Number(formData.cross_country_day_copilot || 0)).toString(),
+        horasNoche: (Number(formData.airfield_night_pilot || 0) + Number(formData.airfield_night_copilot || 0) + Number(formData.cross_country_night_pilot || 0) + Number(formData.cross_country_night_copilot || 0)).toString(),
+        tipoVueloID: flight_type_id,
+        cargoID: determined_cargo_id,
+        autoridadCertificanteID: formData.certifier_role_id || '2',
+        observaciones: formData.certifier_name || '',
+        ifr_instrument: Number(formData.ifr_real_pilot || 0) + Number(formData.ifr_real_copilot || 0) + Number(formData.ifr_hood || 0),
+        instruccion: Number(formData.instruction_time || 0),
+        multi_engine: Number(formData.multi_engine || 0),
+        jet: Number(formData.jet || 0),
+        turboprop: Number(formData.turboprop || 0),
+        ag_application: Number(formData.ag_application || 0),
+        folio_number: Number(formData.folio_number || 1),
+        airfield_day_pilot: Number(formData.airfield_day_pilot || 0),
+        airfield_day_copilot: Number(formData.airfield_day_copilot || 0),
+        airfield_night_pilot: Number(formData.airfield_night_pilot || 0),
+        airfield_night_copilot: Number(formData.airfield_night_copilot || 0),
+        cross_country_day_pilot: Number(formData.cross_country_day_pilot || 0),
+        cross_country_day_copilot: Number(formData.cross_country_day_copilot || 0),
+        cross_country_night_pilot: Number(formData.cross_country_night_pilot || 0),
+        cross_country_night_copilot: Number(formData.cross_country_night_copilot || 0),
+        ifr_real_pilot: Number(formData.ifr_real_pilot || 0),
+        ifr_real_copilot: Number(formData.ifr_real_copilot || 0),
+        ifr_hood: Number(formData.ifr_hood || 0),
+        sim_instructor: Number(formData.sim_instructor || 0),
+        sim_student: Number(formData.sim_student || 0)
+      };
+
+      setIsSavingProfile(true);
+      try {
+        if (editingId) {
+          const { error } = await supabase.from('flight_logs').update(logToSave).eq('id', editingId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('flight_logs').insert([logToSave]);
+          if (error) throw error;
+        }
+        await refreshData();
+        setFormData(initialFormState);
+        setEditingId(null);
+        setActiveTab('dashboard');
+        setSyncStatus({ message: 'Vuelo guardado correctamente.', type: 'success' });
+      } catch (err: any) {
+        setSyncStatus({ message: 'Error: ' + err.message, type: 'error' });
+      } finally {
+        setIsSavingProfile(false);
+      }
     };
 
-    try {
-      if (editingId) {
-        const { error } = await supabase
-          .from('flight_logs')
-          .update(finalData)
-          .eq('id', editingId);
-        
-        if (error) throw error;
-        alert("Registro actualizado correctamente");
-      } else {
-        const { error } = await supabase
-          .from('flight_logs')
-          .insert([finalData]);
-        
-        if (error) throw error;
-      }
-      
-      // Persist values in localStorage for future sessions
-      try {
-        localStorage.setItem("saved_flight_purpose", String(formData.flight_purpose || ""));
-        localStorage.setItem("saved_aircraft_model", String(formData.aircraft_model || ""));
-        localStorage.setItem("saved_power_rating", String(formData.power_rating || 0));
-        localStorage.setItem("saved_certifier_name", String(formData.certifier_name || ""));
-        localStorage.setItem("saved_certifier_role_id", String(formData.certifier_role_id || "2"));
-      } catch(e) {}
-
-      setFormData({
-        ...initialFormState,
-        aircraft_model: formData.aircraft_model,
-        power_rating: formData.power_rating,
-        aircraft_class: formData.aircraft_class,
-        certifier_name: formData.certifier_name,
-        certifier_role_id: formData.certifier_role_id,
-        flight_purpose: formData.flight_purpose,
-      });
-      setEditingId(null);
-      await refreshData();
-      setActiveTab('history');
-    } catch (error: any) {
-      console.error("Error saving log:", error);
-      alert("Error al guardar el registro: " + (error.message || error));
+    // Verificación de límites
+    if (!editingId && logs.length >= 150) {
+      showAlert("Límite Alcanzado", "Llegaste a 150 registros. Por favor restablece tu base de datos.", 'danger');
+      return;
     }
+
+    if (!editingId && logs.length >= 120) {
+      askConfirm(
+        "Límite de Capacidad",
+        `Aviso: Estás próximo a alcanzar el límite de 150 registros (tienes ${logs.length}). Al llegar a 150 no podrás guardar más vuelos hasta restablecer la base de datos. ¿Deseas continuar?`,
+        performSave,
+        'warning'
+      );
+      return;
+    }
+
+    performSave();
   };
 
   const updateProfile = async () => {
@@ -833,8 +965,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         grand_total_hours: parseFloat(grandTotal.toFixed(1))
       };
 
-      console.log("Upserting profile data to profiles:", dataToUpsert);
-
       const { error } = await supabase
         .from('profiles')
         .upsert(dataToUpsert, { onConflict: 'id' });
@@ -845,12 +975,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       }
       
       // Refresh after saving
-      console.log("Profile saved, refreshing data...");
       await refreshData();
-      alert("Perfil actualizado correctamente");
+      showAlert("Perfil Actualizado", "Los cambios en tu perfil han sido guardados correctamente.", 'info');
     } catch (error: any) {
       console.error("Error updating profile:", error);
-      alert(`Error al actualizar el perfil: ${error.message || 'Error desconocido'}`);
+      showAlert("Error al Actualizar", error.message || 'Ocurrió un problema al guardar los cambios.', 'danger');
     } finally {
       setIsSavingProfile(false);
     }
@@ -1383,7 +1512,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           if (colNumber === 30) {
             cell.font = { size: 6.5, name: 'Arial' };
             cell.alignment = { vertical: 'middle', horizontal: 'right', wrapText: false, shrinkToFit: true };
-            cell.border = { top: thickBorder, left: thinBorder, bottom: thinBorder, right: thickBorder };
+            cell.border = { top: thickBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
           } else if (colNumber === 7) {
             cell.font = { bold: true, size: 6.5, name: 'Arial' };
             cell.alignment = { vertical: 'middle', horizontal: 'right', wrapText: false, shrinkToFit: true };
@@ -1449,7 +1578,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
             cell.alignment = { ...centerMiddle, wrapText: false };
             cell.font = { size: 7.5, name: 'Arial' };
             if (colNumber === 30 && idx === 0) {
-              // Removed CERTIFICO string
               cell.font = { size: 6.5, bold: true, name: 'Arial' };
             }
           });
@@ -1630,7 +1758,14 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   const autocompleteDiscrimination = (field: keyof FlightLog) => {
     const totalRef = parseFloat(calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc) || '0');
     if (totalRef > 0 && (!formData[field] || formData[field] === 0)) {
-      setFormData(prev => ({ ...prev, [field]: totalRef }));
+      let valueToSet = totalRef;
+      
+      // Para campos IFR, restar 0.2 (12 minutos) por defecto
+      if (['ifr_real_pilot', 'ifr_real_copilot', 'ifr_hood'].includes(field as string)) {
+        valueToSet = Math.max(0, parseFloat((totalRef - 0.2).toFixed(1)));
+      }
+      
+      setFormData(prev => ({ ...prev, [field]: valueToSet }));
     }
   };
 
@@ -1825,8 +1960,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-2">Instrumental (IFR Real)</div>
                         <div className="grid grid-cols-2 gap-2">
                           {[
-                            { label: 'Instrumental Piloto',   value: detailStats.ifrPilot,   color: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' },
-                            { label: 'Instrumental Copiloto', value: detailStats.ifrCopilot,  color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' },
+                            { label: 'Instrumental Piloto',   value: detailStats.ifrPilot,   color: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:emerald-300' },
+                            { label: 'Instrumental Copiloto', value: detailStats.ifrCopilot,  color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:emerald-400' },
                           ].map(item => (
                             <div key={item.label} className={`rounded-lg px-3 py-2 flex items-center justify-between ${item.color}`}>
                               <span className="text-[10px] font-semibold uppercase leading-tight">{item.label}</span>
@@ -1847,7 +1982,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 <CardDescription>Horas de vuelo por mes</CardDescription>
               </CardHeader>
               <CardContent className="h-[200px] pt-0">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="name" fontSize={12} stroke="#64748b" />
@@ -2587,7 +2722,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                               {log.fechaHoraSalida ? log.fechaHoraSalida.slice(11, 16) : ((log as any).departure_time_utc?.slice(0,5) || '--:--')}
                             </span>
                             <span className="text-[10px] opacity-30">|</span>
-                            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                            <span className="text-[10px] font-mono text-emerald-600 dark:emerald-400">
                               {log.fechaHoraLlegada ? log.fechaHoraLlegada.slice(11, 16) : ((log as any).arrival_time_utc?.slice(0,5) || '--:--')}
                             </span>
                             <span className="text-[10px] opacity-60 uppercase ml-1">
@@ -2624,6 +2759,20 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 )}
               </ScrollArea>
             </Card>
+            {/* Botón Restablecer al final del historial */}
+            <div className="pt-6 pb-2 flex justify-center">
+              <Button 
+                type="button"
+                variant="ghost" 
+                size="sm" 
+                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 gap-2 h-10 px-4 font-bold transition-all duration-200"
+                onClick={resetDatabase}
+                disabled={logs.length === 0}
+              >
+                <RefreshCw size={16} className={isSavingProfile ? "animate-spin" : ""} /> 
+                Restablecer registros
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="perfil" className="m-0 space-y-4 pb-12 relative">
@@ -2952,8 +3101,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
               
               <div className="px-6 pb-8">
                 <AnacAuth onAuthSuccess={(session) => {
-                  console.log("!!! SESION RECIBIDA !!!", session);
-                  console.log("Nombres de cookies encontradas:", session.cookies.map((c: any) => c.name));
                   
                   // Buscamos la cookie de autenticación (Intentamos varias posibilidades)
                   let authCookie = session.cookies.find((c: any) => 
@@ -2967,10 +3114,10 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     setAnacSession(session);
                     setSyncStatus({ message: 'Sesión válida. Buscando vuelos pendientes...', type: 'info' });
                     
-                    // En lugar de sincronizar todo, forzamos la comparación
+                    // Pasar los datos DIRECTAMENTE para evitar el retraso del estado de React
                     setTimeout(() => {
                       setShowSyncDialog(false);
-                      compareWithAnac();
+                      compareWithAnac(authCookie.value, session);
                     }, 800);
                   } else {
                     setSyncStatus({ message: 'Error: Credenciales inválidas.', type: 'error' });
@@ -2983,19 +3130,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     <RefreshCw className="text-blue-500 animate-spin" size={24} />
                     <p className="text-xs font-bold text-blue-600 uppercase tracking-widest animate-pulse">Sincronizando vuelos...</p>
                     <p className="text-[10px] text-blue-500 text-center">{syncStatus.message}</p>
-                  </div>
-                )}
-
-                {syncStatus.type && !isSyncing && (
-                  <div className={`mt-4 p-4 rounded-xl border text-xs flex items-start gap-3 ${
-                    syncStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 
-                    syncStatus.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 
-                    'bg-blue-500/10 border-blue-500/20 text-blue-500'
-                  }`}>
-                    {syncStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                    <div className="flex-1">
-                      <p className="font-bold">{syncStatus.message}</p>
-                    </div>
                   </div>
                 )}
               </div>
@@ -3073,6 +3207,63 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     {isSyncing ? 'Sincronizando...' : `Sincronizar ${pendingLogs.length}`}
                   </Button>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Modal de Confirmación Estilizado */}
+      <AnimatePresence>
+        {confirmModal.show && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !confirmModal.isAlert && confirmModal.onCancel?.()}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
+            >
+              <div className="p-6 text-center">
+                <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+                  confirmModal.type === 'danger' ? 'bg-red-50 dark:bg-red-900/20 text-red-500' :
+                  confirmModal.type === 'warning' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-500' :
+                  'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
+                }`}>
+                  {confirmModal.type === 'danger' ? <AlertTriangle size={32} /> :
+                   confirmModal.type === 'warning' ? <AlertCircle size={32} /> :
+                   <Info size={32} />}
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{confirmModal.title}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {confirmModal.message}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+                {!confirmModal.isAlert && (
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 rounded-xl h-12 font-semibold"
+                    onClick={() => confirmModal.onCancel?.()}
+                  >
+                    {confirmModal.cancelText || 'Cancelar'}
+                  </Button>
+                )}
+                <Button 
+                  className={`flex-1 rounded-xl h-12 font-bold text-white shadow-lg ${
+                    confirmModal.type === 'danger' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' :
+                    confirmModal.type === 'warning' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' :
+                    'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'
+                  }`}
+                  onClick={confirmModal.onConfirm}
+                >
+                  {confirmModal.confirmText || 'Aceptar'}
+                </Button>
               </div>
             </motion.div>
           </div>
