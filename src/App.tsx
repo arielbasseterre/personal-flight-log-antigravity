@@ -261,7 +261,7 @@ const CHANGELOG_DATA = [
   },
 ];
 
-const APP_VERSION = "1.2.1";
+const APP_VERSION = CHANGELOG_DATA[0].version;
 
 // --- Screens ---
 
