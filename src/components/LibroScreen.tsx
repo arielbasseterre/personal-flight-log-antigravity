@@ -417,6 +417,32 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     }
   }, [activeTab]);
 
+  // Exclusión mutua IFR: limpiar el campo opuesto si se cargan horas en una función
+  useEffect(() => {
+    const pilotHours =
+      Number(formData.airfield_day_pilot || 0) +
+      Number(formData.airfield_night_pilot || 0) +
+      Number(formData.cross_country_day_pilot || 0) +
+      Number(formData.cross_country_night_pilot || 0);
+    const copilotHours =
+      Number(formData.airfield_day_copilot || 0) +
+      Number(formData.airfield_night_copilot || 0) +
+      Number(formData.cross_country_day_copilot || 0) +
+      Number(formData.cross_country_night_copilot || 0);
+
+    if (pilotHours > 0 && Number(formData.ifr_real_copilot) > 0) {
+      setFormData(prev => ({ ...prev, ifr_real_copilot: 0 }));
+    }
+    if (copilotHours > 0 && Number(formData.ifr_real_pilot) > 0) {
+      setFormData(prev => ({ ...prev, ifr_real_pilot: 0 }));
+    }
+  }, [
+    formData.airfield_day_pilot, formData.airfield_night_pilot,
+    formData.cross_country_day_pilot, formData.cross_country_night_pilot,
+    formData.airfield_day_copilot, formData.airfield_night_copilot,
+    formData.cross_country_day_copilot, formData.cross_country_night_copilot,
+  ]);
+
 const resolveToAnac = (input: string | undefined, airports: any[]) => {
     if (!input) return '';
     const search = input.trim().toUpperCase();
@@ -1762,6 +1788,15 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       
       // Para campos IFR, restar 0.2 (12 minutos) por defecto
       if (['ifr_real_pilot', 'ifr_real_copilot', 'ifr_hood'].includes(field as string)) {
+        // Exclusión mutua: no autocompletar copiloto si hay horas de piloto, ni piloto si hay horas de copiloto
+        const pilotHours =
+          Number(formData.airfield_day_pilot || 0) + Number(formData.airfield_night_pilot || 0) +
+          Number(formData.cross_country_day_pilot || 0) + Number(formData.cross_country_night_pilot || 0);
+        const copilotHours =
+          Number(formData.airfield_day_copilot || 0) + Number(formData.airfield_night_copilot || 0) +
+          Number(formData.cross_country_day_copilot || 0) + Number(formData.cross_country_night_copilot || 0);
+        if (field === 'ifr_real_copilot' && pilotHours > 0) return;
+        if (field === 'ifr_real_pilot' && copilotHours > 0) return;
         valueToSet = Math.max(0, parseFloat((totalRef - 0.2).toFixed(1)));
       }
       
@@ -1770,6 +1805,19 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   };
 
   const isItineraryComplete = !!(formData.origin_ad && formData.destination_ad);
+
+  // Exclusión mutua IFR en tiempo real
+  const hasPilotFlightHours =
+    Number(formData.airfield_day_pilot || 0) > 0 ||
+    Number(formData.airfield_night_pilot || 0) > 0 ||
+    Number(formData.cross_country_day_pilot || 0) > 0 ||
+    Number(formData.cross_country_night_pilot || 0) > 0;
+
+  const hasCopilotFlightHours =
+    Number(formData.airfield_day_copilot || 0) > 0 ||
+    Number(formData.airfield_night_copilot || 0) > 0 ||
+    Number(formData.cross_country_day_copilot || 0) > 0 ||
+    Number(formData.cross_country_night_copilot || 0) > 0;
 
   return (
     <div className="flex flex-col min-h-screen pb-20 bg-slate-50 dark:bg-[#101622] pt-4 px-4 overflow-y-auto">
@@ -2478,31 +2526,37 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     <Label className="text-[10px] font-bold opacity-70">VUELO POR INSTRUMENTOS (Real / Capota)</Label>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-[10px]">Real (Piloto)</Label>
+                        <Label className={`text-[10px] ${hasCopilotFlightHours ? 'opacity-40' : ''}`}>
+                          Real (Piloto){hasCopilotFlightHours ? ' 🚫' : ''}
+                        </Label>
                         <DecimalInput 
                           id="ifr_real_pilot"
                           type="number" 
                           step="0.1" 
                           lang="en" 
-                          disabled={!isItineraryComplete}
+                          disabled={!isItineraryComplete || hasCopilotFlightHours}
                           value={formData.ifr_real_pilot ?? ''} 
                           onChange={e => setFormData({...formData, ifr_real_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
                           onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ifr_real_pilot'); }}
                           onBlur={handleNumericBlur}
+                          placeholder={hasCopilotFlightHours ? 'N/A (Copiloto)' : '0'}
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[10px]">Real (Copiloto)</Label>
+                        <Label className={`text-[10px] ${hasPilotFlightHours ? 'opacity-40' : ''}`}>
+                          Real (Copiloto){hasPilotFlightHours ? ' 🚫' : ''}
+                        </Label>
                         <DecimalInput 
                           id="ifr_real_copilot"
                           type="number" 
                           step="0.1" 
                           lang="en" 
-                          disabled={!isItineraryComplete}
+                          disabled={!isItineraryComplete || hasPilotFlightHours}
                           value={formData.ifr_real_copilot ?? ''} 
                           onChange={e => setFormData({...formData, ifr_real_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={handleNumericFocus}
+                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ifr_real_copilot'); }}
                           onBlur={handleNumericBlur}
+                          placeholder={hasPilotFlightHours ? 'N/A (Piloto)' : '0'}
                         />
                       </div>
                       <div className="space-y-1">
