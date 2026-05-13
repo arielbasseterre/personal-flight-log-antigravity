@@ -17,9 +17,10 @@ const app = express();
 app.use(express.json());
 
   // Supabase Admin/Client setup for backend
+  // Uses service_role key to bypass RLS for server-side operations (e.g. user_remote_sessions upsert)
   const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || ""; // Should ideally use service_role for backend
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   // --- Connectivity Test API ---
   app.get("/ping", (req, res) => res.send("pong"));
