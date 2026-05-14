@@ -48,7 +48,8 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  Cell
+  Cell,
+  LabelList
 } from 'recharts';
 import { FlightLog, Profile, AnacLog } from '@/src/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -1729,7 +1730,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     const now = new Date();
     const data = [];
     
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 2; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const m = d.getMonth() + 1;
       const y = d.getFullYear();
@@ -1757,7 +1758,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       data.push({
         name: months[d.getMonth()],
         diurna: day,
-        nocturna: night
+        nocturna: night,
+        total: day + night
       });
     }
     return data;
@@ -2041,7 +2043,16 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                       formatter={(value: number) => [`${value.toFixed(1)} h`]}
                     />
                     <Bar dataKey="diurna" stackId="hours" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="nocturna" stackId="hours" fill="#da631e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="nocturna" stackId="hours" fill="#da631e" radius={[4, 4, 0, 0]}>
+                      <LabelList 
+                        dataKey="total" 
+                        position="top" 
+                        fill="#64748b" 
+                        fontSize={11} 
+                        fontWeight="bold"
+                        formatter={(value: number) => value > 0 ? `${value.toFixed(1)} h` : ''} 
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
