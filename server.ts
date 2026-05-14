@@ -67,36 +67,41 @@ app.use(express.json());
       const page = await context.newPage();
       
       console.log("[AUTH_ANAC] Navegando a ANAC...");
-      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "networkidle" });
+      // Changed waitUntil from 'networkidle' to 'domcontentloaded' to speed up initial load
+      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "domcontentloaded" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
       console.log("[AUTH_ANAC] Completando credenciales (tecleo humano)...");
-      await page.type("#Username", cuil, { delay: 100 });
-      await page.type("#Password", password, { delay: 100 });
+      // Reduced delay from 100ms to 20ms to type faster but still simulate human input
+      await page.type("#Username", cuil, { delay: 20 });
+      await page.type("#Password", password, { delay: 20 });
 
       console.log("[AUTH_ANAC] Enviando formulario...");
       await Promise.all([
-        page.waitForNavigation({ waitUntil: "load", timeout: 60000 }).catch(() => {}),
+        // Changed waitUntil from 'load' to 'domcontentloaded' to resolve faster after clicking login
+        page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {}),
         page.click("#loginButton")
       ]);
 
       // --- VALIDACIÓN DE ÉXITO (Solo cookies reales de portal) ---
-      const cookies = await context.cookies();
-      const hasAuthCookie = cookies.some(c => 
-        c.name.includes("Auth.ANAC") || 
-        c.name.includes("ASPXROLES")
-      );
+      let hasAuthCookie = false;
+      
+      // Polling para revisar la cookie más rápido sin esperar 5s fijos en caso de demora
+      for (let i = 0; i < 10; i++) {
+        const cookies = await context.cookies();
+        hasAuthCookie = cookies.some(c => 
+          c.name.includes("Auth.ANAC") || 
+          c.name.includes("ASPXROLES")
+        );
+        if (hasAuthCookie) break;
+        console.log(`[AUTH_ANAC] Verificando cookie de sesión... (Intento ${i + 1}/10)`);
+        await page.waitForTimeout(500); // esperar 500ms antes del próximo chequeo
+      }
 
       if (!hasAuthCookie) {
-        console.log("[AUTH_ANAC] No se encontró cookie de sesión del portal. Esperando un poco más...");
-        // Damos una última oportunidad de 5 segundos
-        await page.waitForTimeout(5000);
-        const finalCookies = await context.cookies();
-        if (!finalCookies.some(c => c.name.includes("Auth.ANAC") || c.name.includes("ASPXROLES"))) {
-          const portalError = await page.locator(".text-danger, .validation-summary-errors").first().innerText().catch(() => null);
-          throw new Error(portalError || "No se pudo detectar la sesión del portal. Verifica tus datos.");
-        }
+        const portalError = await page.locator(".text-danger, .validation-summary-errors").first().innerText().catch(() => null);
+        throw new Error(portalError || "No se pudo detectar la sesión del portal. Verifica tus datos.");
       }
 
       console.log("[AUTH_ANAC] Login exitoso confirmado.");

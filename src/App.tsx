@@ -188,6 +188,14 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "14 de Mayo, 2026",
+    version: "1.3.1",
+    items: [
+      "Optimización del inicio de sesión automático con el portal ANAC reduciendo los tiempos de espera en la sincronización.",
+      "Mejora en la detección temprana de sesión mediante validación dinámica (polling) en lugar de pausas estáticas."
+    ]
+  },
+  {
     date: "11 de Mayo, 2026",
     version: "1.3.0",
     items: [
