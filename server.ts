@@ -16,6 +16,39 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+  // --- Instancia global de Playwright para evitar cold-starts ---
+  let globalBrowser: any = null;
+  let browserTimeout: any = null;
+
+  const getBrowser = async () => {
+    if (!globalBrowser) {
+      console.log("[PLAYWRIGHT] Iniciando nueva instancia global de Chromium...");
+      globalBrowser = await chromium.launch({ 
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--disable-features=IsolateOrigins,site-per-process'
+        ]
+      });
+    }
+    
+    // Reiniciar temporizador de auto-cierre
+    if (browserTimeout) clearTimeout(browserTimeout);
+    browserTimeout = setTimeout(async () => {
+      if (globalBrowser) {
+        console.log("[PLAYWRIGHT] Cerrando instancia global de Chromium por inactividad...");
+        await globalBrowser.close();
+        globalBrowser = null;
+      }
+    }, 300000); // 5 minutos de inactividad
+
+    return globalBrowser;
+  };
+
   // Supabase Admin/Client setup for backend
   // Uses service_role key to bypass RLS for server-side operations (e.g. user_remote_sessions upsert)
   const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
@@ -53,22 +86,11 @@ app.use(express.json());
     }
 
     console.log(`[AUTH_ANAC] Iniciando login para CUIL: ${cuil}`);
-    let browser;
+    let context;
     try {
-      // Optimizaciones para entornos de servidor (Render/Docker) con recursos limitados
-      browser = await chromium.launch({ 
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-software-rasterizer',
-          '--disable-features=IsolateOrigins,site-per-process'
-        ]
-      });
+      const browser = await getBrowser();
       
-      const context = await browser.newContext({
+      context = await browser.newContext({
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
         viewport: { width: 1280, height: 720 },
         locale: "es-AR"
@@ -87,36 +109,33 @@ app.use(express.json());
       const page = await context.newPage();
       
       console.log("[AUTH_ANAC] Navegando a ANAC...");
-      // Changed waitUntil from 'networkidle' to 'domcontentloaded' to speed up initial load
-      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "domcontentloaded" });
+      // "commit" es la opción más rápida: Playwright no espera a que se descargue nada más que los headers HTTP
+      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "commit" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
-      console.log("[AUTH_ANAC] Completando credenciales (tecleo humano)...");
-      // Reduced delay from 100ms to 20ms to type faster but still simulate human input
-      await page.type("#Username", cuil, { delay: 20 });
-      await page.type("#Password", password, { delay: 20 });
+      console.log("[AUTH_ANAC] Completando credenciales (instantáneo)...");
+      // fill es instantáneo comparado con type
+      await page.fill("#Username", cuil);
+      await page.fill("#Password", password);
 
       console.log("[AUTH_ANAC] Enviando formulario...");
-      await Promise.all([
-        // Changed waitUntil from 'load' to 'domcontentloaded' to resolve faster after clicking login
-        page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {}),
-        page.click("#loginButton")
-      ]);
+      // No esperamos a que cambie la URL ni el DOM, simplemente hacemos click y pasamos directo a buscar la cookie
+      await page.click("#loginButton");
 
       // --- VALIDACIÓN DE ÉXITO (Solo cookies reales de portal) ---
       let hasAuthCookie = false;
       
-      // Polling para revisar la cookie más rápido sin esperar 5s fijos en caso de demora
-      for (let i = 0; i < 10; i++) {
+      // Polling más fino y rápido: 20 chequeos de 250ms (mismo tiempo total, pero reacciona el doble de rápido)
+      for (let i = 0; i < 20; i++) {
         const cookies = await context.cookies();
         hasAuthCookie = cookies.some(c => 
           c.name.includes("Auth.ANAC") || 
           c.name.includes("ASPXROLES")
         );
         if (hasAuthCookie) break;
-        console.log(`[AUTH_ANAC] Verificando cookie de sesión... (Intento ${i + 1}/10)`);
-        await page.waitForTimeout(500); // esperar 500ms antes del próximo chequeo
+        console.log(`[AUTH_ANAC] Verificando cookie de sesión... (Intento ${i + 1}/20)`);
+        await page.waitForTimeout(250); // esperar 250ms antes del próximo chequeo
       }
 
       if (!hasAuthCookie) {
@@ -144,11 +163,12 @@ app.use(express.json());
         } catch (e) {}
       }
 
-      await browser.close();
+      // Solo cerramos el contexto (la pestaña), NO el navegador completo
+      await context.close();
       res.json({ success: true, storageState });
 
     } catch (error: any) {
-      if (browser) await browser.close();
+      if (context) await context.close();
       console.error("[AUTH_ANAC] Error:", error.message);
       res.status(error.message.includes("Credenciales") ? 401 : 500).json({ 
         error: error.message 
