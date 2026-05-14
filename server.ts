@@ -97,34 +97,22 @@ app.use(express.json());
         timezoneId: "America/Argentina/Buenos_Aires"
       });
 
-      // Bloquear recursos innecesarios (imágenes, CSS, fuentes) para reducir el tiempo de carga y uso de red (especialmente útil desde servidores en el exterior)
-      await context.route('**/*', (route) => {
-        const type = route.request().resourceType();
-        if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
-          route.abort();
-        } else {
-          route.continue();
-        }
-      });
-
       const page = await context.newPage();
       
       console.log("[AUTH_ANAC] Navegando a ANAC...");
-      // Usamos domcontentloaded para asegurar que el JS del portal (que calcula la fecha/hora) se ejecute antes de completar
-      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "domcontentloaded" });
+      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "networkidle" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
-      console.log("[AUTH_ANAC] Completando credenciales (instantáneo)...");
-      // fill es instantáneo comparado con type
-      await page.fill("#Username", cuil);
-      await page.fill("#Password", password);
+      console.log("[AUTH_ANAC] Completando credenciales...");
+      await page.type("#Username", cuil, { delay: 50 });
+      await page.type("#Password", password, { delay: 50 });
 
       console.log("[AUTH_ANAC] Enviando formulario...");
-      // Breve pausa para asegurar que los scripts de seguridad de ANAC hayan procesado el input y los tiempos
-      await page.waitForTimeout(300);
-      // No esperamos a que cambie la URL ni el DOM, simplemente hacemos click y pasamos directo a buscar la cookie
-      await page.click("#loginButton");
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "load", timeout: 60000 }).catch(() => {}),
+        page.click("#loginButton")
+      ]);
 
       // --- VALIDACIÓN DE ÉXITO (Solo cookies reales de portal) ---
       let hasAuthCookie = false;
