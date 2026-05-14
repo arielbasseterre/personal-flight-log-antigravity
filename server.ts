@@ -93,7 +93,8 @@ app.use(express.json());
       context = await browser.newContext({
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
         viewport: { width: 1280, height: 720 },
-        locale: "es-AR"
+        locale: "es-AR",
+        timezoneId: "America/Argentina/Buenos_Aires"
       });
 
       // Bloquear recursos innecesarios (imágenes, CSS, fuentes) para reducir el tiempo de carga y uso de red (especialmente útil desde servidores en el exterior)
@@ -109,8 +110,8 @@ app.use(express.json());
       const page = await context.newPage();
       
       console.log("[AUTH_ANAC] Navegando a ANAC...");
-      // "commit" es la opción más rápida: Playwright no espera a que se descargue nada más que los headers HTTP
-      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "commit" });
+      // Usamos domcontentloaded para asegurar que el JS del portal (que calcula la fecha/hora) se ejecute antes de completar
+      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "domcontentloaded" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
@@ -120,6 +121,8 @@ app.use(express.json());
       await page.fill("#Password", password);
 
       console.log("[AUTH_ANAC] Enviando formulario...");
+      // Breve pausa para asegurar que los scripts de seguridad de ANAC hayan procesado el input y los tiempos
+      await page.waitForTimeout(300);
       // No esperamos a que cambie la URL ni el DOM, simplemente hacemos click y pasamos directo a buscar la cookie
       await page.click("#loginButton");
 
