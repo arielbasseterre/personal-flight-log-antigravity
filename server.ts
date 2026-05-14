@@ -55,13 +55,33 @@ app.use(express.json());
     console.log(`[AUTH_ANAC] Iniciando login para CUIL: ${cuil}`);
     let browser;
     try {
-      // Volvemos al modo invisible (segundo plano)
-      browser = await chromium.launch({ headless: true });
+      // Optimizaciones para entornos de servidor (Render/Docker) con recursos limitados
+      browser = await chromium.launch({ 
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--disable-features=IsolateOrigins,site-per-process'
+        ]
+      });
       
       const context = await browser.newContext({
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
         viewport: { width: 1280, height: 720 },
         locale: "es-AR"
+      });
+
+      // Bloquear recursos innecesarios (imágenes, CSS, fuentes) para reducir el tiempo de carga y uso de red (especialmente útil desde servidores en el exterior)
+      await context.route('**/*', (route) => {
+        const type = route.request().resourceType();
+        if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
+          route.abort();
+        } else {
+          route.continue();
+        }
       });
 
       const page = await context.newPage();
