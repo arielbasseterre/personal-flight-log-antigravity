@@ -16,6 +16,23 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+// --- CORS Middleware para permitir peticiones desde Capacitor (Móvil) ---
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Solo aplicamos cabeceras CORS si la petición proviene de un origen diferente (ej. Móvil o Cross-Origin)
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
   // --- Instancia global de Playwright para evitar cold-starts ---
   let globalBrowser: any = null;
   let browserTimeout: any = null;
