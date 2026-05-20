@@ -149,3 +149,16 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 }
+
+/* Safe area insets for mobile screens (iOS notches & home indicators) */
+.pb-safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe-area-inset-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.mt-safe-area-inset-top {
+  margin-top: env(safe-area-inset-top);
+}

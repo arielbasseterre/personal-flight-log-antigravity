@@ -56,10 +56,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { FlightLogPDF } from './FlightLogPDF';
 import { AnacAuth } from './AnacAuth';
 import { supabase } from '@/src/utils/supabase/client';
+import { getApiUrl } from '@/src/utils/api';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 interface LibroScreenProps {
   logs: FlightLog[];
@@ -472,7 +475,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     const sessionToUse = sessionOverride || anacSession;
     if (!tokenToUse && !sessionToUse) return [];
     try {
-      const response = await fetch('/api/get-anac-logs', {
+      const response = await fetch(getApiUrl('/api/get-anac-logs'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ anac_token: tokenToUse, storageState: sessionToUse, rowsPerPage: 100 })
@@ -618,7 +621,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     });
 
     try {
-      const response = await fetch('/api/sync-anac', {
+      const response = await fetch(getApiUrl('/api/sync-anac'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: profile.id, anac_token: tokenToUse, storageState: sessionToUse, logs_to_sync: mappedLogsToSync })
@@ -1683,10 +1686,72 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       const buffer = await workbook.xlsx.writeBuffer();
       const endFolio = startFolio + Math.max(0, pages.length - 1);
       const folioRangeLabel = pages.length > 1 ? `Folios_${startFolio}_al_${endFolio}` : `Folio_${startFolio}`;
-      saveAs(new Blob([buffer]), `Libro_Vuelo_${profile?.last_name || 'Piloto'}_${folioRangeLabel}.xlsx`);
+      const fileName = `Libro_Vuelo_${profile?.last_name || 'Piloto'}_${folioRangeLabel}.xlsx`;
+      
+      const isMobile = (window as any).Capacitor !== undefined;
+      if (isMobile) {
+        try {
+          const base64Data = btoa(
+            new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+          );
+          
+          const savedFile = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Cache
+          });
+          
+          await Share.share({
+            title: 'Compartir Libro de Vuelo Excel',
+            text: 'Aquí está tu libro de vuelo en formato Excel',
+            url: savedFile.uri,
+            dialogTitle: 'Compartir Libro de Vuelo'
+          });
+        } catch (shareErr) {
+          console.error("Error al compartir Excel en móvil:", shareErr);
+          alert("Error al intentar compartir el archivo");
+        }
+      } else {
+        saveAs(new Blob([buffer]), fileName);
+      }
     } catch (err) {
       console.error("Excel export error:", err);
       alert("Error al generar el archivo Excel");
+    }
+  };
+
+  const exportToPDFMobile = async (folioRangeLabel: string) => {
+    try {
+      const doc = <FlightLogPDF logs={logs} profile={profile || undefined} />;
+      const pdfBlob = await pdf(doc).toBlob();
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(pdfBlob);
+      reader.onloadend = async () => {
+        try {
+          const base64Data = (reader.result as string).split(',')[1];
+          const fileName = `Libro_Vuelo_${profile?.last_name || 'Piloto'}_${folioRangeLabel}.pdf`;
+          
+          const savedFile = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Cache
+          });
+          
+          await Share.share({
+            title: 'Compartir Libro de Vuelo PDF',
+            text: 'Aquí tienes tu Libro de Vuelo foliado oficial en formato PDF',
+            url: savedFile.uri,
+            dialogTitle: 'Compartir Libro de Vuelo'
+          });
+        } catch (shareErr) {
+          console.error("Error al compartir PDF en móvil:", shareErr);
+          alert("Error al intentar compartir el archivo");
+        }
+      };
+    } catch (err) {
+      console.error("PDF Mobile export error:", err);
+      alert("Error al generar el archivo PDF");
     }
   };
 
@@ -2733,6 +2798,21 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   const startFolio = profile?.initial_folio_number || 1;
                   const endFolio = startFolio + Math.max(0, numPages - 1);
                   const folioRangeLabel = numPages > 1 ? `Folios_${startFolio}_al_${endFolio}` : `Folio_${startFolio}`;
+                  const isMobile = (window as any).Capacitor !== undefined;
+                  
+                  if (isMobile) {
+                    return (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 gap-2 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" 
+                        disabled={logs.length === 0}
+                        onClick={() => exportToPDFMobile(folioRangeLabel)}
+                      >
+                        <FileDown size={14} /> Generar Folio PDF
+                      </Button>
+                    );
+                  }
                   
                   return (
                     <PDFDownloadLink 

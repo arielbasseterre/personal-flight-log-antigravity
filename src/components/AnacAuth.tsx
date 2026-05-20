@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../utils/supabase/client';
+import { getApiUrl } from '../utils/api';
 
 export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => void }) => {
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
       if (!user) throw new Error("Debes estar logueado en la app");
 
       // 2. Llamar a nuestro servidor local
-      const response = await fetch('/api/auth-anac', {
+      const response = await fetch(getApiUrl('/api/auth-anac'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
