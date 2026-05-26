@@ -345,7 +345,7 @@ function CrewModal({
 
       {/* ── Sheet que sube desde abajo ───────────────────────────────── */}
       <motion.div
-        className="relative w-full bg-slate-50 dark:bg-[#101622] border-t border-slate-200 dark:border-[#2d3748] rounded-t-3xl p-6 pb-10 max-h-[70vh] overflow-y-auto"
+        className="relative w-full bg-slate-50 dark:bg-[#101622] border-t border-slate-200 dark:border-[#2d3748] rounded-t-3xl p-6 pb-32 max-h-[75vh] overflow-y-auto"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
