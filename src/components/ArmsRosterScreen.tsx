@@ -328,10 +328,8 @@ function CrewModal({
 }) {
   // Agrupar crew por rol para renderizar secciones
   const grouped: Record<string, ArmsCrewMember[]> = {
-    CPT:   crew.filter(c => c.role === 'CPT'),
-    FO:    crew.filter(c => c.role === 'FO'),
-    PU:    crew.filter(c => c.role === 'PU'),
-    CC:    crew.filter(c => c.role === 'CC' || c.role === 'OTHER'),
+    'Tripulación de vuelo': crew.filter(c => c.role === 'CPT' || c.role === 'FO'),
+    'TRIPULANTES DE CABINA': crew.filter(c => c.role === 'PU' || c.role === 'CC' || c.role === 'OTHER'),
   };
 
   return (
