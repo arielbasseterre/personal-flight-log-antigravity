@@ -1,21 +1,21 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// ARMS ROSTER SCREEN — Calendario mensual + Detalle diario + Tripulación
-// ═══════════════════════════════════════════════════════════════════════════
-// Componente principal de visualización del roster extraído de ARMS.
-// Diseñado siguiendo las skills de diseño premium del proyecto:
-//   - Estética: Dark mode (#101622 base), accent #1152d4
+﻿// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ARMS ROSTER SCREEN â€” Calendario mensual + Detalle diario + TripulaciÃ³n
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Componente principal de visualizaciÃ³n del roster extraÃ­do de ARMS.
+// DiseÃ±ado siguiendo las skills de diseÃ±o premium del proyecto:
+//   - EstÃ©tica: Dark mode (#101622 base), accent #1152d4
 //   - Motion: Spring physics via motion/react (ya instalado)
-//   - Tipografía: Geist (ya en package.json)
+//   - TipografÃ­a: Geist (ya en package.json)
 //   - Layout: Calendario mensual + timeline vertical de tramos
 //   - Iconos: lucide-react (ya instalado)
 //
 // SECCIONES DEL COMPONENTE:
-//   A. Vista Mensual     — Grid de 7 columnas con íconos por tipo de día
-//   B. Detalle Diario    — Timeline cronológica de tramos de vuelo
-//   C. Modal Tripulación — Bottom sheet con crew por roles
-//   D. Formulario ARMS   — Input de credenciales (patrón ANAC existente)
-//   E. Componente Root   — Orquestador principal
-// ═══════════════════════════════════════════════════════════════════════════
+//   A. Vista Mensual     â€” Grid de 7 columnas con Ã­conos por tipo de dÃ­a
+//   B. Detalle Diario    â€” Timeline cronolÃ³gica de tramos de vuelo
+//   C. Modal TripulaciÃ³n â€” Bottom sheet con crew por roles
+//   D. Formulario ARMS   â€” Input de credenciales (patrÃ³n ANAC existente)
+//   E. Componente Root   â€” Orquestador principal
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -28,11 +28,11 @@ import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CONSTANTES Y CONFIGURACIÓN VISUAL
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// CONSTANTES Y CONFIGURACIÃ“N VISUAL
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-/** Configuración visual por rol de tripulación (color + label en español) */
+/** ConfiguraciÃ³n visual por rol de tripulaciÃ³n (color + label en espaÃ±ol) */
 const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
   CPT:   { label: 'Comandante',          color: 'text-amber-400'   },
   FO:    { label: 'Primer Oficial',      color: 'text-[#1152d4]'   },
@@ -41,30 +41,30 @@ const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
   OTHER: { label: 'Tripulante',          color: 'text-slate-400 dark:text-slate-600 dark:text-slate-400'   },
 };
 
-/** Nombres de los meses en español para el selector */
+/** Nombres de los meses en espaÃ±ol para el selector */
 const MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
-/** Labels de días de la semana para el header del calendario */
-const DAY_LABELS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
+/** Labels de dÃ­as de la semana para el header del calendario */
+const DAY_LABELS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'SÃ¡'];
 
-/** Animación spring premium para todas las transiciones */
+/** AnimaciÃ³n spring premium para todas las transiciones */
 const SPRING_CONFIG = { type: 'spring' as const, stiffness: 200, damping: 24 };
 
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SECCIÓN A: VISTA MENSUAL — Grid de calendario con marcadores
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SECCIÃ“N A: VISTA MENSUAL â€” Grid de calendario con marcadores
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
- * Marcador visual que aparece debajo del número de día.
- * Cada tipo de evento tiene su propio ícono y color:
- *   - Vuelo  → Avión azul (#1152d4)
- *   - OFF    → Casa verde (emerald)
- *   - Standby → Escudo gris
- *   - Layover → Maleta ámbar
+ * Marcador visual que aparece debajo del nÃºmero de dÃ­a.
+ * Cada tipo de evento tiene su propio Ã­cono y color:
+ *   - Vuelo  â†’ AviÃ³n azul (#1152d4)
+ *   - OFF    â†’ Casa verde (emerald)
+ *   - Standby â†’ Escudo gris
+ *   - Layover â†’ Maleta Ã¡mbar
  */
 function DayMarker({ eventType }: { eventType: ArmsDayEntry['eventType'] }) {
   switch (eventType) {
@@ -85,13 +85,13 @@ function DayMarker({ eventType }: { eventType: ArmsDayEntry['eventType'] }) {
 }
 
 /**
- * Grid mensual interactivo (7 columnas × N filas).
+ * Grid mensual interactivo (7 columnas Ã— N filas).
  *
  * Cada celda muestra:
- *   - Número del día
- *   - Ícono de DayMarker si hay un evento en el roster
- *   - Fondo azul si está seleccionado
- *   - Borde sutil si es el día actual (hoy)
+ *   - NÃºmero del dÃ­a
+ *   - Ãcono de DayMarker si hay un evento en el roster
+ *   - Fondo azul si estÃ¡ seleccionado
+ *   - Borde sutil si es el dÃ­a actual (hoy)
  */
 function MonthlyCalendar({
   entries,
@@ -106,12 +106,12 @@ function MonthlyCalendar({
   selectedDate: string | null;
   onSelectDate: (iso: string) => void;
 }) {
-  // Calcular el offset del primer día del mes (0=Domingo)
+  // Calcular el offset del primer dÃ­a del mes (0=Domingo)
   const firstDayOfMonth = new Date(year, month - 1, 1);
   const daysInMonth     = new Date(year, month, 0).getDate();
   const startOffset     = firstDayOfMonth.getDay(); // 0=Dom, 1=Lun, ...
 
-  // Crear un mapa rápido: dateISO → entry, para lookup O(1)
+  // Crear un mapa rÃ¡pido: dateISO â†’ entry, para lookup O(1)
   const entriesMap = new Map(entries.map(e => [e.dateISO, e]));
 
   // Fecha de hoy en ISO para highlighting
@@ -119,7 +119,7 @@ function MonthlyCalendar({
 
   return (
     <div className="w-full select-none">
-      {/* ── Header: Labels de días de la semana ──────────────────────── */}
+      {/* â”€â”€ Header: Labels de dÃ­as de la semana â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid grid-cols-7 mb-1.5">
         {DAY_LABELS.map(d => (
           <div key={d} className="text-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-1">
@@ -128,14 +128,14 @@ function MonthlyCalendar({
         ))}
       </div>
 
-      {/* ── Grilla de días del mes ───────────────────────────────────── */}
+      {/* â”€â”€ Grilla de dÃ­as del mes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid grid-cols-7 gap-[3px]">
-        {/* Celdas vacías antes del día 1 (offset) */}
+        {/* Celdas vacÃ­as antes del dÃ­a 1 (offset) */}
         {Array.from({ length: startOffset }).map((_, i) => (
           <div key={`offset-${i}`} className="aspect-square" />
         ))}
 
-        {/* Celdas de cada día del mes */}
+        {/* Celdas de cada dÃ­a del mes */}
         {Array.from({ length: daysInMonth }).map((_, idx) => {
           const day  = idx + 1;
           const iso  = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -160,14 +160,14 @@ function MonthlyCalendar({
                 ${isToday && !isSelected ? 'bg-emerald-500/20 ring-1 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : ''}
               `}
             >
-              {/* Número del día */}
+              {/* NÃºmero del dÃ­a */}
               <span className={`text-xs font-semibold leading-none ${
                 isSelected ? 'text-white' : isToday ? 'text-emerald-400' : 'text-slate-700 dark:text-slate-300'
               }`}>
                 {day}
               </span>
 
-              {/* Ícono marcador del tipo de evento */}
+              {/* Ãcono marcador del tipo de evento */}
               {entry && <DayMarker eventType={entry.eventType} />}
             </motion.button>
           );
@@ -178,21 +178,21 @@ function MonthlyCalendar({
 }
 
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SECCIÓN B: DETALLE DIARIO — Timeline vertical de tramos de vuelo
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SECCIÃ“N B: DETALLE DIARIO â€” Timeline vertical de tramos de vuelo
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
  * Tarjeta de un tramo (leg) de vuelo dentro de la timeline vertical.
  *
  * Estructura visual:
- *   1. Evento de Presentación (REPORT) — ícono reloj + hora local/UTC
- *   2. Línea vertical punteada (conector)
- *   3. Card del tramo de vuelo — número, ruta, horarios, crew count
- *   4. Turn time (si hay tramo siguiente) — escala HH:MM
+ *   1. Evento de PresentaciÃ³n (REPORT) â€” Ã­cono reloj + hora local/UTC
+ *   2. LÃ­nea vertical punteada (conector)
+ *   3. Card del tramo de vuelo â€” nÃºmero, ruta, horarios, crew count
+ *   4. Turn time (si hay tramo siguiente) â€” escala HH:MM
  *
  * Al hacer tap en la card del vuelo, dispara onClick para abrir el modal
- * de tripulación con los miembros del crew complement.
+ * de tripulaciÃ³n con los miembros del crew complement.
  */
 function FlightLegCard({
   leg,
@@ -210,9 +210,11 @@ function FlightLegCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08, ...SPRING_CONFIG }}
     >
-      {/* ── Evento de Presentación (REPORT) ──────────────────────────── */}
+      {index === 0 && (
+        <>
+      {/* â”€â”€ Evento de PresentaciÃ³n (REPORT) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex items-center gap-3 px-4 py-2.5">
-        {/* Ícono circular de reloj */}
+        {/* Ãcono circular de reloj */}
         <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-100 dark:border-[#1152d4]/20 flex items-center justify-center shrink-0">
           <Clock size={14} className="text-[#1152d4]" />
         </div>
@@ -220,12 +222,12 @@ function FlightLegCard({
         {/* Texto del reporte */}
         <div>
           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-            Presentación
+            PresentaciÃ³n
           </p>
           <p className="text-sm font-bold text-slate-900 dark:text-white">
             {/* Aeropuerto + hora local */}
-            {leg.origin} — {leg.reportTimeLoc}L
-            {/* Hora UTC (si está disponible) */}
+            {leg.origin} â€” {leg.reportTimeLoc}L
+            {/* Hora UTC (si estÃ¡ disponible) */}
             {leg.reportTimeUtc && (
               <span className="text-slate-500 dark:text-slate-400 font-normal ml-1.5 text-[11px]">
                 ({leg.reportTimeUtc}Z)
@@ -234,46 +236,48 @@ function FlightLegCard({
           </p>
         </div>
       </div>
+        </>
+      )}
 
-      {/* ── Línea de timeline + Card del tramo ───────────────────────── */}
+      {/* â”€â”€ LÃ­nea de timeline + Card del tramo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="ml-8 pl-7 border-l border-dashed border-slate-200 dark:border-[#2d3748] py-1">
         <button
           onClick={onClick}
           className="w-full text-left bg-white dark:bg-[#1a2233] hover:bg-slate-50 dark:hover:bg-[#222d40] rounded-2xl p-4 border border-slate-200 dark:border-[#2d3748] hover:border-blue-200 dark:border-[#1152d4]/30 transition-all duration-300 active:scale-[0.98] group"
         >
           <div className="flex items-center gap-3">
-            {/* Ícono del avión */}
+            {/* Ãcono del aviÃ³n */}
             <div className="w-9 h-9 rounded-xl bg-blue-50/50 dark:bg-[#1152d4]/15 border border-blue-100 dark:border-[#1152d4]/20 flex items-center justify-center shrink-0 group-hover:bg-[#1152d4]/25 transition-colors">
               <Plane size={15} className="text-[#1152d4]" />
             </div>
 
             {/* Info del vuelo */}
             <div className="flex-1 min-w-0">
-              {/* Número de vuelo + block time */}
+              {/* NÃºmero de vuelo + block time */}
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold text-[#1152d4]">{leg.flightNumber}</span>
-                <span className="text-[10px] text-slate-400 dark:text-slate-600">·</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-600">Â·</span>
                 <span className="text-[10px] font-mono text-slate-400 dark:text-slate-600 dark:text-slate-400">{leg.blockTime}h bloque</span>
               </div>
 
-              {/* Ruta (origen → destino) */}
+              {/* Ruta (origen â†’ destino) */}
               <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-                {leg.origin} → {leg.destination}
+                {leg.origin} â†’ {leg.destination}
               </p>
 
               {/* Horarios de salida y llegada (local + UTC) */}
               <p className="text-[11px] text-slate-400 dark:text-slate-600 dark:text-slate-400 mt-0.5">
-                {leg.departureTimeLoc}L – {leg.arrivalTimeLoc}L
+                {leg.departureTimeLoc}L â€“ {leg.arrivalTimeLoc}L
                 {/* Horarios UTC debajo */}
                 {leg.departureTimeUtc && leg.arrivalTimeUtc && (
                   <span className="text-slate-400 dark:text-slate-600 ml-1.5">
-                    ({leg.departureTimeUtc}Z – {leg.arrivalTimeUtc}Z)
+                    ({leg.departureTimeUtc}Z â€“ {leg.arrivalTimeUtc}Z)
                   </span>
                 )}
               </p>
             </div>
 
-            {/* Contador de tripulación */}
+            {/* Contador de tripulaciÃ³n */}
             <div className="flex items-center gap-1 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
               <Users size={12} className="text-slate-500 dark:text-slate-400" />
               <span className="text-[10px] text-slate-500 dark:text-slate-400">{leg.crewComplement.length}</span>
@@ -282,7 +286,7 @@ function FlightLegCard({
         </button>
       </div>
 
-      {/* ── Turn time (tiempo en tierra hasta el siguiente tramo) ─────── */}
+      {/* â”€â”€ Turn time (tiempo en tierra hasta el siguiente tramo) â”€â”€â”€â”€â”€â”€â”€ */}
       {leg.turnTime && (
         <div className="ml-8 pl-7 border-l border-dashed border-slate-200 dark:border-[#2d3748] flex items-center gap-2 py-2">
           <div className="h-px w-3 bg-[#2d3748]" />
@@ -298,20 +302,20 @@ function FlightLegCard({
 }
 
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SECCIÓN C: MODAL DE TRIPULACIÓN — Bottom sheet con crew por roles
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SECCIÃ“N C: MODAL DE TRIPULACIÃ“N â€” Bottom sheet con crew por roles
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
- * Modal bottom-sheet que muestra la tripulación asignada a un tramo.
+ * Modal bottom-sheet que muestra la tripulaciÃ³n asignada a un tramo.
  *
- * Agrupa los miembros por rol aeronáutico:
- *   - CPT (Comandante) — Ámbar
- *   - FO  (Primer Oficial) — Azul (#1152d4)
- *   - PU  (Purser/Comisario) — Emerald
- *   - CC  (Tripulante de Cabina) — Slate
+ * Agrupa los miembros por rol aeronÃ¡utico:
+ *   - CPT (Comandante) â€” Ãmbar
+ *   - FO  (Primer Oficial) â€” Azul (#1152d4)
+ *   - PU  (Purser/Comisario) â€” Emerald
+ *   - CC  (Tripulante de Cabina) â€” Slate
  *
- * Usa motion spring para la animación de entrada/salida (slide up).
+ * Usa motion spring para la animaciÃ³n de entrada/salida (slide up).
  */
 function CrewModal({
   crew,
@@ -337,13 +341,13 @@ function CrewModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      {/* ── Overlay oscuro con blur ──────────────────────────────────── */}
+      {/* â”€â”€ Overlay oscuro con blur â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* ── Sheet que sube desde abajo ───────────────────────────────── */}
+      {/* â”€â”€ Sheet que sube desde abajo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <motion.div
         className="relative w-full bg-slate-50 dark:bg-[#101622] border-t border-slate-200 dark:border-[#2d3748] rounded-t-3xl p-6 pb-32 max-h-[75vh] overflow-y-auto"
         initial={{ y: '100%' }}
@@ -358,7 +362,7 @@ function CrewModal({
         <div className="flex items-center justify-between mb-6 mt-2">
           <div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-widest font-bold">
-              Tripulación asignada
+              TripulaciÃ³n asignada
             </p>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{flightNumber}</h3>
           </div>
@@ -370,7 +374,7 @@ function CrewModal({
           </button>
         </div>
 
-        {/* ── Listado por roles ───────────────────────────────────────── */}
+        {/* â”€â”€ Listado por roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="space-y-5">
           {(Object.entries(grouped) as [string, ArmsCrewMember[]][])
             .filter(([, members]) => members.length > 0)
@@ -409,13 +413,13 @@ function CrewModal({
             ))}
         </div>
 
-        {/* Caso: sin tripulación */}
+        {/* Caso: sin tripulaciÃ³n */}
         {crew.length === 0 && (
           <div className="flex flex-col items-center py-8 text-center">
             <Users size={32} className="text-slate-400 dark:text-slate-600 mb-3" />
-            <p className="text-sm text-slate-400 dark:text-slate-600 dark:text-slate-400">Sin datos de tripulación</p>
+            <p className="text-sm text-slate-400 dark:text-slate-600 dark:text-slate-400">Sin datos de tripulaciÃ³n</p>
             <p className="text-[11px] text-slate-400 dark:text-slate-600 mt-1">
-              Asegúrate de activar "Show Crew Complement" al sincronizar.
+              AsegÃºrate de activar "Show Crew Complement" al sincronizar.
             </p>
           </div>
         )}
@@ -425,14 +429,14 @@ function CrewModal({
 }
 
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SECCIÓN D: FORMULARIO DE CREDENCIALES ARMS
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SECCIÃ“N D: FORMULARIO DE CREDENCIALES ARMS
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
  * Modal de credenciales para el portal ARMS.
- * Sigue el mismo patrón visual que el flujo de login ANAC existente.
- * Incluye toggle de visibilidad de contraseña y checkbox de "Recordar sesión".
+ * Sigue el mismo patrÃ³n visual que el flujo de login ANAC existente.
+ * Incluye toggle de visibilidad de contraseÃ±a y checkbox de "Recordar sesiÃ³n".
  */
 function ArmsCredentialsModal({
   onSubmit,
@@ -473,7 +477,7 @@ function ArmsCredentialsModal({
           </div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">Portal ARMS</h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            Ingresá tus credenciales del portal ARMS Crew Portal
+            IngresÃ¡ tus credenciales del portal ARMS Crew Portal
           </p>
         </div>
 
@@ -492,17 +496,17 @@ function ArmsCredentialsModal({
           />
         </div>
 
-        {/* Input: Contraseña (con toggle de visibilidad) */}
+        {/* Input: ContraseÃ±a (con toggle de visibilidad) */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">
-            Contraseña
+            ContraseÃ±a
           </label>
           <div className="relative">
             <input
               type={showPass ? 'text' : 'password'}
               value={pass}
               onChange={(e) => setPass(e.target.value)}
-              placeholder="Tu contraseña de ARMS"
+              placeholder="Tu contraseÃ±a de ARMS"
               className="w-full px-4 py-3 pr-12 bg-white dark:bg-[#1a2233] border border-slate-200 dark:border-[#2d3748] rounded-xl text-sm text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:border-[#1152d4] focus:ring-1 focus:ring-[#1152d4] outline-none transition-all"
               autoComplete="current-password"
             />
@@ -516,7 +520,7 @@ function ArmsCredentialsModal({
           </div>
         </div>
 
-        {/* Checkbox: Recordar sesión */}
+        {/* Checkbox: Recordar sesiÃ³n */}
         <label className="flex items-center gap-3 cursor-pointer py-1">
           <button
             type="button"
@@ -534,7 +538,7 @@ function ArmsCredentialsModal({
             )}
           </button>
           <span className="text-xs text-slate-400 dark:text-slate-600 dark:text-slate-400">
-            Recordar sesión para sincronización automática
+            Recordar sesiÃ³n para sincronizaciÃ³n automÃ¡tica
           </span>
         </label>
 
@@ -567,23 +571,23 @@ function ArmsCredentialsModal({
 }
 
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SECCIÓN E: COMPONENTE ROOT — ArmsRosterScreen
-// ═══════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SECCIÃ“N E: COMPONENTE ROOT â€” ArmsRosterScreen
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
  * Componente principal de la pantalla de Roster ARMS.
  *
  * Flujo de datos:
  *   1. Al montar, carga el roster cacheado de Supabase (offline-first)
- *   2. Al pulsar "Sincronizar", abre modal de credenciales (si no hay sesión)
- *   3. Envía POST al backend → scraper → parser → upsert Supabase
+ *   2. Al pulsar "Sincronizar", abre modal de credenciales (si no hay sesiÃ³n)
+ *   3. EnvÃ­a POST al backend â†’ scraper â†’ parser â†’ upsert Supabase
  *   4. Actualiza la UI con los nuevos datos
  *
- * El estado selectedDate controla qué día está abierto en el detalle inferior.
+ * El estado selectedDate controla quÃ© dÃ­a estÃ¡ abierto en el detalle inferior.
  */
 export function ArmsRosterScreen({ userId }: { userId: string }) {
-  // ── Estado del calendario ─────────────────────────────────────────────
+  // â”€â”€ Estado del calendario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const today = new Date();
   const [month, setMonth]               = useState(today.getMonth() + 1);
   const [year, setYear]                 = useState(today.getFullYear());
@@ -592,27 +596,27 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     today.toISOString().slice(0, 10)
   );
 
-  // ── Estado de sincronización ──────────────────────────────────────────
+  // â”€â”€ Estado de sincronizaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [syncing, setSyncing]               = useState(false);
   const [syncError, setSyncError]           = useState<string | null>(null);
   const [lastSynced, setLastSynced]         = useState<string | null>(null);
   const [showCredentials, setShowCredentials] = useState(false);
 
-  // ── Estado del modal de tripulación ───────────────────────────────────
+  // â”€â”€ Estado del modal de tripulaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [crewModal, setCrewModal] = useState<{
     crew: ArmsCrewMember[];
     flight: string;
   } | null>(null);
 
-  // ── Estado de carga inicial ───────────────────────────────────────────
+  // â”€â”€ Estado de carga inicial â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [initialLoading, setInitialLoading] = useState(true);
 
-  // ── Entrada seleccionada ──────────────────────────────────────────────
+  // â”€â”€ Entrada seleccionada â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const selectedEntry = entries.find(e => e.dateISO === selectedDate) || null;
 
-  // ╔═════════════════════════════════════════════════════════════════════╗
-  // ║  CARGA INICIAL: Roster cacheado desde Supabase (modo offline)     ║
-  // ╚═════════════════════════════════════════════════════════════════════╝
+  // â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+  // â•‘  CARGA INICIAL: Roster cacheado desde Supabase (modo offline)     â•‘
+  // â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const loadCachedRoster = useCallback(async () => {
     setInitialLoading(true);
     try {
@@ -638,12 +642,12 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     }
   }, [userId, month, year]);
 
-  // Recargar cada vez que cambia el mes/año
+  // Recargar cada vez que cambia el mes/aÃ±o
   useEffect(() => { loadCachedRoster(); }, [loadCachedRoster]);
 
-  // ╔═════════════════════════════════════════════════════════════════════╗
-  // ║  SINCRONIZACIÓN: POST al backend → scraper → parser              ║
-  // ╚═════════════════════════════════════════════════════════════════════╝
+  // â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+  // â•‘  SINCRONIZACIÃ“N: POST al backend â†’ scraper â†’ parser              â•‘
+  // â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSync = async (username: string, password: string, remember: boolean) => {
     setSyncing(true);
     setSyncError(null);
@@ -672,19 +676,19 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       setLastSynced(new Date().toISOString());
       setShowCredentials(false); // Cerrar modal de credenciales
 
-      console.log(`[ARMS_UI] Sincronización exitosa: ${data.entriesCount} entradas.`);
+      console.log(`[ARMS_UI] SincronizaciÃ³n exitosa: ${data.entriesCount} entradas.`);
 
     } catch (error: any) {
-      console.error('[ARMS_UI] Error en sincronización:', error.message);
+      console.error('[ARMS_UI] Error en sincronizaciÃ³n:', error.message);
       setSyncError(error.message);
     } finally {
       setSyncing(false);
     }
   };
 
-  // ╔═════════════════════════════════════════════════════════════════════╗
-  // ║  NAVEGACIÓN DE MESES                                              ║
-  // ╚═════════════════════════════════════════════════════════════════════╝
+  // â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+  // â•‘  NAVEGACIÃ“N DE MESES                                              â•‘
+  // â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const goToPrevMonth = () => {
     if (month === 1) {
       setMonth(12);
@@ -692,7 +696,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     } else {
       setMonth(m => m - 1);
     }
-    setSelectedDate(null); // Reset selección al cambiar de mes
+    setSelectedDate(null); // Reset selecciÃ³n al cambiar de mes
   };
 
   const goToNextMonth = () => {
@@ -705,15 +709,15 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     setSelectedDate(null);
   };
 
-  // ╔═════════════════════════════════════════════════════════════════════╗
-  // ║  RENDER                                                            ║
-  // ╚═════════════════════════════════════════════════════════════════════╝
+  // â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+  // â•‘  RENDER                                                            â•‘
+  // â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   return (
     <div className="flex flex-col min-h-[100dvh] bg-slate-50 dark:bg-[#101622] text-slate-900 dark:text-white pb-24">
 
-      {/* ════════════════════════════════════════════════════════════════
-           HEADER STICKY — Título + Botón Sincronizar
-         ════════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           HEADER STICKY â€” TÃ­tulo + BotÃ³n Sincronizar
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div className="sticky top-0 z-40 bg-slate-50 dark:bg-[#101622]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#2d3748] px-4 py-4">
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div>
@@ -733,12 +737,12 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            CUERPO PRINCIPAL
-         ════════════════════════════════════════════════════════════════ */}
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div className="flex-1 max-w-lg mx-auto w-full px-4 py-4 space-y-4">
 
-        {/* ── Selector de mes (flechas + nombre) ─────────────────────── */}
+        {/* â”€â”€ Selector de mes (flechas + nombre) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex items-center justify-between">
           <button
             onClick={goToPrevMonth}
@@ -757,7 +761,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           </button>
         </div>
 
-        {/* ── Calendario mensual ─────────────────────────────────────── */}
+        {/* â”€â”€ Calendario mensual â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="bg-white dark:bg-[#0d1520] rounded-3xl p-4 border border-slate-200 dark:border-[#2d3748]/50 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
           <MonthlyCalendar
             entries={entries}
@@ -768,7 +772,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           />
         </div>
 
-        {/* ── Leyenda de marcadores ───────────────────────────────────── */}
+        {/* â”€â”€ Leyenda de marcadores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex items-center justify-center gap-4 py-1 flex-wrap">
           <div className="flex items-center gap-1.5">
             <Plane size={10} className="text-[#1152d4] fill-[#1152d4]/30" />
@@ -792,17 +796,17 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           </div>
         </div>
 
-        {/* ── Última sincronización ───────────────────────────────────── */}
+        {/* â”€â”€ Ãšltima sincronizaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {lastSynced && (
           <p className="text-[10px] text-slate-400 dark:text-slate-600 text-center font-mono">
-            Última sync: {new Date(lastSynced).toLocaleString('es-AR', {
+            Ãšltima sync: {new Date(lastSynced).toLocaleString('es-AR', {
               day: '2-digit', month: '2-digit', year: 'numeric',
               hour: '2-digit', minute: '2-digit',
             })}
           </p>
         )}
 
-        {/* ── Error de sincronización ─────────────────────────────────── */}
+        {/* â”€â”€ Error de sincronizaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <AnimatePresence>
           {syncError && (
             <motion.div
@@ -825,9 +829,9 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           )}
         </AnimatePresence>
 
-        {/* ════════════════════════════════════════════════════════════════
-             DETALLE DEL DÍA SELECCIONADO
-           ════════════════════════════════════════════════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+             DETALLE DEL DÃA SELECCIONADO
+           â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         <AnimatePresence mode="wait">
           {selectedEntry && (
             <motion.div
@@ -838,7 +842,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               transition={SPRING_CONFIG}
               className="space-y-3"
             >
-              {/* Header del día */}
+              {/* Header del dÃ­a */}
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white capitalize">
                   {new Date(selectedEntry.dateISO + 'T12:00').toLocaleDateString('es-AR', {
@@ -852,7 +856,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                 )}
               </div>
 
-              {/* ── CASO: LAYOVER ────────────────────────────────────── */}
+              {/* â”€â”€ CASO: LAYOVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               {selectedEntry.eventType === 'LAYOVER' && (
                 <motion.div
                   className="flex items-center gap-4 p-5 bg-amber-500/10 border border-amber-500/20 rounded-2xl"
@@ -865,31 +869,31 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-amber-300">
-                      Layover en {selectedEntry.layoverAirport || '—'}
+                      Layover en {selectedEntry.layoverAirport || 'â€”'}
                     </p>
                     {selectedEntry.layoverDuration && (
                       <p className="text-[11px] text-amber-400/70 mt-0.5">
-                        Duración: {selectedEntry.layoverDuration}
+                        DuraciÃ³n: {selectedEntry.layoverDuration}
                       </p>
                     )}
                   </div>
                 </motion.div>
               )}
 
-              {/* ── CASO: DÍA LIBRE (OFF) ────────────────────────────── */}
+              {/* â”€â”€ CASO: DÃA LIBRE (OFF) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               {selectedEntry.eventType === 'OFF' && (
                 <div className="flex items-center gap-4 p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
                   <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
                     <Home size={18} className="text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-emerald-300">Día libre en base</p>
+                    <p className="text-sm font-bold text-emerald-300">DÃ­a libre en base</p>
                     <p className="text-[11px] text-emerald-400/60">Descanso programado</p>
                   </div>
                 </div>
               )}
 
-              {/* ── CASO: NDA / OTH ── */}
+              {/* â”€â”€ CASO: NDA / OTH â”€â”€ */}
               {selectedEntry.eventType === 'NDA' && (
                 <div className="flex flex-col gap-4 p-5 bg-purple-500/10 border border-purple-500/20 rounded-2xl">
                   <div className="flex items-center gap-4">
@@ -920,7 +924,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                 </div>
               )}
 
-              {/* ── CASO: GUARDIA / STANDBY ──────────────────────────── */}
+              {/* â”€â”€ CASO: GUARDIA / STANDBY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               {selectedEntry.eventType === 'STANDBY' && (
                 <div className="flex flex-col gap-3 p-5 bg-white dark:bg-[#1a2233] border border-slate-200 dark:border-[#2d3748] rounded-2xl">
                   <div className="flex items-center gap-4">
@@ -952,7 +956,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                 </div>
               )}
 
-              {/* ── CASO: VUELO — Timeline vertical de tramos ────────── */}
+              {/* â”€â”€ CASO: VUELO â€” Timeline vertical de tramos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               {selectedEntry.isFlight && selectedEntry.legs.length > 0 && (
                 <div className="bg-white dark:bg-[#0d1520] rounded-3xl border border-slate-200 dark:border-[#2d3748]/50 overflow-hidden py-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
                   {selectedEntry.legs.map((leg, i) => (
@@ -972,7 +976,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           )}
         </AnimatePresence>
 
-        {/* ── Estado vacío: sin datos del mes ─────────────────────────── */}
+        {/* â”€â”€ Estado vacÃ­o: sin datos del mes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {!initialLoading && entries.length === 0 && !selectedEntry && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -989,7 +993,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           </motion.div>
         )}
 
-        {/* ── Estado de carga inicial (skeleton) ─────────────────────── */}
+        {/* â”€â”€ Estado de carga inicial (skeleton) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {initialLoading && (
           <div className="flex flex-col items-center py-12">
             <Loader2 size={24} className="text-[#1152d4] animate-spin mb-3" />
@@ -998,11 +1002,11 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            MODALES
-         ════════════════════════════════════════════════════════════════ */}
+         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
 
-      {/* Modal de Tripulación */}
+      {/* Modal de TripulaciÃ³n */}
       <AnimatePresence>
         {crewModal && (
           <CrewModal
