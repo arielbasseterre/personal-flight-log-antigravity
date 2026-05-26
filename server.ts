@@ -7,11 +7,42 @@ import dotenv from "dotenv";
 import axios from "axios";
 import dns from "dns";
 import { chromium } from "playwright";
+import * as admin from "firebase-admin";
+import crypto from "crypto";
+import { scrapeArmsRoster, parseArmsRosterHtml } from "./api/arms-scraper";
 
 // Fix for ENOTFOUND errors in some environments
 dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INICIALIZACIÓN DE FIREBASE ADMIN SDK (FCM)
+// ═══════════════════════════════════════════════════════════════════════════
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    let serviceAccount;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    }
+    
+    if (serviceAccount) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log("[FIREBASE] Firebase Admin SDK inicializado usando FIREBASE_SERVICE_ACCOUNT.");
+    } else {
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault()
+      });
+      console.log("[FIREBASE] Firebase Admin SDK inicializado usando GOOGLE_APPLICATION_CREDENTIALS.");
+    }
+  } catch (error: any) {
+    console.error("[FIREBASE] Error al inicializar Firebase Admin SDK:", error.message);
+  }
+} else {
+  console.warn("[FIREBASE] No se encontraron credenciales de Firebase. Las notificaciones push de fondo estarán desactivadas.");
+}
 
 const app = express();
 app.use(express.json());
@@ -459,6 +490,345 @@ app.use((req, res, next) => {
       });
     }
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ARMS ROSTER SYNC APIs
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Helper para enviar notificaciones push a través de Firebase Cloud Messaging
+  async function sendRosterPushNotification(userId: string, title: string, body: string) {
+    if (!admin.apps.length) {
+      console.warn(`[PUSH] Firebase Admin no inicializado. Omitiendo notificación para ${userId}.`);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('push_tokens')
+        .select('fcm_token')
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !data?.fcm_token) {
+        console.log(`[PUSH] No se encontró token de push para el usuario: ${userId}`);
+        return;
+      }
+
+      console.log(`[PUSH] Enviando notificación a ${userId}...`);
+      await admin.messaging().send({
+        notification: { title, body },
+        android: {
+          notification: {
+            icon: 'stock_ticker_update',
+            color: '#7e57c2',
+            clickAction: 'roster' // Redirige a pantalla de roster en la app
+          }
+        },
+        data: {
+          screen: 'roster'
+        },
+        token: data.fcm_token
+      });
+      console.log(`[PUSH] Notificación enviada con éxito a ${userId}.`);
+    } catch (e: any) {
+      console.error(`[PUSH] Error al enviar notificación al usuario ${userId}:`, e.message);
+    }
+  }
+
+  app.post("/api/arms/sync-roster", async (req, res) => {
+    const { user_id, username, password, month, year, rememberMe, rememberSession } = req.body;
+    const shouldRemember = rememberMe || rememberSession;
+
+    if (!user_id || !username || (!password && !req.body.sessionData)) {
+      return res.status(400).json({ error: "user_id, username y password o sesión son requeridos" });
+    }
+
+    const targetMonth = parseInt(String(month || (new Date().getMonth() + 1)));
+    const targetYear = parseInt(String(year || new Date().getFullYear()));
+
+    console.log(`[ARMS_SYNC] Iniciando sync manual para usuario ${user_id} (${username}) - Período ${targetMonth}/${targetYear}`);
+
+    let browserInstance;
+    try {
+      browserInstance = await getBrowser();
+      
+      // Intentar obtener sesión existente si no viene password
+      let sessionData = req.body.sessionData;
+      if (!sessionData && !password) {
+        const { data: existingSession } = await supabase
+          .from('arms_sessions')
+          .select('session_data')
+          .eq('user_id', user_id)
+          .single();
+        sessionData = existingSession?.session_data;
+      }
+
+      const { html, storageState } = await scrapeArmsRoster(
+        browserInstance,
+        username,
+        password,
+        targetMonth,
+        targetYear,
+        sessionData
+      );
+
+      // Parsear HTML a estructuras estructuradas
+      const rosterEntries = parseArmsRosterHtml(html);
+      
+      // Calcular hash SHA-256 para detección de cambios
+      const rosterHash = crypto.createHash("sha256").update(JSON.stringify(rosterEntries)).digest("hex");
+
+      // Guardar el roster mensual en Supabase
+      const { error: dbError } = await supabase
+        .from('arms_roster')
+        .upsert({
+          user_id,
+          month: targetMonth,
+          year: targetYear,
+          roster_json: rosterEntries,
+          roster_hash: rosterHash,
+          synced_at: new Date().toISOString()
+        }, { onConflict: 'user_id,month,year' });
+
+      if (dbError) {
+        console.error("[ARMS_SYNC] Error al guardar roster en DB:", dbError.message);
+        throw dbError;
+      }
+
+      // Guardar sesión de Playwright en Supabase para el cron job
+      if (shouldRemember || sessionData) {
+        const { error: sessionError } = await supabase
+          .from('arms_sessions')
+          .upsert({
+            user_id,
+            session_data: storageState,
+            arms_username: username,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+
+        if (sessionError) {
+          console.error("[ARMS_SYNC] Error al guardar sesión de ARMS:", sessionError.message);
+        }
+      }
+
+      console.log(`[ARMS_SYNC] Sincronización manual exitosa para ${username}. Tramos guardados: ${rosterEntries.length}`);
+      res.json({ success: true, entries: rosterEntries });
+
+    } catch (error: any) {
+      console.error("[ARMS_SYNC] Error en sincronización:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2. Endpoint para obtener el Roster guardado en la base de datos
+  app.get("/api/arms/roster", async (req, res) => {
+    const { user_id, month, year } = req.query;
+
+    if (!user_id || !month || !year) {
+      return res.status(400).json({ error: "user_id, month y year son requeridos" });
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('arms_roster')
+        .select('roster_json, synced_at')
+        .eq('user_id', user_id)
+        .eq('month', parseInt(month as string))
+        .eq('year', parseInt(year as string))
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      res.json({
+        success: true,
+        roster: data?.roster_json || [],
+        syncedAt: data?.synced_at || null
+      });
+    } catch (error: any) {
+      console.error("[GET_ROSTER] Error al leer roster:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 3. Endpoint para registrar/actualizar tokens de notificaciones push (FCM)
+  app.post("/api/arms/register-token", async (req, res) => {
+    const { user_id, fcm_token, platform = "android" } = req.body;
+
+    if (!user_id || !fcm_token) {
+      return res.status(400).json({ error: "user_id y fcm_token son requeridos" });
+    }
+
+    try {
+      const { error } = await supabase
+        .from('push_tokens')
+        .upsert({
+          user_id,
+          fcm_token,
+          platform,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      console.log(`[PUSH] Token FCM registrado exitosamente para usuario ${user_id}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[REGISTER_TOKEN] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CRON JOB: Sincronización automática en segundo plano (cada 20 minutos)
+  // ═══════════════════════════════════════════════════════════════════════════
+  async function runBackgroundRosterSync() {
+    console.log("[CRON] Iniciando tarea en segundo plano de sincronización de Roster...");
+    try {
+      // 1. Obtener todas las sesiones de ARMS activas
+      const { data: sessions, error } = await supabase
+        .from('arms_sessions')
+        .select('user_id, session_data, arms_username');
+
+      if (error) {
+        console.error("[CRON] Error al consultar sesiones de ARMS:", error.message);
+        return;
+      }
+
+      if (!sessions || sessions.length === 0) {
+        console.log("[CRON] No hay sesiones activas de ARMS registradas.");
+        return;
+      }
+
+      const browserInstance = await getBrowser();
+      const now = new Date();
+      
+      // Definir los dos meses a sincronizar (Mes actual y mes siguiente)
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+
+      let nextMonth = currentMonth + 1;
+      let nextYear = currentYear;
+      if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear += 1;
+      }
+
+      const periods = [
+        { month: currentMonth, year: currentYear },
+        { month: nextMonth, year: nextYear }
+      ];
+
+      // 2. Sincronizar secuencialmente para cada usuario y período
+      for (const session of sessions) {
+        const { user_id, session_data, arms_username } = session;
+        console.log(`[CRON] Sincronizando usuario: ${arms_username} (${user_id})`);
+
+        let sessionExpired = false;
+
+        for (const period of periods) {
+          if (sessionExpired) break;
+
+          try {
+            console.log(`[CRON] Sincronizando período ${period.month}/${period.year} para ${arms_username}...`);
+            
+            // Hacer scraping con cookies cargadas
+            const { html, storageState } = await scrapeArmsRoster(
+              browserInstance,
+              arms_username,
+              undefined, // Sin contraseña para forzar uso exclusivo de cookies de sesión
+              period.month,
+              period.year,
+              session_data
+            );
+
+            // Actualizar las cookies almacenadas por si cambiaron o se renovaron
+            await supabase
+              .from('arms_sessions')
+              .update({
+                session_data: storageState,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', user_id);
+
+            // Parsear el roster
+            const rosterEntries = parseArmsRosterHtml(html);
+            const rosterHash = crypto.createHash("sha256").update(JSON.stringify(rosterEntries)).digest("hex");
+
+            // Comparar con el hash actual
+            const { data: currentRoster } = await supabase
+              .from('arms_roster')
+              .select('roster_hash')
+              .eq('user_id', user_id)
+              .eq('month', period.month)
+              .eq('year', period.year)
+              .single();
+
+            const oldHash = currentRoster?.roster_hash;
+
+            if (oldHash !== rosterHash) {
+              console.log(`[CRON] ¡Cambios detectados en Roster de ${arms_username} para ${period.month}/${period.year}!`);
+              
+              // Guardar en base de datos
+              await supabase
+                .from('arms_roster')
+                .upsert({
+                  user_id,
+                  month: period.month,
+                  year: period.year,
+                  roster_json: rosterEntries,
+                  roster_hash: rosterHash,
+                  synced_at: new Date().toISOString()
+                }, { onConflict: 'user_id,month,year' });
+
+              // Notificar al usuario
+              const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+              const periodStr = `${monthNames[period.month - 1]} ${period.year}`;
+              await sendRosterPushNotification(
+                user_id,
+                "Roster de ARMS Actualizado ✈️",
+                `Se han detectado cambios en tu programación de ${periodStr}. Entra a la app para verlos.`
+              );
+            } else {
+              console.log(`[CRON] Sin cambios en Roster de ${arms_username} para ${period.month}/${period.year}.`);
+            }
+
+            // Esperar 3 segundos para no sobrecargar el portal
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+          } catch (itemError: any) {
+            console.error(`[CRON] Error al sincronizar periodo ${period.month}/${period.year} para ${arms_username}:`, itemError.message);
+            
+            // Si el error indica sesión expirada o credenciales
+            if (itemError.message.includes("expiró") || itemError.message.includes("login") || itemError.message.includes("Iniciar sesión") || itemError.message.includes("cookies")) {
+              sessionExpired = true;
+              console.warn(`[CRON] La sesión de ${arms_username} ha expirado. Limpiando y notificando...`);
+              
+              // Eliminar sesión para no seguir reintentando en vano
+              await supabase
+                .from('arms_sessions')
+                .delete()
+                .eq('user_id', user_id);
+
+              // Notificar al usuario
+              await sendRosterPushNotification(
+                user_id,
+                "Sesión de ARMS Expirada ⚠️",
+                "Tu sesión automática de ARMS ha expirado. Por favor, abre la app y vuelve a iniciar sesión en tu roster."
+              );
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      console.error("[CRON] Error general en el cron job de Roster:", e.message);
+    }
+  }
+
+  // Programar cron para ejecutarse cada 20 minutos (20 * 60 * 1000 ms)
+  setInterval(runBackgroundRosterSync, 20 * 60 * 1000);
+  
+  // Ejecutar una vez al arrancar el servidor (esperando 10 segundos para no bloquear el inicio)
+  setTimeout(runBackgroundRosterSync, 10000);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

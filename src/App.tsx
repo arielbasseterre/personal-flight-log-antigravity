@@ -24,7 +24,8 @@ import {
   Plus,
   X,
   Moon,
-  Sun
+  Sun,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -39,6 +40,8 @@ import { Screen, CalculationResult, FlightLog, Profile } from './types';
 import { LibroScreen } from './components/LibroScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { AnacAuth } from './components/AnacAuth';
+import { ArmsRosterScreen } from './components/ArmsRosterScreen';
+import { registerPushNotifications, unregisterPushNotifications } from './utils/push-notifications';
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
 
@@ -164,6 +167,10 @@ const BottomNav = ({ currentScreen, setScreen }: { currentScreen: Screen, setScr
         <Plane size={24} className={currentScreen === 'libro' ? 'fill-[#1152d4]/20' : ''} />
         <span className="text-[10px] font-medium">Libro</span>
       </button>
+      <button onClick={() => setScreen('roster')} className={`nav-item ${currentScreen === 'roster' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
+        <Calendar size={24} />
+        <span className="text-[10px] font-medium">Roster</span>
+      </button>
     </div>
   </nav>
 );
@@ -273,7 +280,7 @@ const APP_VERSION = CHANGELOG_DATA[0].version;
 
 // --- Screens ---
 
-const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onChangelog, darkMode, toggleDarkMode }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onChangelog: () => void, darkMode: boolean, toggleDarkMode: () => void }) => (
+const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, darkMode, toggleDarkMode }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, darkMode: boolean, toggleDarkMode: () => void }) => (
   <div className="flex flex-col h-full bg-white dark:bg-[#101622] text-slate-900 dark:text-white transition-colors">
     <div className="flex items-center p-4 justify-between border-b border-slate-200 dark:border-[#2d3748]">
       <div className="flex items-center gap-2">
@@ -359,6 +366,21 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onChangelog,
               <p className="text-[10px] text-slate-500 dark:text-slate-400">Registros y exportación</p>
             </div>
             <ChevronRight size={18} className="text-slate-300 group-hover:text-amber-500" />
+          </button>
+
+          {/* Roster de Vuelo ARMS */}
+          <button 
+            onClick={onGoToRoster}
+            className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-violet-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
+          >
+            <div className="bg-violet-500/10 p-3 rounded-xl group-hover:bg-violet-500/20 transition-colors">
+              <Calendar className="text-violet-500" size={24} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Roster de Vuelo ARMS</h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Calendario mensual y tramos</p>
+            </div>
+            <ChevronRight size={18} className="text-slate-300 group-hover:text-violet-500" />
           </button>
 
           <button 
@@ -1095,13 +1117,17 @@ export default function App() {
   };
 
   useEffect(() => {
+    let lastUserId: string | null = null;
+
     // Check active session
     supabase?.auth.getSession().then(({ data: { session } }) => {
       const activeUser = session?.user ?? null;
       setUser(activeUser);
       setAuthLoading(false);
       if (activeUser) {
+        lastUserId = activeUser.id;
         fetchData(activeUser.id);
+        registerPushNotifications(activeUser.id);
       }
     });
 
@@ -1110,14 +1136,29 @@ export default function App() {
       const activeUser = session?.user ?? null;
       setUser(activeUser);
       if (activeUser) {
+        lastUserId = activeUser.id;
         fetchData(activeUser.id);
+        registerPushNotifications(activeUser.id);
       } else {
+        if (lastUserId) {
+          unregisterPushNotifications(lastUserId);
+          lastUserId = null;
+        }
         setProfile(null);
         setLogs([]);
       }
     }) || { data: { subscription: { unsubscribe: () => {} } } };
 
-    return () => subscription.unsubscribe();
+    // Escuchar el evento de notificación tocada para abrir la pantalla de roster
+    const handleOpenRoster = () => {
+      setScreen('roster');
+    };
+    window.addEventListener('open-arms-roster', handleOpenRoster);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('open-arms-roster', handleOpenRoster);
+    };
   }, []);
 
   useEffect(() => {
@@ -1136,7 +1177,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'home':
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
@@ -1177,10 +1218,23 @@ export default function App() {
             </div>
           </div>
         );
+      case 'roster':
+        return (
+          <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
+            <Header title="Mi Roster ARMS" onBack={() => setScreen('home')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+            <div className="flex-1 overflow-y-auto">
+              {!user ? (
+                <AuthScreen />
+              ) : (
+                <ArmsRosterScreen userId={user.id} />
+              )}
+            </div>
+          </div>
+        );
       case 'changelog':
         return <ChangelogScreen onBack={() => setScreen('home')} />;
       default:
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
     }
   };
 

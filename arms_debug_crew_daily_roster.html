@@ -1,0 +1,1735 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"><head id="Head1"><title>
+	Crew Daily Roster
+</title><link rel="shortcut icon" href="imagesV2/icon.ico"><link href="css/bootstrap-theme.css" rel="stylesheet" type="text/css"><link href="css/bootstrap.css" rel="stylesheet" type="text/css"><link href="css/jquery-ui.css" rel="stylesheet" type="text/css">
+    
+    <script src="js/jquery-1.10.2.js" type="text/javascript"></script>
+    <script src="JS/jquery-ui.js" type="text/javascript"></script>
+    <script src="js/bootstrap.js" type="text/javascript"></script>
+    
+    
+    <link href="css/Master.css" rel="stylesheet" type="text/css"><link href="css/Client.css" rel="stylesheet" type="text/css"><link href="CSS/CalendarControl.css" rel="stylesheet" type="text/css">
+    <script src="CalendarControl.js" type="text/javascript"></script></head><body style=""><iframe id="CalendarControlIFrame" src="javascript:false;" frameborder="0" scrolling="no"></iframe><div id="CalendarControl"></div>
+    <script src="JS/JScript.js" type="text/javascript"></script>
+    <script type="text/javascript">
+
+        //function setColor()                             To Set ScrollBar Colors    onload="setColor();"
+        //{ 
+        //document.body.style.scrollbarFaceColor="Violet"; 
+        //document.body.style.scrollbarArrowColor="GREEN"; 
+        //document.body.style.scrollbarTrackColor="BLUE" ;
+        //document.body.style.scrollbarShadowColor="PURPLE" ;
+        //document.body.style.scrollbarHighlightColor="RED"; 
+        //document.body.style.scrollbar3dlightColor="ORANGE" ;
+        //document.body.style.scrollbarDarkshadowColor="BLACK";
+        //}
+
+		/*
+		function Validate() {
+
+		var ToDate = document.getElementById('txtToDate').value;
+		var To_Y = ToDate.substring(7, 12);
+		var To_D = ToDate.substring(0, 2);
+		var To_M = GetMonth(ToDate.substring(3, 6));
+		var date1 = new Date(To_Y, To_M, To_D);
+
+
+		var RDate = document.getElementById('HdnReleaseDate').value;
+		var R_Y = RDate.substring(7, 12);
+		var R_D = RDate.substring(0, 2); 
+		var R_M = GetMonth(RDate.substring(3, 6));
+		var date2 = new Date(R_Y, R_M, R_D);
+	   
+		if (date1 > date2) {
+		alert("Date range greater than release date.")
+		return false;
+		}
+		else {
+		return true;
+		}
+
+		}
+		*/
+
+        function Validate() {
+
+            var FROMDate = document.getElementById('txtFromDate').value;
+            var FROM_Y = FROMDate.substring(7, 12);
+            var FROM_D = FROMDate.substring(0, 2);
+            var FROM_M = GetMonth(FROMDate.substring(3, 6));
+            var frmDate = new Date(FROM_Y, FROM_M, FROM_D);
+
+            var ToDate = document.getElementById('txtToDate').value;
+            var To_Y = ToDate.substring(7, 12);
+            var To_D = ToDate.substring(0, 2);
+            var To_M = GetMonth(ToDate.substring(3, 6));
+            var date1 = new Date(To_Y, To_M, To_D);
+            // alert(document.getElementById('txtFromDate').value)
+            // alert(document.getElementById('HdnReleaseDate').value);
+            // alert(document.getElementById('txtToDate').value);
+            var RDate = document.getElementById('HdnReleaseDate').value;
+            var R_Y = RDate.substring(7, 12);
+            var R_D = RDate.substring(0, 2);
+            var R_M = GetMonth(RDate.substring(3, 6));
+            var date2 = new Date(R_Y, R_M, R_D);
+            // alert(RDate);
+            //txtFromDate
+            if (document.getElementById('txtFromDate').value == "") {
+                document.getElementById('txtFromDate').focus();
+                ShowMsgBox('', 'Please Enter From date.');
+                return false;
+            }
+            if (document.getElementById('txtToDate').value == "") {
+                document.getElementById('txtToDate').focus();
+                ShowMsgBox('', 'Please Enter To date.');
+                return false;
+            }
+            if (frmDate > date2) {
+                document.getElementById('txtFromDate').focus();
+                ShowMsgBox('', 'To Date should be greater than From date.');
+                return false;
+            }
+            if (date1 > date2) {
+                document.getElementById('txtToDate').focus();
+                ShowMsgBox('', 'Date range greater than release date.');
+                return false;
+            }
+            else {
+                return true;
+            }
+
+        }
+
+        function GetMonth(Month) {
+            var iMonth;
+
+            switch (Month) {
+                case "Jan":
+                    iMonth = 01
+                    break
+                case "Feb":
+                    iMonth = 02
+                    break
+                case "Mar":
+                    iMonth = 03
+                    break
+                case "Apr":
+                    iMonth = 04
+                    break
+                case "May":
+                    iMonth = 05
+                    break
+                case "Jun":
+                    iMonth = 06
+                    break
+                case "Jul":
+                    iMonth = 07
+                    break
+                case "Aug":
+                    iMonth = 08
+                    break
+                case "Sep":
+                    iMonth = 09
+                    break
+                case "Oct":
+                    iMonth = 10
+                    break
+                case "Nov":
+                    iMonth = 11
+                    break
+                case "Dec":
+                    iMonth = 12
+                    break
+                default:
+                    break
+            }
+
+            return iMonth
+        }
+
+        function blankText(element) {
+            var key = window.event.keyCode;
+            //if (key <48 || key >57) 
+            window.event.returnValue = false;
+        }
+
+        function getFocus(element) {
+            element.focus();
+        }
+
+        function CreateExcelSheet() {
+            var x = document.getElementById('SpreadMask').rows;
+            var xls = new ActiveXObject("Excel.Application");
+
+            xls.visible = true;
+            xls.Workbooks.Add;
+            xls.Workbooks(1).Sheets(1).Rows("1:1").RowHeight = 25.5
+            xls.Workbooks(1).Sheets(1).Range("A1:E" + x.length + "").HorizontalAlignment = 3;
+            xls.Workbooks(1).Sheets(1).Range("A1:E1").VerticalAlignment = -4108;
+
+            for (i = 0; i < x.length; i++) {
+                var y = x[i].cells;
+                for (j = 0; j < y.length; j++) {
+                    if (i == 0) {
+                        xls.Cells(i + 1, j + 1).Font.Bold = true;
+                        xls.Cells(i + 1, j + 1).Font.Name = "Verdana";
+                        xls.Cells(i + 1, j + 1).Font.Size = 9;
+                        xls.Cells(i + 1, j + 1).Interior.ColorIndex = "37";
+
+                    }
+                    else {
+                        xls.Cells(i + 1, j + 1).Font.Name = "Verdana";
+                        xls.Cells(i + 1, j + 1).Font.Size = 8;
+                        xls.Cells(i + 1, j + 1).Interior.ColorIndex = "48";
+                    }
+
+                    xls.Cells(i + 1, j + 1).Value = y[j].innerText;
+                    xls.Cells(i + 1, j + 1).EntireColumn.AutoFit;
+
+                }
+            }
+        }
+    </script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+
+            //            var dr, dr1;
+            //            var bla = $('#hiddate').val();
+            //    alert(bla);
+            // dr = new Date(bla);
+            $(".ui-datepicker-trigger").css("border", "0");
+            // $(".ui-datepicker-trigger").css("width", "20");
+            //  $(".ui-datepicker-trigger").css("background-color", "#4A7099");
+            $(".ui-datepicker-trigger").css("margin-top", "0px");
+            $(".ui-datepicker-trigger").css("vertical-align", "top");
+
+            $("#txtFromDate").datepicker(
+                {
+                    constrainInput: true,
+                    showOn: "button",
+                    buttonImage: "Images/Calande_img.gif",
+                    dayNamesMin: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                    changeMonth: true,
+                    changeYear: true,
+                    //currentText: "Now",
+                    dateFormat: $('#Hiddateformat').val(),
+                    firstDay: 1,
+                    maxDate: $("#lblNote1").text(),
+                    onSelect: function (date) {
+                        $("#txtToDate").datepicker("option", "minDate", date);
+                        $("#txtToDate").datepicker("option", "defaultDate", date);
+                        $("#txtFromDate").datepicker("option", "currentText", "Today");
+                    },
+                    showButtonPanel: true,
+                    closeText: 'Clear', // Text to show for "close" button
+                    onClose: function () {
+                        var event = arguments.callee.caller.caller.arguments[0];
+                        // If "Clear" gets clicked, then really clear it
+                        if ($(event.delegateTarget).hasClass('ui-datepicker-close')) {
+                            $(this).val('');
+                        }
+                    }
+
+                    //     var currentText = $( "#txtFromDate" ).datepicker( "option", "currentText" );
+
+                    // Setter
+
+                });
+            $("#txtToDate").datepicker({
+
+                constrainInput: true,
+                showOn: "button",
+                buttonImage: "Images/Calande_img.gif",
+                dayNamesMin: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                changeMonth: true,
+                changeYear: true,
+                dateFormat: $('#Hiddateformat').val(),
+                firstDay: 1,
+                maxDate: $("#lblNote1").text(),
+                onSelect: function (date) {
+                    //$("#txtFromDate").datepicker("option", "maxDate", date);
+                    //$(".ui-datepicker-trigger").css("border", "0");
+                    //$(".ui-datepicker-trigger").css("width", "15");
+                    //$(".ui-datepicker-trigger").css("background-color", "#ffffff");
+                    //$(".ui-datepicker-trigger").css("margin", "0");
+                    //$(".ui-datepicker-trigger").css("vertical-align", "top");
+                },
+                showButtonPanel: true,
+                closeText: 'Clear', // Text to show for "close" button
+                onClose: function () {
+                    var event = arguments.callee.caller.caller.arguments[0];
+                    // If "Clear" gets clicked, then really clear it
+                    if ($(event.delegateTarget).hasClass('ui-datepicker-close')) {
+                        $(this).val('');
+                    }
+                }
+            });
+
+            //$(".ui-datepicker-trigger").css("border", "0");
+            //$(".ui-datepicker-trigger").css("width", "20px");
+            //$(".ui-datepicker-trigger img").css("width", "20px");
+            //$(".ui-datepicker-trigger").css("background-color", "#ffffff");
+            //$(".ui-datepicker-trigger").css("margin-top", "-3px");
+            //$(".ui-datepicker-trigger").css("vertical-align", "top");
+            //$(".ui-datepicker-trigger").css("outline", "none");
+
+            //$(".ui-datepicker table").css("font-size", ".8em");
+
+            //            $('#TxtDFdt').datepicker({
+            //                onSelect: function (dateText, inst) {
+            //                    var date = $(this).val();
+            //                    alert(date)
+            //                    //                    $("#TxtDTdt").datepicker({
+
+            //                    //                        constrainInput: true,
+            //                    //                        showOn: "button",
+            //                    //                        buttonImage: "Image/Calande_img.gif",
+            //                    //                        dayNamesMin: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+            //                    //                        changeMonth: true,
+            //                    //                        changeYear: true,
+            //                    //                        dateFormat: 'dd-M-yy',
+            //                    //                        minDate: $("#TxtDFdt").val()
+
+
+            //                    //});
+            //                }
+            //            });
+
+
+
+
+        });
+
+        jQuery.datepicker._gotoToday = function (id) {
+            var today = new Date();
+            var dateRef = jQuery("<td><a>" + today.getDate() + "</a></td>");
+            this._selectDay(id, today.getMonth(), today.getFullYear(), dateRef);
+        };
+    </script>
+    <script type="text/javascript">
+        //<!--
+        //		//Disable right click script 
+        //		//visit http://www.rainbow.arch.scriptmania.com/scripts/ 
+        //		var message = "Sorry, right-click has been disabled";
+        //		/////////////////////////////////// 
+        //		function clickIE() {
+        //		    if (document.all) {
+        //		        (message); //return false; 
+        //        } }
+        //		function clickNS(e) {
+        //			if
+        //(document.layers || (document.getElementById && !document.all)) {
+        //			    if (e.which == 2 || e.which == 3) {
+        //			        (message); //return false; 
+        //                }
+        //			}
+        //		}
+        //		if (document.layers)
+        //		{ document.captureEvents(Event.MOUSEDOWN); document.onmousedown = clickNS; }
+        //		else { document.onmouseup = clickNS; document.oncontextmenu = clickIE; }
+        //		document.oncontextmenu = new Function("return false")
+        //		// --> 
+
+        function fnlogout() {
+            window.history.go(-1);
+
+            document.location.href = "loginnew.aspx?msg=You have sucessfully logout";
+        }
+        function fnhome() {
+
+            top.location.href = "indexnew.aspx";
+        }
+    </script>
+    <style type="text/css">
+        .CssStyle1 {
+            font: 400 12pt verdana;
+        }
+
+        .hasDatepicker {
+            margin-top: -5px;
+            margin-left: 5px;
+        }
+
+        .ui-datepicker table, .ui-datepicker-title {
+            font-size: .8em;
+        }
+
+        .ui-datepicker-trigger {
+            border: 0;
+            background-color: #ffffff;
+            margin-top: 0px;
+            vertical-align: top;
+            outline: none;
+        }
+
+            .ui-datepicker-trigger img {
+                width: 20px;
+                margin-top: -10px;
+            }
+
+        @media print {
+            .dontprint {
+                display: none;
+            }
+        }
+    </style>
+    <style type="text/css">
+        @media print {
+            .dontprint {
+                display: none;
+            }
+        }
+    </style>
+<link id="SpreadMenuCss" href="/CREWPORTAL/WebResource.axd?d=WV2MZKOgFOYu6BDizYWtwyUYcu_Jl3ZLiO_SinhHzUSbtxk_bsl4M_Wx6fw5caKc_67EV2tUGbmdWWQSTvTcKu6E0cqOUAECZPsvcCYhoFnzHXF3lfiLya6His1bK5OipZX3NH0m6-8aN8CCp376D-Zr4dzws3b-VsxKSTMgHxE1&amp;t=637085501380870409" type="text/css" rel="stylesheet">
+<!--#6A809F-->
+
+    <form method="post" action="./CrewDailyRoster.aspx" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUJOTMzMDM0NDQ2D2QWAgIDD2QWJAIDD2QWAgINDw9kFgIeCW1heGxlbmd0aAUDMjAwZAIFDw8WAh4EVGV4dAUFQVJJRUxkZAILDxYCHgdWaXNpYmxlZ2QCDQ8WAh8CZ2QCEw8PFgIfAQULMzEtTWF5LTIwMjZkZAIVDw8WAh8BBREyNiBNYXkgMjAyNiAyMjo1MGRkAhcPDxYCHwEFETI2IE1heSAyMDI2IDE5OjUwZGQCHQ8PZBYCHghyZWFkb25seQUIcmVhZG9ubHlkAiEPD2QWAh8DBQhyZWFkb25seWQCLw9kFgJmD2QWAgIBDwUyZnBzcHJlYWRzdGF0ZTo3ZmVkN2ZjYS05N2NhLTRlMzgtYTlhMC1lNGNjNDM1NjFhZjlkAjUPBTJmcHNwcmVhZHN0YXRlOjQ0NjM1NWYyLWY3NTEtNDY3OC1iMWE5LTk5MTJkM2FkNzdjMGQCNw8FMmZwc3ByZWFkc3RhdGU6NDBjNWI4MDYtYTE4My00MWQzLTgwMDQtNGMwODYyODQyYTFlZAI5DwUyZnBzcHJlYWRzdGF0ZTpkN2I2MDE1YS01NGE3LTRhZTEtOWJmNS00MWYwYmQ2NDM5Y2FkAjsPBTJmcHNwcmVhZHN0YXRlOmI4YWUxMTU0LTMzZGEtNDM4My05ZTdiLWY1M2ViMWE2YjhmY2QCPQ8FMmZwc3ByZWFkc3RhdGU6MjE2NDcyNGEtN2NhYi00MmMyLWFkMGEtMGY2MGJjNWFhNWZiZAI/DwUyZnBzcHJlYWRzdGF0ZTo2YzgxMDE4MS1hYTg3LTQ3ZjQtYjExNC0wODI2YWU5YmQ4MWFkAkEPBTJmcHNwcmVhZHN0YXRlOjNjZjZjZDU3LTc4ZjEtNDZmNi1iOThkLTdiZDdlNWI0YTFjZWQCUw8PFgIfAQU4UG93ZXJlZCBCeSBBUk1TPHN1cD7Crjwvc3VwPiB8IExhc3QgTG9nIEluIDogMjYtTWF5LTIwMjZkZBgBBR5fX0NvbnRyb2xzUmVxdWlyZVBvc3RCYWNrS2V5X18WCwUKU3ByZWFkTWFzawUIc3ByT3RoZXIFCnNwck90aGVyQVAFD3NwckZsaWdodER1dGllcwURc3ByRmxpZ2h0RHV0aWVzQVAFC3NwckRlYWRIZWFkBQxzcHJEZWFkSGVhZDEFDHNwckR1dHl0eXBlcwURY2hrY3Jld2NvbXBsaW1lbnQFDWNoa0Rpc3BsYXlDUlYFDWNoa0Rpc3BsYXlOREF7gR5/7yPY/1e3mop7SDJrp/5KpWahuoqc2C5MYfjDpw==">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['form1'];
+if (!theForm) {
+    theForm = document.form1;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+
+<script src="/CREWPORTAL/WebResource.axd?d=hXLhwt1vXXXQL8VDNqHZ8FM-zL4Tq2QpjgRkL-lWMJU3fOcBEXLhEE3yK4IOc_tlCTCfP-qbOHW8j0YDFMfyYGGcT4v49gug4De8SYJqSEh1Xi-qrNkiqOl2HeHEZG_2TKfZzjV4mnKLWn3KDzLa9GyExI3JlwsEp2xKn3qqgUo1&amp;t=637085501380870409" type="text/javascript"></script>
+<script type="text/javascript">
+//<![CDATA[
+function _gcFpSpreadReg(id,options){if(typeof(GrapeCity)!="undefined"&&GrapeCity.Web&&GrapeCity.Web.Spread&&GrapeCity.Web.Spread.FpSpread){var sp = new GrapeCity.Web.Spread.FpSpread(id,options);}else setTimeout(function(){_gcFpSpreadReg(id,options);}, 50);}//]]>
+</script>
+
+<script src="/CREWPORTAL/WebResource.axd?d=pojctl5DWd4j_TFaiDMBBZTeXW2D9_ewOlr69CaqlJeq0BofcZUdORrAMQhGrG9k2Yl0Abb6q8JFzz8tVITMXpA5SciLb3j3rsflT34SwQ2jyTlMh9uk5bkhKJR0_jewYnooDBOwORmRYQANLjZOQFCTUwLISl7hAZPwSDfIutU1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=okZXOsuNnYo_SYEHBP_AvFnKh2DzoOzZNn5BqXgO9IZoIAoWs94n2fC-Yx-5k0086nCNImYWPSfc7TqrmSzYD6SLKSQe1iLM1mQLGS7-v2vTCdlwnnOdCNSet23453B6HC5k3lh_gLj0QCGq6kXGOqyrlYFNVaEcxOUzJSvoMKI1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=hZpXEK3m7LCEE7RxmboaPO64aIxYj0K8VYiNJ2w6-CkoJzDI6f3_N6opRYvg7_va0dty7Q124La7h0vK-ppiLiMSqVUctdJGllbDYMZbz2EEbxyCE0CLOAUJkKdPIJyDtjwMY-nVRhTBpY4ATUOeSpDle56DOQZLvvyBy30LwhI1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=c6VlsaZ3goBqbrFyAGTmiUYtAFyWMYgBAqUb-BXLmxlViVPhEo1QU2vssb-LW72Kmj8etApzwb13l2qtJ7pQTuhDJP21bBzeKjWHExcdA41lrsibvugK2swHb1eUksfuPfdY1_FZsT8OQvR2uauhj6EDHPcTwf2jcZisdOP6TlU1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=O1kZEALsp8GK0iycNT79-f4w4HIn3fwcD0oxWAZIhEhlkLf3e6odFnYdSlZ_kDwc3wMaaeQC9kfN7S9T_qOxQifaOe9jqoPDs17I36H0uai30pH6wbXeIQl7vOfvFJwWgBBp2o-_00BD09RfL3faCB_hiYGpBb6SYSRatJWOi5Y1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=fXjZtgGN895VnS85m66kvehskF6GnyyrcfXgfJW7-oN8IF2FuVWNAl8NrA0LZ7GxlilZwvoWZWPKpwxpuLG9lCK4ixdsWNXW8sVlG3vaEHbe73EN2XW-1uMg5uHFgkjx3H3W9-mI6cySgCcBv5uUc45Nn7T_r4byfCFGWNKxCAk1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=NenIN1HUyRODCa3eMxfzH4d-yoJ8a1zTy9EB_yStqcS29iDfoH-zvIgbiAiVIznvaxJrWh9XEOot_CadeaOBmwdwrLvprqCMX-JxAie2UACYDdR-kzf7LXiGnXqS47O4tIEewIFVCNHXWG_OUrD1iJQLIi7u2nDW1rSBu4IS_cU1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=j0ueGWGSc2U6vQIPh9QJkRsG9IQHnUBEtwtcEZq8TQ0RTEFaI0QCj304qLz3Clmsj3G3bdLKexvEUu5x5U3GeqEZJWzYyMJqIG6nsOu0abtz7YXnoYWgMUui9l4PZ345cNZ350_RHfc4um_vGv_x2Q2&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=mOvLfI8JCVmmjiiPdfH89zh7dGnclovp_WZv5Yd8TsESl92N74Frzci7lKzRWr04l9aiV_LxIcBicDtyvSJA73PUq0J0TpjFl4T6QUpiiPQql5aomiw6IX0k3tvWK0JQTDvrIywLDII2a27IvnCa1g0SBfX6ZUy1g3g97Y6--bY1&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=lwTj9GI-RAuOXLcEpOFIa2rk4ynlpHmuZvCoS7OzYImvNPDUMCALJplCWy7JITrzNApF9Z_KALbj7oIMkXdDXzJ2vWcxhNh1wEaUMzJsJiImrswCTjGhEVMJm9j5hB3O5rt9Y-_NOy-h6-Yw1gAXYQ2&amp;t=637085501380870409" type="text/javascript"></script>
+<script src="/CREWPORTAL/WebResource.axd?d=P0Xw4ovfEovaErsHmn4LK8AWXCjiUXnOENCa6saJFB85yc94mR1jhvQOg8ebbDIcCK4l2kk8Qv4o9X458qEBzCiGFHqQF_7SpTZ320A4Z-e-V9XwAfEe3bTGZ8Go_DZJ2No-d8E_Gvo2cvX0rNrEOw2&amp;t=637085501380870409" type="text/javascript"></script>
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="335AB32F">
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="/wEdABXV2cixJnJggn33KzU0al17Q7/mOVM7ePBx++8vBx8i/BBc+vOcMWie6/5X2xnwve87UFVkenuavqzOcmQfM8J5TGNBKFO3R30WYQDn/ByRVMWp8YLx7FlFd60xQ2Znn9fwlyOLEcIpKhpsEkBa99P+GT8t1HUrza8WbUibVZOxq29KiEhGXrRR6ZmJFoFfthVD3GLC+epxx/SzcOhCXldJOhl9/XsBRVzBHlMefupGa34vupOzk0lkmj6auLolpNJ7O5w+XaEfSJaJ9tGrx+bBddBifEeMJIaBZfeikwJVVFnvlr8QlVrlRpdE24zr4ypmVsF05hrprdLyxGQ9wcy0WcKd2mE4BDfX9qHV+wrUZx5nZ+D7PsIbGz6fLLnJ8KtGs+kbOsP5kbRaThiuffkW5SNGwehMc4t4DIpQRzOeiE+i9G9HElw1y+SBs3I0hpeEe4sXBXPVjEwzXesffl25fMO4X6zuBlsh2VD0kXuawQ==">
+</div>
+        
+
+<div id="MasterHeader" class="top" style="width: 100%">
+    <div style="width:168px; float:left">
+    <img src="imagesV2/logo.png" id="CMIMAGE_Img1" alt="Client Logo">
+    </div>
+    <div class="header-text">
+        CREW WEB PORTAL
+    </div>
+</div>
+
+        
+
+<script type="text/javascript">
+
+    //Begin: Added function by Akshada on Dec2018 
+    var procdig;
+    var stop = false;
+    var refreshIntervalId;
+
+
+    function setProc(reloadurl, title) {
+      
+        if (title == 1) {
+            refreshIntervalId = setInterval("showPopBid(" + reloadurl + ");", 10000);
+        }
+        else {
+            refreshIntervalId = setInterval("showPop(" + reloadurl + ");", 10000);
+        } 
+    };
+
+
+
+    function showPop(reloadurl) {
+        if (stop) {
+            return false;
+        }
+        else {
+            $.ajax({
+
+                type: "POST",
+                url: "FlightTrip.aspx/fillwait",
+                 //url: reloadurl +"/fillwait",
+                data: '{Employeeid: "' + reloadurl + '" }',
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (response) {
+
+                    if (response.d.split('*')[0] != "") {
+
+                        stop = true;
+                        var lblmsg = $("#PopUpUC_lblMsgWarning");
+                        lblmsg[0].textContent = response.d.split('*')[0];
+                        clearInterval(refreshIntervalId);
+                        ShowMsgBox("ACeeptReject", response.d, true, 'flighttrip.aspx', '');
+                    }
+                    else {
+                    }
+                },
+                error: function () {
+                    alert('Error');
+                }
+            });
+        }
+    }
+
+
+    
+    function showPopBid(reloadurl) {
+        
+        if (stop) {
+            return false;
+        }
+        else {
+            $.ajax({
+
+                type: "POST",
+                url: "frmbiddingdisplay.aspx/fillwait",
+                 //url: reloadurl +"/fillwait",
+                data: '{BidrequestID : "' + reloadurl + '" }',
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (response) {
+
+                    if (response.d.split('*')[0] != "") {
+
+                        stop = true;
+                        var lblmsg = $("#PopUpUC_lblMsgWarning");
+                         var strviolation= $('#HidViolation')[0].value +"\n"+  response.d.split('*')[0];
+                        lblmsg[0].textContent = response.d.split('*')[0];
+                        clearInterval(refreshIntervalId);
+                        ShowMsgBox("ACeeptReject", strviolation, true, 'FrmBiddingDisplay.aspx', '');
+                    }
+                    else {
+                    }
+                },
+                error: function () {
+                    alert('Error');
+                }
+            });
+        }
+    }
+  //End: Added function by Akshada on Dec2018 
+    //Added By Akshada For JSON postback on Confirm
+    function CallJson(url, id) {
+        //debugger;;
+        var ischecked=false;
+        if (document.getElementsByName(id)[0].parentNode.parentElement.cells['0'].childNodes['1'].checked == true)
+            
+
+            ischecked = true;
+
+     //    alert(document.getElementsByName(id));
+     //   alert(document.getElementsByName(id));
+   //   $("#" + gv + " select[id*='ddlslotselection']").each(function (index) {
+   //   var ob = document.getElementsByName(id)[0].parentElement.parentNode.innerHTML.find('option[class="DisableLink"]');
+//document.getElementsByName(id)[0].parentElement.parentNode.find('input:text[class="DisableLink"]');
+
+     //   document.getElementsByName(id)[0].parentElement.outerHTML
+       // alert(document.getElementsByName(id)[0].parentElement.outerHTML.find('input:checkbox[Type$="checkbox"]').value);
+//document.getElementsByName(id)[0].parentElement.nextElementSibling.innerHTML
+      //  $( "document.getElementsByName(id)[0].parentElement.parentNode:contains('DisableLink')" ).css( "text-decoration", "underline" );
+     //          
+        //    });
+      $.ajax({
+
+                   type: "POST",
+                   url: "TQDCompletionRecordsPT.aspx/Submitdata",
+              
+               
+                data: '{SylID : "' + id + '" ,ischecked : "' + ischecked + '"}',
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                success: function (response) {
+
+                    if (response.d != "") {
+                        //debugger;;
+                        if (response.d > 0) {
+                            //debugger;
+                            if (ischecked == true) {
+                                document.getElementsByName(id)[0].parentNode.parentElement.cells['2'].childNodes['0'].className = "Enablelink";
+                                document.getElementsByName(id)[0].parentNode.parentElement.cells['2'].childNodes['0'].disabled = false;
+                            }
+                          //  document.getElementsByName(id)[0].disabled= true;
+                             
+                        }
+                         ShowMsgBox('Info', "Attendance Submitted Sucessfully", 1,url);
+                    }
+                    else {
+                    }
+                },
+                error: function () {
+                    alert('Error');
+                }
+            });
+    }
+  //End For JSON postback on Confirm
+
+
+    function ShowMsgBox(type, msg, isreload, reloadurl, ctrid, Title, SubTitle) {
+     
+        // isreload = 0 then "Not to Refresh page", isreload = 1 then "Refresh page" & isreload = 2 then "Close popup window"
+        //debugger;;
+        // 1. For messages on after saving records.   
+        if (type == "Saved") {
+            var lblmsg = $("#PopUpUC_lblMsgSaved");
+            var _SubTitle = $("#PopUpUC_lblSubHeadSaved")
+            lblmsg[0].textContent = msg;
+            //$('#imgSaved').attr("src", "imagesV2/TickMarkGreen.png");
+            _SubTitle.text((SubTitle == undefined)?'':SubTitle ); 
+            var _Title = ((Title == undefined) ||(Title.trim() == '')) ? 'Crew Portal Notification' : Title;
+            $('#dialogSaved').dialog({
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 400,
+                modal: true,
+                resizable: false,
+                show: 'fade slow',
+		closeOnEscape: false,
+   		open: function(event, ui) { $(".ui-dialog-titlebar-close").hide(); }, 
+		buttons: {
+                    OK: function () {
+                       //  debugger;
+                        $(this).dialog('close');
+                        if (parseInt(isreload) === 1) {
+                            if(reloadurl ==''){
+                                        window.location.href = window.location.href;
+                                       }else{
+                            top.location.href = reloadurl;
+                            }
+                        }
+                        else if (parseInt(isreload) === 2) {
+                            if (reloadurl == '') {
+                                //window.opener.location.href = window.opener.location.href;
+                                  parent.window.close();
+                            } else {
+                                window.opener.location.href= reloadurl;
+                                parent.window.close();
+                            }
+                        }     
+                        
+                    }
+                }
+            });
+        }
+
+        // Begin: Added condition by Akshada on Dec2018 
+        // 2.
+        else if (type == "Savewait") {
+            ctrid.click();
+              
+        }
+
+        // 3.
+        else if (type == "Wait") {
+            var lblmsg = $("#PopUpUC_lblMsgSaved");
+            lblmsg[0].textContent = msg;
+            $('#imgWarning').attr("src", "imagesV2/info.png");
+            setProc(reloadurl,Title);
+            //procdig = 
+            $('#dialogSaved').dialog({
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 400,
+                modal: true,
+                resizable: false,
+                show: 'fade slow',
+                open: function () {
+                    $(".ui-dialog-titlebar-close").hide();
+                    $('.ui-dialog-buttonpane').find('button:first').css('visibility', 'hidden');
+                },
+                close: function (event, ui) {
+                    $(this).dialog("close");
+                }
+                , buttons: {
+                    // OK: setProc(reloadurl)
+                    OK: function () {
+                        $(this).dialog("close");
+                    }
+                },
+            });
+            // $('#dialogSaved').css.find('.ui-dialog-buttonpane').find('button:first').css('visibility','hidden');
+        }
+
+        // 4.
+        else if (type == "ConfirmYes") {
+            //debugger;;
+            var lblmsg = $("#PopUpUC_lblMsgConfirm");
+            lblmsg[0].textContent = msg;
+            lblmsg[0].innerHTML = msg;
+            //$('#imgWarning').attr("src", "imagesV2/QuestionMarkBlue.png");
+            //var newDiv = document.createElement("div"); 
+            //newDiv.id = "dialogConfirmnew";
+       
+            $('#dialogConfirm').dialog({
+              
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 400,
+                top:5,
+                modal: true,
+                resizable: false,
+                zIndex: 10005,
+                
+                open: function () { $(".ui-dialog-titlebar-close").hide(); },
+
+                show: 'fade slow', buttons:
+                    {
+                        Yes: function () {
+                            var controlid = ctrid + ".ClientID";
+                            if (msg == "Request will be sent for a partial group. Do you wish to continue?") {
+                                $(this).dialog("close");
+                                ctrid.click();
+                                return true;
+                            }
+                             else if (ctrid == "JSONPOST")
+                        {
+                                $(this).dialog("close");
+                                CallJson(reloadurl,Title);
+                             
+                        }
+                            else {
+                              
+                                 $('#disableBackGround').attr('style', 'display:block');
+                                $(this).dialog("close");
+                                //return false;
+                                ctrid.click();
+                                return true;
+                            }
+                        },
+                        No: function () {
+                            if (msg == "Request will be cancelled for a partial group. Do you wish to continue?") {
+                                $(this).dialog("close");
+                                  
+                                return false;
+                            }
+                            else {
+                                $(this).dialog("close");
+                                 $('#disableBackGround').attr('style', 'display:none');
+                                if (isreload) {
+                                    window.location.href = reloadurl;
+                                }
+                            }
+                        }
+                    }
+            });
+        
+               $('#disableBackGround')[0].style.zIndex = 149999; 
+        }
+
+        // 5.
+        else if (type == "ACeeptReject") {
+            
+            var lblmsg = $("#PopUpUC_lblMsgWarning");
+            lblmsg[0].textContent = msg.split('*')[0];
+            //if (msg.split('*')[1] == "1") {
+            //    $('#imgWarning').attr("src", "../imagesV2/TickMarkGreen.png");
+            //}
+            //else {
+            //    $('#imgWarning').attr("src", "../imagesV2/cancel.png");
+            //}
+            //alert(parseInt(msg.split('*')[1]));
+            if (parseInt(msg.split('*')[1]) > 3) {
+                 //$('#imgWarning').attr("src", "../imagesV2/cancel.png");
+                  if(reloadurl == "flighttrip.aspx"){
+                        $('#imgWarning').attr("src", "imagesV2/cancel.png");
+                  }
+                  else{
+                        $('#imgWarning').attr("src", "../imagesV2/cancel.png");
+                  }   
+            }
+            else {
+                  //$('#imgWarning').attr("src", "../imagesV2/TickMarkGreen.png");
+                if(reloadurl == "flighttrip.aspx"){
+                        $('#imgWarning').attr("src", "imagesV2/TickMarkGreen.png");
+                }
+                else {
+                        $('#imgWarning').attr("src", "../imagesV2/TickMarkGreen.png");
+                }       
+            }
+            $('#dialogWarning').dialog({
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 400,
+                modal: true,
+                resizable: false,
+                open: function () { $(".ui-dialog-titlebar-close").hide(); },
+                show: 'fade slow', buttons:
+                    {
+                        OK: function () {
+
+                            $(this).dialog('close');
+                            if (isreload)
+                                top.location.href = reloadurl;
+                            $("#dialogSaved").dialog("close");
+                        }
+                    }
+            });
+        }
+        //End: Added condition by Akshada on Dec2018 
+            
+        // 6. Confirmation box
+        else if (type == "Confirm") {
+            var lblmsg = $("#PopUpUC_lblMsgConfirm");
+            lblmsg[0].innerHTML = msg;
+            //$('#imgWarning').attr("src", "imagesV2/QuestionMarkBlue.png");
+
+            $('#dialogConfirm').dialog({
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 400,
+                modal: true,
+                resizable: false,
+                show: 'fade slow',
+                buttons: {
+                    Confirm: function () {
+                        var controlid = ctrid + ".ClientID";
+                        if (msg == "Request will be sent for a partial group. Do you wish to continue?")   //// For SpiceJet, Buddy Group
+                        {
+                            $(this).dialog("close");
+                            controlid.click();
+                            return true;
+                        }
+                       
+                        else {
+                            var controlid1 = document.getElementById(ctrid);   //ctrid + ".ClientID";
+                            $(this).dialog("close");
+
+                            //return false;
+                            $(controlid1).addClass("Confirm");
+                            controlid1.click();
+                            return true;
+                        }
+                    },
+                    Cancel: function () {
+                        if (msg == "Request will be cancelled for a partial group. Do you wish to continue?") {
+                            $(this).dialog("close");
+                            return false;
+                        }
+                        else {
+                            $(this).dialog("close");
+                            if (isreload) {
+                                window.location.href = reloadurl;
+                            }
+                            else { 
+                                return false;
+                            }
+                        }
+                    }
+                }
+            });
+           
+        }
+
+
+        // 7. Begin: For Vistara, Duty Notification for change of duty in roster.        
+        else if (type == "Notification") {  
+            //alert(ctrid);     
+            //alert(reloadurl);
+            if (isreload > 0) {
+                var hdfNI = $("#PopUpUC_hdfNotHistID");
+                hdfNI[0].value = isreload;
+                var lblDutyMsg = $("#PopUpUC_lblDuty");
+                lblDutyMsg[0].innerHTML = reloadurl;
+            }
+            if (ctrid == "True") {
+                $('#dialogNotification').dialog({
+                    title: 'Duty Notification: ' + msg,
+                    minHeight: 'auto',
+                    width: 450,
+                    modal: true,
+                    resizable: false,
+                    closeOnEscape: false,
+                    open: function (event, ui) {
+                        $(".ui-dialog-titlebar-close", ui.dialog | ui).hide();
+                    },
+                    show: 'fade slow', buttons:
+                        {
+                            Accept: function () {
+                                ValidateNotification("Yes", "");
+                                $(this).dialog("close");
+                                ReCheckDutyInterval();
+                            },
+                            Reject: function () {
+                                ValidateNotification("No", "");
+                                //$(this).dialog("close");
+                            }
+                        }
+                });
+            }
+            else {
+                $('#dialogNotification').dialog({
+                    title: 'Duty Notification: "' + msg + '"',
+                    minHeight: 'auto',
+                    width: 450,
+                    modal: true,
+                    resizable: false,
+                    closeOnEscape: false,
+                    open: function (event, ui) {
+                        $(".ui-dialog-titlebar-close", ui.dialog | ui).hide();
+                    },
+                    show: 'fade slow', buttons:
+                        {
+                            OK: function () {
+                                ValidateNotification("Yes", "");
+                                $(this).dialog("close");
+                                ReCheckDutyInterval();
+                            }
+                        }
+                });
+            }
+        }                    
+        else if (type == "OnlyMessage") {
+            var lblmsg = $("#PopUpUC_lblmsgresponse");
+            lblmsg[0].textContent = msg;
+            //$('#imgWarning').attr("src", "imagesV2/WarningYellow.png");
+
+            $('#dialogmsglbl').dialog({
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 350,
+                modal: true,
+                resizable: false,
+                show: 'fade slow', buttons:
+                    {
+                        OK: function () {
+                            $(this).dialog('close');
+                            if (isreload)
+                                top.location.href = reloadurl;
+                        }
+                    }
+            });
+        }
+        // End: For Vistara, Duty Notification for change of duty in roster.   
+
+        // 8. For Information Messages (Which does not come under validation messages)
+        else if (type == "Info") {
+            var lblmsg = $("#PopUpUC_lblMsgInfo");
+            lblmsg[0].textContent = msg;
+            var _SubTitle = $("#PopUpUC_lblSubHeadInfo");
+            _SubTitle.text((SubTitle == undefined) ? '' : SubTitle); 
+            //$('#imgWarning').attr("src", "imagesV2/WarningYellow.png");
+              $('#dialogInfo')[0].parentElement.style.zIndex = 150000;
+            $('#dialogInfo').dialog({
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 350,
+                modal: true,
+                resizable: false,
+                show: 'fade slow',
+		closeOnEscape: false,
+   		open: function(event, ui) { $(".ui-dialog-titlebar-close").hide(); },  
+		buttons:
+                    {
+                        OK: function () {
+                            $(this).dialog('close');
+                            //if (parseInt(isreload) === 1) {
+                            //    if (reloadurl == '') {
+                            //        window.location.href = window.location.href;
+                            //    } else {
+                            //        top.location.href = reloadurl;
+                            //    }
+                            //}
+                            //else if (parseInt(isreload) === 2) {
+                            //    parent.window.close();
+                            //}          
+                            if (parseInt(isreload) === 1) {
+                            if(reloadurl ==''){
+                                        window.location.href = window.location.href;
+                                       }else{
+                                top.location.href = reloadurl;
+                                }
+                            }
+                            else if (parseInt(isreload) === 2) {
+                                if (reloadurl == '') {
+                                   // window.opener.location.href = window.location.href;
+                                      parent.window.close();
+                                } else {
+                                    window.opener.location.href= reloadurl;
+                                    parent.window.close();
+                                }
+                            }     
+                        }
+                    }
+            });
+             $('#dialogInfo')[0].parentElement.style.zIndex = 150000;
+        }
+
+        // 9. For Error Messages 
+        else if (type == "Error") {
+            var lblmsg = $("#PopUpUC_lblErrorMsg");
+            lblmsg[0].textContent = msg;
+            //$('#imgWarning').attr("src", "imagesV2/WarningYellow.png");
+
+            $('#dialogError').dialog({
+                title: 'Crew Portal Notification',
+                minHeight: 'auto',
+                width: 350,
+                modal: true,
+                resizable: false,
+                show: 'fade slow', buttons:
+                    {
+                        OK: function () {
+                            $(this).dialog('close');
+                            if (isreload)
+                                top.location.href = reloadurl;
+                        }
+                    }
+            });
+        }
+
+    // 10. AcceptReject box
+        else if (type == "AcceptCancel") {
+            var lblmsg = $("#PopUpUC_lblMsgConfirm");
+            lblmsg[0].textContent = msg;
+            var _SubTitle = $("#PopUpUC_lblSubHeadConfirm");
+            _SubTitle.text((SubTitle == undefined) ? '' : SubTitle); 
+             var _Title = ((Title == undefined) ||(Title.trim() == '')) ? 'Crew Portal Notification' : Title;
+              $('#dialogConfirm').dialog({
+                title: _Title,
+                minHeight: 'auto',
+                width: 400,
+                modal: true,
+                resizable: false,
+                show: 'fade slow',
+		closeOnEscape: false,
+   		open: function(event, ui) { $(".ui-dialog-titlebar-close").hide(); },
+                buttons: {
+                    //Confirm: function () {
+                        Accept: function () {
+                        var controlid = ctrid + ".ClientID";
+                            if (ctrid != '') {
+                                var controlid1 = document.getElementById(ctrid);   //ctrid + ".ClientID";
+                                $(this).dialog("close");
+                                //return false;
+                                controlid1.click();
+                                return true;
+                            }
+                           
+                    },
+                    Cancel: function () {
+                   
+                            $(this).dialog("close");
+                            if (isreload) {
+                                window.location.href = reloadurl;
+                             }else if (reloadurl != "") {
+                                window.location.href = "";
+				}
+                            else { 
+                                return false;
+                            }
+                    }
+                }
+            });
+        }
+        // 11. For Validation Messages 
+        else {      
+            var lblmsg = $("#PopUpUC_lblMsgWarning");
+            var _SubTitle = $("#PopUpUC_lblSubHead");
+            lblmsg[0].textContent = msg;
+            //$('#imgWarning').attr("src", "imagesV2/WarningYellow.png");
+            _SubTitle.text((SubTitle == undefined)?'':SubTitle ); 
+            var _Title = ((Title == undefined) ||(Title.trim() == '')) ? 'Crew Portal Notification' : Title;
+            $('#dialogWarning').dialog({
+                title: _Title,
+                minHeight: 'auto',
+                width: 400,
+                modal: true,
+                resizable: false,
+                open: function (event, ui) {
+                        $(".ui-dialog-titlebar-close", ui.dialog | ui).hide();
+                    },
+                show: 'fade slow', buttons:
+                    {
+                        OK: function () {
+                            $(this).dialog('close');
+                            if (isreload)
+                                top.location.href = reloadurl;
+                        }
+                    }
+            });
+        }
+    };
+
+
+
+    function ValidateNotification(strType, strRemark) {
+        //alert(strType);
+        if (strType == "Yes") {
+            UpdateNotification(strType, strRemark);
+        }
+        else {
+            //alert("Enter Remark");
+            $('#dialogRemarks').dialog({
+                title: 'Rejection Remarks:',
+                minHeight: 'auto',
+                width: 350,
+                modal: true,
+                resizable: false,
+                open: function (event, ui) {
+                    $(".ui-dialog-titlebar-close", ui.dialog | ui).hide();
+                },
+                show: 'fade slow', buttons:
+                    {
+                        OK: function () {
+                            //debugger;
+                            var ctrRemark = $("#PopUpUC_txtRemarks");
+                            //var strRemark = ctrRemark[0].value.trim();
+                            var strRemark = $("#PopUpUC_txtRemarks").val().trim();
+                            //alert(strRemark);
+                            if (strRemark != "") {
+                                if(CheckSpecialCharacters(strRemark))
+                                {
+                                    UpdateNotification("No", strRemark);                                    
+                                    $(this).dialog("close");
+                                    $('#dialogNotification').dialog("close");
+                                    ReCheckDutyInterval();
+                                }
+                            }
+                            else {
+                                //alert("Enter Rejection Remark")
+                                ShowMsgBox('OnlyMessage', 'Enter Rejection Remark.', 0, '', '');
+                            }
+                        },
+                        Cancel: function () {
+                            //ValidateNotification("No");
+                            $(this).dialog("close");
+                        }
+                    }
+            });
+        }
+    }
+
+
+
+    function UpdateNotification(strType, strRemark) {
+        //debugger;
+        //var strhost = document.location.host;    
+        //alert(host);
+        //var basecount = 2;
+        //if (strhost.toLowerCase().indexOf("localhost") > -1) {
+        //    basecount = 1;
+        //}
+        //var ctrbasecount = $("#< %=hdfBaseCount.ClientID%>");
+        //var basecount = ctrbasecount[0].value;
+        //var basecount = $("#< %=hdfBaseCount.ClientID%>").val();
+        //alert(basecount);
+        //var strpathname = document.location.pathname;
+        //var strapp = $("#< %=hdfAppPath.ClientID%>").val();
+        //alert(strapp);
+        //var strpathname = strpath.replace("'"+ strapp +"'", '');
+        //if(strapp.length > 1)
+        //{
+        //    var strpathname = strpathname.substr(strapp.length);
+        //}
+        //alert(strpathname);
+        //var thecount = (strpathname.split("/").length - 1)
+        //alert(thecount);
+        //var strurl =  "PopUpMethod.aspx/UpdateNotification";
+        //  if (thecount > basecount) {
+        //      for (var i = basecount; i < thecount; i++) {
+        //         strurl = "../" + strurl;
+        //     }
+        //  }
+                
+        var strurl = "PopUpMethod.aspx";
+        strurl = strurl + "/UpdateNotification";
+
+        var notHistID = $("#PopUpUC_hdfNotHistID");                
+        $.ajax({
+            type: "POST",
+            //url: "../loginnew.aspx/UpdateNotificationFromLogin",
+            url: strurl,
+            data: '{ notHistID: "' + notHistID.val() + '", strVal: "' + strType + '", strRem: "' + strRemark + '"}',
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            success: function (response) {
+                //debugger;
+                if (response.d) {
+                    //alert("Duty Accepted, \nThank You.");
+                    //alert("Request saved successfully.");
+
+                    ShowMsgBox('OnlyMessage', 'Request saved successfully.', false, '', '');
+                    //DisplayDuty();
+                }
+                else {
+                    //alert("Duty Rejected, \nRemark: " + strRemark);
+                    //alert("Request could not be saved, try again later.");
+                    ShowMsgBox('OnlyMessage', 'Request could not be saved, try again later.', false, '', '');
+                }
+            },
+            error: function () {
+                //alert('Error');
+                ShowMsgBox('OnlyMessage', 'Error.', false, '', '');
+                //alert(response.d);
+            }
+        });
+    }
+
+    function ReCheckDutyInterval() {
+        setInterval(function () { DisplayDuty() }, 300000);
+    }
+
+
+    function DisplayDuty() {
+        //debugger;
+        //alert('visit');
+        var strurl = "PopUpMethod.aspx";
+        strurl = strurl + "/CheckDutyNotification";
+
+        $.ajax({
+            type: "POST",
+            url: strurl,
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            success: function (response) {
+                //debugger;       
+                if (response.d != null) {
+                    ShowMsgBox('Notification', response.d[0], response.d[1], response.d[2], response.d[3]);
+                }
+            },
+            error: function () {
+                alert('Error');
+                //alert(response.d);
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        $(document).keydown(function (e) {
+            //alert(e.keyCode);
+            if (e.keyCode == 27) return false;
+        });
+    });
+
+    function testmessage(strmsg) {
+        alert('Message from UC: ' + strmsg);
+        //ShowMsgBox("Confirm", "Require Confirmation to continue with the process? Inorder to continue click 'Continue' else click 'Cancel'", false, "", "btnSave");
+    }
+
+</script>
+
+
+<style type="text/css">
+    .no-resize { resize: none }
+    .lbSubHead {margin-bottom:15px;padding-bottom:10px;}
+    .dialogConfirm{z-index:10005;}
+      /*.ui-widget-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}*/
+</style>
+
+
+<div style="z-index:10005;">
+    
+    <div id="dialogError" style="display: none;">
+        <table align="center">
+            <tbody><tr>
+                <td align="left" style="width: 44px; vertical-align: middle;">
+                    <img id="imgError" alt="ErrorImage" src="imagesV2/ErrorImage.png" height="48" width="48">
+                </td>
+                <td>&nbsp;
+                </td>
+                <td align="left" style="width: 343px; vertical-align: middle;">
+                    <span id="PopUpUC_lblErrorMsg" class="messageLabel"></span>
+                </td>
+            </tr>
+        </tbody></table>
+    </div>
+
+    <div id="dialogWarning" style="display: none;">
+        <table align="center">
+            <tbody><tr>
+                <td colspan="3" class="lbSubHead"> <span id="PopUpUC_lblSubHead" class="lbSubHead"></span> </td>               
+            </tr>
+            <tr>
+                <td align="left" style="width: 44px; vertical-align: middle;">
+                    <img id="imgWarning" alt="WarningImage" src="imagesV2/WarningYellow.png" height="48" width="48">
+                </td>
+                <td>&nbsp;
+                </td>
+                <td align="left" style="width: 343px; vertical-align: middle;">
+                    <span id="PopUpUC_lblMsgWarning" class="messageLabel"></span>
+                </td>
+            </tr>
+        </tbody></table>
+    </div>
+
+    <div id="dialogConfirm" style="display: none;">
+        <table align="center">
+             <tbody><tr>
+                <td colspan="3" class="lbSubHead"> <span id="PopUpUC_lblSubHeadConfirm" class="lbSubHead"></span><br> </td>               
+            </tr>
+            <tr>
+                <td align="left" style="width: 44px; vertical-align: middle;">
+                    <img id="imgConfirm" alt="ConfirmImage" src="imagesV2/QuestionMark.png" height="48" width="48">
+                </td>
+                <td>&nbsp;
+                </td>
+                <td align="left" style="width: 343px; vertical-align: middle;">
+                    <span id="PopUpUC_lblMsgConfirm" class="messageLabel"></span>
+                </td>
+            </tr>
+        </tbody></table>
+    </div>
+
+    <div id="dialogSaved" style="display: none;">
+        <table align="center">
+             <tbody><tr>
+                <td colspan="3"> <span id="PopUpUC_lblSubHeadSaved" class="lbSubHead"></span> </td>
+            </tr>
+            <tr>
+                <td align="left" style="width: 44px; vertical-align: middle;">
+                    <img id="imgSaved" alt="SavedImage" src="imagesV2/TickMarkGreen.png" height="48" width="48">
+                </td>
+                <td>&nbsp;
+                </td>
+                <td align="left" style="width: 343px; vertical-align: middle;">
+                    <span id="PopUpUC_lblMsgSaved" class="messageLabel"></span>
+                </td>
+            </tr>
+        </tbody></table>
+    </div>
+
+    <div id="dialogInfo" style="display: none;">
+        <table align="center">
+             <tbody><tr>
+                <td colspan="3" class="lbSubHead"> <span id="PopUpUC_lblSubHeadInfo" class="lbSubHead"></span> </td>
+            </tr>
+            <tr>
+                <td align="left" style="width: 44px; vertical-align: middle;">
+                    <img id="imgInfo" alt="InfoImage" src="imagesV2/info.png" height="48" width="48">
+                </td>
+                <td>&nbsp;
+                </td>
+                <td align="left" style="width: 343px; vertical-align: middle;">
+                    <span id="PopUpUC_lblMsgInfo" class="messageLabel"></span>
+                </td>
+            </tr>
+        </tbody></table>
+    </div>
+
+    
+    <div id="dialogNotification" style="display: none;">
+        <input type="hidden" name="PopUpUC$hdfBaseCount" id="PopUpUC_hdfBaseCount"><input type="hidden" name="PopUpUC$hdfAppPath" id="PopUpUC_hdfAppPath">
+        <input type="hidden" name="PopUpUC$hdfNotHistID" id="PopUpUC_hdfNotHistID">
+        <span id="PopUpUC_lblDuty"></span>
+    </div>
+    <div id="dialogRemarks" style="display: none;">
+        <textarea name="PopUpUC$txtRemarks" rows="2" cols="20" id="PopUpUC_txtRemarks" class="no-resize" maxlength="200" style="width:100%;"></textarea>
+    </div>
+    <div id="dialogmsglbl" style="display: none;" class="text-center">
+        <span id="PopUpUC_lblmsgresponse" style="display:inline-block;width:100%;"></span>
+    </div>
+    
+
+</div>
+
+        <div class="top-horizontal-line">
+            <div class="top-horizontal-line-content">
+                <div class="col-xs-12">
+                    <div class="row">
+                        <div class="col-xs-6 home-link">
+                            <div class="home-link" id="lnkHome1">
+                                <div class="Homeclass"></div>
+                                <a id="lnkHome" href="indexnew.aspx">HOME</a>
+                            </div>
+                        </div>
+                        <div class="col-xs-6 text-right">
+                            <img src="imagesV2/profile.png" style="margin-top: -7px; width: 20px" alt="user profile image."><strong>
+                                <span id="lblUser_Main" class="user-label">ARIEL</span></strong>
+                            |
+                        <a id="lnkLogout" class="logout" href="javascript:__doPostBack('lnkLogout','')">Sign Out</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="page-header">
+            CREW DAILY ROSTER
+        </div>
+        <div align="center">
+            <table id="Table2" style="width: 750px">
+                <tbody><tr>
+                    <td colspan="3" class="MIDAREA" style="font-size: 0.1pt; border-bottom: #6a809f 0px solid; height: 7px; position: static; text-align: left;">
+                        <table border="0" cellpadding="0" cellspacing="0" style="width: 1000px; height: 16px">
+                            <tbody><tr>
+                                <td style="position: static; text-align: left; font-size: 10pt; padding-left: 10px;">
+                                    <br>
+                                    <br>
+                                    •<input id="chkcrewcompliment" type="checkbox" name="chkcrewcompliment" checked="checked">Uncheck to Show Crew Complement.
+                                    <br>
+                                    <div id="divDisplayCRV">
+                                        •<input id="chkDisplayCRV" type="checkbox" name="chkDisplayCRV">Check to show Cosmic Radiation Value.
+                                    <br>
+                                    </div>
+                                    <div id="divDisplayNDA">
+                                        •<input id="chkDisplayNDA" type="checkbox" name="chkDisplayNDA" checked="checked">Display NDA Records.
+                                    </div>
+                                    
+                                    </td>
+                                <td style="position: static; text-align: left; font-size: 10pt; padding-left: 10px;"><strong>**Note :</strong><br>
+                                    
+                                    • Roster can be viewed upto roster release date i.e
+                                <span id="lblNote1" style="display:inline-block;font-size:12px;width:100px;">31-May-2026</span>
+                                    <br>
+                                    • All timings are shown in UTC and local time of the city.
+                                <br>
+                                    • Previous flight data is from movement control or techlog/PSR timing.
+                                <br>
+                                    • Please note this roster is as of
+                                <span id="lblNote2" style="display:inline-block;font-size:12px;width:105px;">26 May 2026 22:50</span>
+                                    (Z) &amp;
+                                <span id="lblNote3" style="display:inline-block;font-size:12px;width:106px;">26 May 2026 19:50</span>
+                                    (LOCAL TIME)
+                                    <br>
+                                    
+                                </td>
+                                
+                            </tr>
+                        </tbody></table>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="border-top: #b5c8e4 1px solid; font-size: 0.1pt; border-bottom: #6a809f 0px solid; height: 7px">
+                        <span id="lblForPeriod" style="display:inline-block;color:#4A7099;font-family:Verdana;font-size:Small;width:750px;position: static; text-align: right; vertical-align: middle;"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3">
+                        <table border="0" cellpadding="0" style="width: 900px; border-collapse: collapse;">
+                            <tbody><tr align="left">
+                                <td style="text-align: right">
+                                    <span id="lblFromDate" style="font-weight:bold;">From Date :  </span>
+                                </td>
+                                <td colspan="2" valign="bottom">
+                                    <input name="txtFromDate" type="text" value="01-May-2026" id="txtFromDate" class="input-sm-date hasDatepicker" readonly="readonly"><button type="button" class="ui-datepicker-trigger"><img src="Images/Calande_img.gif" alt="..." title="..."></button>
+                                </td>
+                                <td style="height: 15px; text-align: right">
+                                    <span id="lblToDate" style="font-weight:bold;">To Date :  </span>
+                                </td>
+                                <td style="width: 130px;" colspan="2" valign="bottom">
+                                    <input name="txtToDate" type="text" value="31-May-2026" id="txtToDate" class="input-sm-date hasDatepicker" readonly="readonly"><button type="button" class="ui-datepicker-trigger"><img src="Images/Calande_img.gif" alt="..." title="..."></button>
+                                </td>
+                                <td style="width: 128px; height: 15px; text-align: left; padding-left: 5px;">
+                                    <table style="width: 369px; border-top-style: none; border-right-style: none; border-left-style: none; border-collapse: collapse; height: 23px; border-bottom-style: none">
+                                        <tbody><tr>
+                                            
+                                            <td style="width: 65px; height: 2px">
+                                                <input type="submit" name="btnView" value="View" onclick="return Validate();" id="btnView" tabindex="5" class="btn-custom btn-general">
+                                            </td>
+                                            <td style="width: 65px; height: 2px">
+                                                <input type="submit" name="btnPrint" value="Print" onclick="return Validate();" id="btnPrint" tabindex="6" class="btn-custom btn-general">
+                                            </td>
+                                            <td style="width: 150px; height: 2px">
+                                                <input type="submit" name="btnExporttoExcel" value="Export to Excel" onclick="return Validate();" id="btnExporttoExcel" tabindex="7" class="btn-custom btn-general">
+                                            </td>
+                                            <td style="width: 100px; height: 2px">
+                                                
+                                            </td>
+                                            
+                                        </tr>
+                                    </tbody></table>
+                                </td>
+                            </tr>
+                        </tbody></table>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="font-size: 0.1pt; border-bottom: #6a809f 0px solid; height: 7px">
+                        <span id="lblErr" style="display:inline-block;color:Red;font-family:Verdana;font-size:8.25pt;font-weight:normal;width:750px;"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="width: 78px; height: 5px; font-size: 0.1pt;">
+                        <br>
+                    </td>
+                    <td style="height: 5px"></td>
+                    <td style="width: 85px; height: 5px; text-align: right; font-size: 0.1pt;">
+                        <table border="0" cellpadding="0" cellspacing="0" style="position: static; z-index: 100; left: 0px; width: 742px; top: 0px;">
+                            <tbody><tr>
+                                <td style="width: 200PX; height: 16px; text-align: left;">&nbsp;
+                                </td>
+                                <td style="width: 335px; height: 16px;"></td>
+                                <td style="width: 100px; height: 16px;">&nbsp;
+                                </td>
+                                <td style="width: 100px; height: 16px;">
+                                    <span id="lblTo" style="display:inline-block;color:#4A7099;font-family:Verdana;font-size:Small;height:1px;width:121px;position: static;"></span>
+                                </td>
+                            </tr>
+                        </tbody></table>
+                    </td>
+                </tr>
+                <tr id="trSpreadTask" style="position: static; height: 100px;">
+	<td style="position: static; font-size: 5pt; font-weight: bold; vertical-align: top; padding-left: 5px; width: 1000px; text-align: left;" colspan="3">
+                        <div id="SpreadMask" name="SpreadMask" style="display:none" culture="en-US"></div>
+	<style>table#SpreadMask_viewTable td.s2s0{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-width:1px;border-left-color:#005392;border-left-style:Solid;border-top-width:1px;border-top-color:#005392;border-top-style:Solid;border-right-width:1px;border-right-color:#005392;border-right-style:Solid;border-bottom-width:1px;border-bottom-color:#005392;border-bottom-style:Solid;padding:0px;}table#SpreadMask_viewTable td.s0s1{overflow:hidden;background-color:#DDDDDD;text-align:Center;vertical-align:Middle;border-left-width:1px;border-left-color:#242424;border-left-style:Solid;border-top-width:1px;border-top-color:#242424;border-top-style:Solid;border-right-width:1px;border-right-color:#242424;border-right-style:Solid;border-bottom-width:1px;border-bottom-color:#242424;border-bottom-style:Solid;padding:0px;}table#SpreadMask_viewTable td.s1s2{overflow:hidden;background-color:#FFFFFF;text-align:Center;vertical-align:Middle;border-left-width:1px;border-left-color:#242424;border-left-style:Solid;border-top-width:1px;border-top-color:#242424;border-top-style:Solid;border-right-width:1px;border-right-color:#242424;border-right-style:Solid;border-bottom-width:1px;border-bottom-color:#242424;border-bottom-style:Solid;padding:0px;}#SpreadMask_viewport .all_no_margin{margin: 0px}#SpreadMask_viewport .all_no_margin *{margin: 0px}#SpreadMask_viewport .all_no_padding{padding: 0px}#SpreadMask_viewport .all_no_padding *{padding: 0px}#SpreadMask_viewport .all_no_tds_padding td{padding: 0px}#SpreadMask_viewport .no_margin{margin: 0px}#SpreadMask_viewport .no_padding{padding: 0px}#SpreadMask_viewport .no_td_padding > tr > td{padding: 0px}#SpreadMask_viewport .no_td_padding > tbody> tr > td{padding: 0px}#SpreadMask_viewport .no_td_border > tr > td{border: 0px}#SpreadMask_viewport .no_td_border > tbody > tr > td{border: 0px}#SpreadMask_viewportmovingCol{margin: 0px; padding: 0px;}#SpreadMask_viewportmovingCol *{margin: 0px; padding: 0px;}DIV.SpreadGraphics{position:relative;width:0px;top:0px;left:0px;overflow:visible;display:table-cell;}</style>
+	<div style="outline:none;position:static;font-size:8pt;width:1000px;direction:ltr;" accesskey="" id="SpreadMask_viewport"><table cellspacing="0" cellpadding="0" style="border-width:0px;width:1000px;border-collapse:collapse;border-color:#B4956A;border-width:0px;border-style:Solid;">
+		<tbody><tr>
+			<td valign="top" style="border-bottom:1px solid black;"><table id="SpreadMask_viewTable" cellspacing="0" cellpadding="0" rules="all" bordercolor="Black" style="border-color:Black;border-width:1px;border-style:Solid;width:100%;border-collapse:collapse;">
+				<colgroup><col width="52px"><col width="80px"><col width="90px"><col width="60px"><col width="90px"><col width="55px"><col width="50px"><col width="90px"><col width="90px"><col width="150px"></colgroup><tbody><tr style="height:28px;">
+					<td class="s2s0">Sn No.</td><td class="s2s0">Date of Duty (Local Time)*</td><td class="s2s0">Type of Duty</td><td class="s2s0">Flight Details</td><td class="s2s0">Reporting Date Time</td><td class="s2s0">Start Time</td><td class="s2s0"> End Time</td><td class="s2s0">Flight Block</td><td class="s2s0">Total Flight Time</td><td class="s2s0">Trg/Remarks</td>
+				</tr><tr style="height:22px;">
+					<td class="s0s1" style="height:22px;">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td>
+				</tr><tr style="height:22px;">
+					<td class="s1s2" style="height:22px;">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td><td class="s1s2">&nbsp;</td>
+				</tr><tr style="height:22px;">
+					<td class="s0s1" style="height:22px;">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td><td class="s0s1">&nbsp;</td>
+				</tr>
+			</tbody></table></td>
+		</tr>
+	</tbody></table></div>
+                    </td>
+</tr>
+
+                
+                <tr style="position: static; height: 30px;">
+                    <td colspan="3" style="position: static; font-size: 0.1pt; text-align: left; height: 10px; vertical-align: top; padding-left: 10px;">
+                        <span id="lblMsg" style="display:inline-block;color:White;font-family:Arial;font-size:10pt;font-weight:normal;width:500px;">  •        Date of duty is as per local time. </span>
+                    </td>
+                </tr>
+                <tr style="position: static; height: 30px;">
+                    <td colspan="3" style="position: static; font-size: 0.1pt; text-align: left; height: 10px; vertical-align: top; padding-left: 5px; padding-left: 5px;">
+                        
+                    </td>
+                </tr>
+                <tr style="position: static;">
+                    <td style="position: static;" colspan="3">
+                        <table style="border: 0px">
+                            <tbody><tr style="position: static; border: 0px; height: 50px;">
+                                <td style="padding-left: 5px; vertical-align: top; width: 320px">
+                                    <div id="sprOther" name="sprOther" style="display:none" culture="en-US"></div>
+<style>table#sprOther_viewTable td.s0s0{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-width:1px;border-left-color:#242424;border-top-width:1px;border-top-color:#242424;border-right-width:1px;border-right-color:#242424;border-bottom-width:1px;border-bottom-color:#242424;padding:0px;}table#sprOther_viewTable td.s0s1{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprOther_viewTable td.s0s2{overflow:hidden;background-color:#DDDDDD;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprOther_viewTable td.s1s3{overflow:hidden;background-color:#FFFFFF;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}#sprOther_viewport .all_no_margin{margin: 0px}#sprOther_viewport .all_no_margin *{margin: 0px}#sprOther_viewport .all_no_padding{padding: 0px}#sprOther_viewport .all_no_padding *{padding: 0px}#sprOther_viewport .all_no_tds_padding td{padding: 0px}#sprOther_viewport .no_margin{margin: 0px}#sprOther_viewport .no_padding{padding: 0px}#sprOther_viewport .no_td_padding > tr > td{padding: 0px}#sprOther_viewport .no_td_padding > tbody> tr > td{padding: 0px}#sprOther_viewport .no_td_border > tr > td{border: 0px}#sprOther_viewport .no_td_border > tbody > tr > td{border: 0px}#sprOther_viewportmovingCol{margin: 0px; padding: 0px;}#sprOther_viewportmovingCol *{margin: 0px; padding: 0px;}DIV.SpreadGraphics{position:relative;width:0px;top:0px;left:0px;overflow:visible;display:table-cell;}</style>
+<div style="border:0px;outline:none;font-size:8pt;width:300px;margin-bottom:20px;direction:ltr;" accesskey="" id="sprOther_viewport"><table cellspacing="0" cellpadding="0" style="border-width:0px;border-collapse:collapse;border-color:Black;border-width:0px;border-style:None;">
+	<tbody><tr>
+		<td valign="top" style="border-bottom:1px solid black;"><table id="sprOther_viewTable" cellspacing="0" cellpadding="0" rules="all" style="border-width:1px;border-style:Solid;width:100%;border-collapse:collapse;">
+			<colgroup><col width="150px"><col width="90px"></colgroup><tbody><tr style="height:22px;">
+				<td class="s0s0"> </td><td class="s0s1">Time</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s2" style="height:22px;">&nbsp;</td><td class="s0s2">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s1s3" style="height:22px;">&nbsp;</td><td class="s1s3">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s2" style="height:22px;">&nbsp;</td><td class="s0s2">&nbsp;</td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table></div>
+                                    
+                                    <div id="sprFlightDuties" name="sprFlightDuties" style="display:none" culture="en-US"></div>
+<style>table#sprFlightDuties_viewTable td.s0s0{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-width:1px;border-left-color:#242424;border-top-width:1px;border-top-color:#242424;border-right-width:1px;border-right-color:#242424;border-bottom-width:1px;border-bottom-color:#242424;padding:0px;}table#sprFlightDuties_viewTable td.s0s1{overflow:hidden;background-color:#DDDDDD;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprFlightDuties_viewTable td.s1s2{overflow:hidden;background-color:#FFFFFF;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}#sprFlightDuties_viewport .all_no_margin{margin: 0px}#sprFlightDuties_viewport .all_no_margin *{margin: 0px}#sprFlightDuties_viewport .all_no_padding{padding: 0px}#sprFlightDuties_viewport .all_no_padding *{padding: 0px}#sprFlightDuties_viewport .all_no_tds_padding td{padding: 0px}#sprFlightDuties_viewport .no_margin{margin: 0px}#sprFlightDuties_viewport .no_padding{padding: 0px}#sprFlightDuties_viewport .no_td_padding > tr > td{padding: 0px}#sprFlightDuties_viewport .no_td_padding > tbody> tr > td{padding: 0px}#sprFlightDuties_viewport .no_td_border > tr > td{border: 0px}#sprFlightDuties_viewport .no_td_border > tbody > tr > td{border: 0px}#sprFlightDuties_viewportmovingCol{margin: 0px; padding: 0px;}#sprFlightDuties_viewportmovingCol *{margin: 0px; padding: 0px;}DIV.SpreadGraphics{position:relative;width:0px;top:0px;left:0px;overflow:visible;display:table-cell;}</style>
+<div style="border:0px;outline:none;position:static;font-size:8pt;width:300px;margin-bottom:20px;direction:ltr;" accesskey="" id="sprFlightDuties_viewport"><table cellspacing="0" cellpadding="0" style="border-width:0px;border-collapse:collapse;border-color:Black;border-width:0px;border-style:Solid;">
+	<tbody><tr>
+		<td valign="top" style="border-bottom:1px solid black;"><table id="sprFlightDuties_viewTable" cellspacing="0" cellpadding="0" rules="all" style="border-width:1px;border-style:Solid;width:100%;border-collapse:collapse;">
+			<colgroup><col width="150px"><col width="90px"></colgroup><tbody><tr style="height:22px;">
+				<td class="s0s0"> </td><td class="s0s0">Days</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s1" fpcelltype="GeneralCellType" style="height:22px;">&nbsp;</td><td class="s0s1" fpcelltype="GeneralCellType">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s1s2" fpcelltype="GeneralCellType" style="height:22px;">&nbsp;</td><td class="s1s2" fpcelltype="GeneralCellType">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s1" fpcelltype="GeneralCellType" style="height:22px;">&nbsp;</td><td class="s0s1" fpcelltype="GeneralCellType">&nbsp;</td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table></div>
+                                    
+                                    <div id="sprDeadHead" name="sprDeadHead" style="display:none" culture="en-US"></div>
+<style>table#sprDeadHead_viewTable td.s1s0{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-width:1px;border-left-style:Solid;border-right-width:1px;border-right-style:Solid;padding:0px;}table#sprDeadHead_viewTable td.s1s1{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDeadHead_viewTable td.s0s2{overflow:hidden;background-color:#DDDDDD;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDeadHead_viewTable td.s0s3{overflow:hidden;background-color:#DDDDDD;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDeadHead_viewTable td.s1s4{overflow:hidden;background-color:#FFFFFF;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDeadHead_viewTable td.s1s5{overflow:hidden;background-color:#FFFFFF;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}#sprDeadHead_viewport .all_no_margin{margin: 0px}#sprDeadHead_viewport .all_no_margin *{margin: 0px}#sprDeadHead_viewport .all_no_padding{padding: 0px}#sprDeadHead_viewport .all_no_padding *{padding: 0px}#sprDeadHead_viewport .all_no_tds_padding td{padding: 0px}#sprDeadHead_viewport .no_margin{margin: 0px}#sprDeadHead_viewport .no_padding{padding: 0px}#sprDeadHead_viewport .no_td_padding > tr > td{padding: 0px}#sprDeadHead_viewport .no_td_padding > tbody> tr > td{padding: 0px}#sprDeadHead_viewport .no_td_border > tr > td{border: 0px}#sprDeadHead_viewport .no_td_border > tbody > tr > td{border: 0px}#sprDeadHead_viewportmovingCol{margin: 0px; padding: 0px;}#sprDeadHead_viewportmovingCol *{margin: 0px; padding: 0px;}DIV.SpreadGraphics{position:relative;width:0px;top:0px;left:0px;overflow:visible;display:table-cell;}</style>
+<div style="border:0px;outline:none;position:static;font-size:8pt;width:300px;margin-bottom:20px;direction:ltr;" accesskey="" id="sprDeadHead_viewport"><table cellspacing="0" cellpadding="0" style="border-width:0px;border-collapse:collapse;border-color:Black;border-width:0px;border-style:Solid;">
+	<tbody><tr>
+		<td valign="top" style="border-bottom:1px solid black;"><table id="sprDeadHead_viewTable" cellspacing="0" cellpadding="0" rules="all" style="border-width:1px;border-style:Solid;width:100%;border-collapse:collapse;">
+			<colgroup><col width="150px"><col width="90px"></colgroup><tbody><tr style="height:22px;">
+				<td class="s1s0">Dead Head</td><td class="s1s1">Count</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s2" fpcelltype="GeneralCellType" style="height:22px;">&nbsp;</td><td class="s0s3" fpcelltype="GeneralCellType">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s1s4" fpcelltype="GeneralCellType" style="height:22px;">&nbsp;</td><td class="s1s5" fpcelltype="GeneralCellType">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s2" fpcelltype="GeneralCellType" style="height:22px;">&nbsp;</td><td class="s0s3" fpcelltype="GeneralCellType">&nbsp;</td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table></div>
+                                    <div id="sprDeadHead1" name="sprDeadHead1" style="display:none" culture="en-US"></div>
+<style>table#sprDeadHead1_viewTable td.s1s0{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-width:1px;border-left-style:Solid;padding:0px;}table#sprDeadHead1_viewTable td.s0s1{overflow:hidden;background-color:#DDDDDD;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDeadHead1_viewTable td.s0s2{overflow:hidden;background-color:#DDDDDD;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDeadHead1_viewTable td.s1s3{overflow:hidden;background-color:#FFFFFF;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDeadHead1_viewTable td.s1s4{overflow:hidden;background-color:#FFFFFF;text-align:Center;vertical-align:Middle;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}#sprDeadHead1_viewport .all_no_margin{margin: 0px}#sprDeadHead1_viewport .all_no_margin *{margin: 0px}#sprDeadHead1_viewport .all_no_padding{padding: 0px}#sprDeadHead1_viewport .all_no_padding *{padding: 0px}#sprDeadHead1_viewport .all_no_tds_padding td{padding: 0px}#sprDeadHead1_viewport .no_margin{margin: 0px}#sprDeadHead1_viewport .no_padding{padding: 0px}#sprDeadHead1_viewport .no_td_padding > tr > td{padding: 0px}#sprDeadHead1_viewport .no_td_padding > tbody> tr > td{padding: 0px}#sprDeadHead1_viewport .no_td_border > tr > td{border: 0px}#sprDeadHead1_viewport .no_td_border > tbody > tr > td{border: 0px}#sprDeadHead1_viewportmovingCol{margin: 0px; padding: 0px;}#sprDeadHead1_viewportmovingCol *{margin: 0px; padding: 0px;}DIV.SpreadGraphics{position:relative;width:0px;top:0px;left:0px;overflow:visible;display:table-cell;}</style>
+<div style="border:0px;outline:none;position:static;font-size:8pt;width:300px;margin-bottom:20px;direction:ltr;" accesskey="" id="sprDeadHead1_viewport"><table cellspacing="0" cellpadding="0" style="border-width:0px;border-collapse:collapse;border-color:Black;border-width:0px;border-style:Solid;">
+	<tbody><tr>
+		<td valign="top" style="border-bottom:1px solid black;"><table id="sprDeadHead1_viewTable" cellspacing="0" cellpadding="0" rules="all" style="border-width:1px;border-style:Solid;width:100%;border-collapse:collapse;">
+			<colgroup><col width="90px"><col width="60px"><col width="90px"></colgroup><tbody><tr style="height:22px;">
+				<td class="s1s0">Dead Head</td><td class="s1s0">Hours</td><td class="s1s0"> Count</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s1" style="height:22px;">&nbsp;</td><td class="s0s2">&nbsp;</td><td class="s0s2">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s1s3" style="height:22px;">&nbsp;</td><td class="s1s4">&nbsp;</td><td class="s1s4">&nbsp;</td>
+			</tr><tr style="height:22px;">
+				<td class="s0s1" style="height:22px;">&nbsp;</td><td class="s0s2">&nbsp;</td><td class="s0s2">&nbsp;</td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table></div>
+                                </td>
+                                <td rowspan="3" align="center" valign="top" width="300px">
+                                    <div horizontalscrollbarpolicy="never" processtab="True" showfocusrect="false" movetonextcellthencontrol="False" selectionpolicy="Range" selectionblockoptions="15" movetopreviouscellthencontrol="False" uivirtualization="False" id="sprDutytypes" pagecount="1" autocalc="false" allowdelete="false" ignorehiddenrowswhenpaging="True" name="sprDutytypes" clientautosizemaxheight="0" showexcelsecuritypopup="False" clientautosizemaxwidth="0" fpdefaulteditorid="sprDutytypes_ctl03" focusbordercolor="Black" focusborderstyle="Solid" acceptformula="true" style="font-size: 8pt; direction: ltr; overflow: hidden; border-color: black; border-style: solid; border-width: 0px; height: 450px; width: 350px; margin: 0px; padding: 0px;" __defaultpageheight="220" colheaders="1" tabindex="-1" verticalscrollbarpolicy="always" operationmode="RowMode" totalrowcount="3" allowinsert="false" showpdfsecuritypopup="False" fpspread="Spread" rowheaders="1" clientautosize="False" righticonclienturlres="/CREWPORTAL/WebResource.axd?d=Uuy7xBFFOnBCGCz1JYQTRAYYYhL7CbtEUvMSIs365d_M_jVIo1ghi1jydFU9LwlOKCjfA3UeOZybX_ZBU77Yu84Qq9QVsekiNyAlwd5wf6-PEeJhCxWzKjr6Vau7WS8PiP8n0ZrPOu8nzI_tGY2eaw2&amp;t=637085501380870409" downiconclienturlres="/CREWPORTAL/WebResource.axd?d=RXr9KxmlIs-1l2QvT5S5_Muk-vYCLSW9uA_OO7rCuvXKUx5dq4BLFkQ_nRzek84dU-1pFkVZqYlECxsrSJjUoQ7MANZ-S3f5NRdsG5Eg41vRh7zPnEMFemPnClXOuJF-0ot5xmKCFa1zVOmtE-SG6A2&amp;t=637085501380870409" enablerowedittemplate="false" accesskey="" culture="en-US"><div style="position:relative;" class="no_margin no_padding">
+	<table id="sprDutytypes_top_table" class="no_margin no_padding no_td_padding  no_td_border" cellspacing="0" cellpadding="0" cols="1" style="border-width:0px;border-style:Solid;width:100%;border-collapse:collapse;TABLE-LAYOUT:fixed;border-collapse:separate;">
+		<colgroup>
+		<col>
+		</colgroup>
+		<tbody><tr style="height:0px;display:none;">
+			<td id="sprDutytypes_hidencol3">h</td>
+		</tr><tr>
+			<td align="left" valign="top" style="padding:0px;"><div style="overflow: hidden; position: relative; background-color: transparent; height: 24px; width: 350px;" id="sprDutytypes_colHeader" class="no_margin no_padding Unselectable"><table id="sprDutytypes_cht" cellspacing="0" cellpadding="0" __defaultbackcolor="#FFFFFF" style="border-width: 0px 1px; border-collapse: collapse; table-layout: fixed; border-color: transparent transparent transparent rgb(255, 255, 255); border-right-style: none; cursor: default; width: 1px; border-left-style: solid; height: 100%;" class="no_margin no_padding">
+				<colgroup><col width="180px" id="sprDutytypescol0" index="0" fpcol="0"><col width="150px" id="sprDutytypescol1" index="1" fpcol="1"></colgroup><tbody><tr fpspread="ch" style="height: 23px;">
+					<td class="s0s0"> Duty Name</td><td class="s0s0">Duty Short Name</td>
+				</tr>
+			</tbody></table><div class="no_margin no_padding GrayAreaContainer" controltype="chgrayarea_container" style="top: -23px; left: 331px;">
+				<div controltype="chgrayarea" style="background-image: url(&quot;/CREWPORTAL/WebResource.axd?d=eVYQ-191dZ97hyEtXoBbxe4c4FlU_eySkb_wtsGC-IgFNd04BTRzkZgQOvsCvsVAOA0l9ECuaUnH8TPYkzEfQGvBs-FhkwBUmVJK6XcMydZMwrIMj5PgtxTA_9S94n1HMWssApjp4KSOiSkGPeIukA2&amp;t=637085501380870409&quot;); cursor: default; width: 100%; height: 24px; position: relative;" class="no_margin no_padding">
+
+				</div>
+			</div></div></td>
+		</tr><tr>
+			<td align="left" valign="top" style="padding:0px;"><div style="outline: none; overflow: hidden scroll; cursor: default; background-color: transparent; height: 426px; width: 350px; position: relative;" scrollleft="0" scrolltop="0" id="sprDutytypes_view" class="no_margin no_padding Unselectable"><table id="sprDutytypes_viewport" cellspacing="0" cellpadding="0" rules="all" bordercolor="Black" cols="2" style="border-color: black; border-width: 1px; border-style: solid; border-collapse: collapse; table-layout: fixed; cursor: default; width: 1px; position: relative;" class="no_margin no_padding" align="">
+				<colgroup><col width="180px" id="sprDutytypescol0v" index="0" fpcol="0"><col width="150px" id="sprDutytypescol1v" index="1" fpcol="1"></colgroup><tbody><tr fpspread="r" fpkey="0" style="height: 23px;">
+					<td class="s0s1" fpcelltype="GeneralCellType" style="height: 22px;">&nbsp;</td><td class="s0s1" fpcelltype="GeneralCellType">&nbsp;</td>
+				</tr><tr fpspread="r" fpkey="1" style="height: 23px;">
+					<td class="s1s2" fpcelltype="GeneralCellType" style="height: 22px;">&nbsp;</td><td class="s1s2" fpcelltype="GeneralCellType">&nbsp;</td>
+				</tr><tr fpspread="r" fpkey="2" style="height: 23px;">
+					<td class="s0s1" fpcelltype="GeneralCellType" style="height: 22px;">&nbsp;</td><td class="s0s1" fpcelltype="GeneralCellType">&nbsp;</td>
+				</tr>
+			</tbody></table><input name="sprDutytypes$ctl03" type="text" size="10" id="sprDutytypes_ctl03" class="DefaultInput DefaultTextEditor" tabindex="-1" style="width:100%;left:-2000px;top:-2000px;position:absolute;"><div id="sprDutytypes_ValidatorHold-1" style="position:absolute;left:-1000px;top:-1000px;display:none;" tabindex="-1" class="no_margin no_padding"></div></div></td>
+		</tr>
+	</tbody></table>
+</div><span style="border:1px solid darkblue;position:absolute;display:none;z-index:99999;background-color:LightYellow;height:25px;width:130px;" id="sprDutytypes_waitmsg">&nbsp;&nbsp;<img vspace="5" align="absmiddle" src="/CREWPORTAL/WebResource.axd?d=Xc-A23yrMKEdCt5Pr1WoLKI07GwxldthaYTsst0cHVIxbaJdq0q7BBayb9XWuNhV5-L8djRSegQZzWd6cgdJRp4s8TvcZiTIugkqlTjy55hOuBMCgZXdsL5WVFTgc6j88nPCCOc9ib2iATTSQACEzNQPUSxPyDsJg_-BtOcJzUg1&amp;t=637085501380870409">&nbsp;&nbsp;Please wait...</span><input name="sprDutytypes$data" type="hidden" id="sprDutytypes_data" data="&lt;root&gt;&lt;data&gt;&lt;/data&gt;&lt;state&gt;&lt;colinfo&gt;&lt;/colinfo&gt;&lt;rowinfo&gt;&lt;/rowinfo&gt;&lt;selection&gt;&lt;/selection&gt;&lt;cellinfo&gt;&lt;/cellinfo&gt;&lt;activeRow&gt;1&lt;/activeRow&gt;&lt;activeColumn&gt;1&lt;/activeColumn&gt;&lt;/state&gt;&lt;activespread&gt;&lt;/activespread&gt;&lt;activechild&gt;&lt;/activechild&gt;&lt;scrollLeft&gt;0&lt;/scrollLeft&gt;&lt;scrollTop&gt;0&lt;/scrollTop&gt;&lt;/root&gt;" value="%3Croot%3E%3Cdata%2F%3E%3Cstate%3E%3Ccolinfo%2F%3E%3Crowinfo%2F%3E%3Cselection%2F%3E%3Ccellinfo%2F%3E%3CactiveRow%3E1%3C%2FactiveRow%3E%3CactiveColumn%3E1%3C%2FactiveColumn%3E%3C%2Fstate%3E%3Cactivespread%2F%3E%3Cactivechild%2F%3E%3CscrollLeft%3E0%3C%2FscrollLeft%3E%3CscrollTop%3E0%3C%2FscrollTop%3E%3Cbrowser%3E%3Cdocumentmode%2F%3E%3Cieversion%2F%3E%3C%2Fbrowser%3E%3C%2Froot%3E"><input name="sprDutytypes$extender" type="hidden" id="sprDutytypes_extender" json="{&quot;extenderScripts&quot;:{}}"><div id="sprDutytypes_TouchStrip_0" tabindex="-1" class="SpreadContextMenuHolder" fpspread="ContextMenu" style="display:none;">
+	<ul class="SpreadTouchStrip" tabindex="-1" style="width:200px;">
+		<li cmd="Copy" index="?$0" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon copy">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Copy</span></a></li><li cmd="Cut" index="?$1" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon cut">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Cut</span></a></li><li cmd="Paste" index="?$2" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon paste">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Paste</span></a></li>
+	</ul>
+</div><div id="sprDutytypes_TouchStrip_1" tabindex="-1" class="SpreadContextMenuHolder" fpspread="ContextMenu" style="display:none;">
+	<ul class="SpreadTouchStrip" tabindex="-1" style="width:200px;">
+		<li cmd="Copy" index="?$0" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon copy">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Copy</span></a></li><li cmd="Cut" index="?$1" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon cut">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Cut</span></a></li><li cmd="Paste" index="?$2" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon paste">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Paste</span></a></li><li class="sep"><span class="sep"></span></li><li cmd="GC$InsertColumn" index="?$4" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon insert-col">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Insert</span></a></li><li cmd="GC$DeleteColumn" index="?$5" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon delete-col">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Delete</span></a></li><li cmd="GC$HideColumn" index="?$6" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon hide-col">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Hide</span></a></li><li cmd="GC$UnhideColumn" index="?$7" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item item-unhide-col" autopostback="0"><div class="icon unhide-col">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Unhide</span></a></li>
+	</ul>
+</div><div id="sprDutytypes_TouchStrip_2" tabindex="-1" class="SpreadContextMenuHolder" fpspread="ContextMenu" style="display:none;">
+	<ul class="SpreadTouchStrip" tabindex="-1" style="width:200px;">
+		<li cmd="Copy" index="?$0" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon copy">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Copy</span></a></li><li cmd="Cut" index="?$1" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon cut">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Cut</span></a></li><li cmd="Paste" index="?$2" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon paste">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Paste</span></a></li><li class="sep"><span class="sep"></span></li><li cmd="GC$InsertRow" index="?$4" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon insert-row">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Insert</span></a></li><li cmd="GC$DeleteRow" index="?$5" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon delete-row">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Delete</span></a></li><li cmd="GC$HideRow" index="?$6" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item" autopostback="0"><div class="icon hide-row">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Hide</span></a></li><li cmd="GC$UnhideRow" index="?$7" item_link="1" onclick="return this.Owner.OnItemClick(event)" class="item item-unhide-row" autopostback="0"><div class="icon unhide-row">
+
+		</div><a class="TopItem itemlink noicon" href="#"><span>Unhide</span></a></li>
+	</ul>
+</div><style>table#sprDutytypes_cht td.s0s0{overflow:hidden;background-color:#E2EEFC;text-align:Center;border-left-width:1px;border-left-color:#005392;border-left-style:Solid;border-top-width:1px;border-top-color:#005392;border-top-style:Solid;border-right-width:1px;border-right-color:#005392;border-right-style:Solid;border-bottom-width:1px;border-bottom-color:#005392;border-bottom-style:Solid;padding:0px;}table#sprDutytypes_viewport td.s0s1{overflow:hidden;background-color:#DDDDDD;vertical-align:Top;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}table#sprDutytypes_viewport td.s1s2{overflow:hidden;background-color:#FFFFFF;vertical-align:Top;border-left-color:#242424;border-top-color:#242424;border-right-color:#242424;border-bottom-color:#242424;padding:0px;}#sprDutytypes .all_no_margin{margin: 0px}#sprDutytypes .all_no_margin *{margin: 0px}#sprDutytypes .all_no_padding{padding: 0px}#sprDutytypes .all_no_padding *{padding: 0px}#sprDutytypes .all_no_tds_padding td{padding: 0px}#sprDutytypes .no_margin{margin: 0px}#sprDutytypes .no_padding{padding: 0px}#sprDutytypes .no_td_padding > tr > td{padding: 0px}#sprDutytypes .no_td_padding > tbody> tr > td{padding: 0px}#sprDutytypes .no_td_border > tr > td{border: 0px}#sprDutytypes .no_td_border > tbody > tr > td{border: 0px}#sprDutytypesmovingCol{margin: 0px; padding: 0px;}#sprDutytypesmovingCol *{margin: 0px; padding: 0px;}DIV.SpreadGraphics{position:relative;width:0px;height:0px;top:0px;left:0px;overflow:visible;}.sprDutytypesmsgStyle{overflow:hidden;background-color:#FFFFE0;color:Red;padding:0px;}</style>
+<div class="Unselectable" style="position: absolute; top: -100px; left: -100px; height: 0px; width: 0px; overflow: visible;"><input type="text" id="sprDutytypes_textBox" tabindex="0" autocomplete="off" style="overflow: hidden; position: absolute; border-width: 0px; border-style: none; resize: none; outline: none; padding: 0px; margin: 0px; top: 811px; left: 731px; width: 1px; height: 1px; color: transparent; background-color: transparent; text-indent: -1em; font-size: 1px;"></div></div>
+                                </td>
+                                <td id="tdallowance" rowspan="3" width="370px" style="background-position: right top;"></td>
+
+                            </tr>
+                        </tbody></table>
+                    </td>
+                    
+                </tr>
+                <tr>
+                    <td colspan="3" style="height: 13px; border-top-width: 1px; border-top-color: #b5c8e4;">
+                        <table border="0" cellpadding="0" cellspacing="0" style="width: 750px; height: 15px">
+                            <tbody><tr>
+                                <td colspan="3" style="height: 13px; border-top: #b5c8e4 1px solid; border-right: #ffffff 1px solid; border: 0px none #FFFFFF;">
+                                    <input name="btnBack" type="button" id="btnBack" value="Back to Previous Page" onclick="        javascript: history.go(-1)" style="width: 149px; border-right: 0px solid; border-top: 0px solid; background-image: url(Images/btnSave.JPG); border-left: 0px solid; color: #ffffff; visibility: hidden; border-bottom: 0px solid; background-color: #B4956A;" class="buttonNormalG">
+                                    &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp;
+                                <input name="btn1" type="button" id="btn1" value="Print" onclick="window.print();" style="width: 87px; visibility: hidden; border-right: 0px solid; border-top: 0px solid; background-image: url(Images/btnSave.JPG); border-left: 0px solid; color: #ffffff; border-bottom: 0px solid; background-color: #B4956A;" class="buttonNormalG">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 100px">
+                                    <span id="Label35" style="display:inline-block;height:28px;width:350px;"></span>
+                                </td>
+                                <td style="width: 100px">
+                                    <br>
+                                </td>
+                                <td style="width: 100px">
+                                    <span id="Label36" style="display:inline-block;height:28px;width:350px;"></span>
+                                </td>
+                            </tr>
+                        </tbody></table>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="width: 100%">
+                        <br>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="height: 17px">
+                        <span id="Label37" style="display:inline-block;color:White;font-family:Verdana;font-size:8.25pt;width:750px;">Powered by ARMS<sup>®</sup>, © 2008</span>
+                    </td>
+                </tr>
+            </tbody></table>
+        </div>
+        <br>
+        <input type="hidden" name="HdnReleaseDate" id="HdnReleaseDate" value="31-May-2026">
+        <input type="hidden" name="Hiddateformat" id="Hiddateformat" value="dd-M-yy">
+        <div class="col-md-12 footer">
+            <span id="lblfooter">Powered By ARMS<sup>®</sup> | Last Log In : 26-May-2026</span>
+        </div>
+    
+
+<script type="text/javascript">
+//<![CDATA[
+_gcFpSpreadReg("sprDutytypes",{Touch:{}});//]]>
+</script>
+</form>
+
+
+<div id="ui-datepicker-div" class="ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all"></div></body></html>
