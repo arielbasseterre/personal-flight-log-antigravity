@@ -70,15 +70,15 @@ function DayMarker({ eventType }: { eventType: ArmsDayEntry['eventType'] }) {
   switch (eventType) {
     case 'FLIGHT_OP':
     case 'FLIGHT_DH':
-      return <Plane size={14} className="text-[#1152d4] fill-[#1152d4]/30" />;
+      return <Plane size={16} className="text-[#1152d4] fill-[#1152d4]/30" />;
     case 'OFF':
-      return <Home size={14} className="text-emerald-400" />;
+      return <Home size={16} className="text-emerald-400" />;
     case 'NDA':
-      return <Coffee size={14} className="text-purple-400" />;
+      return <Coffee size={16} className="text-purple-400" />;
     case 'STANDBY':
-      return <Shield size={14} className="text-slate-400 dark:text-slate-600 dark:text-slate-400" />;
+      return <Shield size={16} className="text-slate-400 dark:text-slate-600 dark:text-slate-400" />;
     case 'LAYOVER':
-      return <Briefcase size={14} className="text-amber-400" />;
+      return <Briefcase size={16} className="text-amber-400" />;
     default:
       return null;
   }
@@ -161,7 +161,7 @@ function MonthlyCalendar({
               `}
             >
               {/* Número del día */}
-              <span className={`text-xs font-semibold leading-none ${
+              <span className={`text-sm font-bold leading-none ${
                 isSelected ? 'text-white' : isToday ? 'text-emerald-400' : 'text-slate-700 dark:text-slate-300'
               }`}>
                 {day}
@@ -210,30 +210,32 @@ function FlightLegCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08, ...SPRING_CONFIG }}
     >
-      {/* ── Evento de Presentación (REPORT) ──────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-2.5">
-        {/* Ícono circular de reloj */}
-        <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-100 dark:border-[#1152d4]/20 flex items-center justify-center shrink-0">
-          <Clock size={14} className="text-[#1152d4]" />
-        </div>
+      {/* ── Evento de Presentación (REPORT) — solo en el primer tramo ── */}
+      {index === 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5">
+          {/* Ícono circular de reloj */}
+          <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-100 dark:border-[#1152d4]/20 flex items-center justify-center shrink-0">
+            <Clock size={14} className="text-[#1152d4]" />
+          </div>
 
-        {/* Texto del reporte */}
-        <div>
-          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-            Presentación
-          </p>
-          <p className="text-sm font-bold text-slate-900 dark:text-white">
-            {/* Aeropuerto + hora local */}
-            {leg.origin} — {leg.reportTimeLoc}L
-            {/* Hora UTC (si está disponible) */}
-            {leg.reportTimeUtc && (
-              <span className="text-slate-500 dark:text-slate-400 font-normal ml-1.5 text-[11px]">
-                ({leg.reportTimeUtc}Z)
-              </span>
-            )}
-          </p>
+          {/* Texto del reporte */}
+          <div>
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Presentación
+            </p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">
+              {/* Aeropuerto + hora local */}
+              {leg.origin} — {leg.reportTimeLoc}L
+              {/* Hora UTC (si está disponible) */}
+              {leg.reportTimeUtc && (
+                <span className="text-slate-500 dark:text-slate-400 font-normal ml-1.5 text-[11px]">
+                  ({leg.reportTimeUtc}Z)
+                </span>
+              )}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Línea de timeline + Card del tramo ───────────────────────── */}
       <div className="ml-8 pl-7 border-l border-dashed border-slate-200 dark:border-[#2d3748] py-1">
@@ -323,9 +325,20 @@ function CrewModal({
   onClose: () => void;
 }) {
   // Agrupar crew por rol en dos secciones aeronáuticas
+  // Cabina: PU siempre primero, luego CC y otros
+  const cabinCrew = [
+    ...crew.filter(c => c.role === 'PU'),
+    ...crew.filter(c => c.role === 'CC' || c.role === 'OTHER'),
+  ];
   const grouped: Record<string, ArmsCrewMember[]> = {
-    'Tripulación de vuelo':   crew.filter(c => c.role === 'CPT' || c.role === 'FO'),
-    'TRIPULANTES DE CABINA':  crew.filter(c => c.role === 'PU' || c.role === 'CC' || c.role === 'OTHER'),
+    'Tripulación de vuelo':  crew.filter(c => c.role === 'CPT' || c.role === 'FO'),
+    'TRIPULANTES DE CABINA': cabinCrew,
+  };
+
+  // Mapa para mostrar LS/RS en lugar de CPT/FO en los badges de vuelo
+  const FLIGHT_BADGE: Record<string, { label: string; color: string }> = {
+    CPT: { label: 'LS', color: 'text-amber-400' },
+    FO:  { label: 'RS', color: 'text-[#1152d4]' },
   };
 
   return (
@@ -390,10 +403,12 @@ function CrewModal({
                     key={`${role}-${memberIdx}`}
                     className="flex items-center gap-3 py-2.5 border-b border-[#1a2233] last:border-0"
                   >
-                    {/* Avatar circular con abreviatura del rol del miembro */}
+                    {/* Avatar circular — LS/RS para pilotos, rol para cabina */}
                     <div className="w-9 h-9 rounded-full bg-white dark:bg-[#1a2233] border border-slate-200 dark:border-[#2d3748] flex items-center justify-center shrink-0">
-                      <span className={`text-[10px] font-bold ${ROLE_CONFIG[member.role]?.color || 'text-slate-400'}`}>
-                        {member.role}
+                      <span className={`text-[10px] font-bold ${
+                        FLIGHT_BADGE[member.role]?.color || ROLE_CONFIG[member.role]?.color || 'text-slate-400'
+                      }`}>
+                        {FLIGHT_BADGE[member.role]?.label || member.role}
                       </span>
                     </div>
 
