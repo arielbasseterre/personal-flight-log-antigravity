@@ -760,10 +760,10 @@ function parseCrewComplementText(raw: string): ArmsCrewMember[] {
  */
 function mapRoleToEnum(raw: string): ArmsCrewMember['role'] {
   const r = raw.toUpperCase().trim();
-  if (r.includes('CPT') || r.includes('CAPTAIN') || r.includes('CMD') || r.includes('COMMANDER')) return 'CPT';
-  if (r.includes('FO')  || r.includes('FIRST')   || r.includes('COPILOT'))                        return 'FO';
-  if (r.includes('PU')  || r.includes('PURSER')   || r.includes('COMISARIO'))                     return 'PU';
-  if (r.includes('CC')  || r.includes('CABIN'))                                                     return 'CC';
+  if (r.includes('CPT') || r.includes('CAPTAIN') || r.includes('CMD') || r.includes('COMMANDER') || r === 'LS') return 'CPT';
+  if (r.includes('FO')  || r.includes('FIRST')   || r.includes('COPILOT') || r === 'RS')                        return 'FO';
+  if (r.includes('PU')  || r.includes('PURSER')   || r.includes('COMISARIO'))                                   return 'PU';
+  if (r.includes('CC')  || r.includes('CABIN'))                                                                  return 'CC';
   return 'OTHER';
 }
 

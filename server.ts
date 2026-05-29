@@ -259,9 +259,47 @@ app.use((req, res, next) => {
           // Handle Airport codes directly in ID fields as seen in successful example
           const mapAirportCode = (code: string) => {
             const c = code.trim().toUpperCase();
-            // ANAC portal specific mappings
-            if (c === "AEP" || c === "SABE") return "AER";
-            return c;
+            
+            // Diccionario local de códigos oficiales de ANAC (basado en airports.csv)
+            const ANAC_MAPPINGS: Record<string, string> = {
+              "AEP": "AER", "SABE": "AER", // Aeroparque
+              "EZE": "EZE", "SAEZ": "EZE", // Ezeiza
+              "COR": "CBA", "SACO": "CBA", // Córdoba
+              "MDZ": "DOZ", "SAMM": "DOZ", // Mendoza
+              "BRC": "BAR", "SAZS": "BAR", // Bariloche
+              "IGR": "IGU", "SARI": "IGU", // Puerto Iguazú
+              "SLA": "SAL", "SASA": "SAL", // Salta
+              "NQN": "NEU", "SAZN": "NEU", // Neuquén
+              "TUC": "TUC", "SANT": "TUC", // Tucumán
+              "USH": "USU", "SAWH": "USU", // Ushuaia
+              "FTE": "CAL", "SAWC": "CAL", // El Calafate
+              "JUJ": "JUJ", "SASJ": "JUJ", // Jujuy
+              "PSS": "POS", "SARP": "POS", // Posadas
+              "CNQ": "CRR", "SARC": "CRR", // Corrientes
+              "RES": "SIS", "SARE": "SIS", // Resistencia
+              "UAQ": "JUA", "SANU": "JUA", // San Juan
+              "LUQ": "UIS", "SAOU": "UIS", // San Luis
+              "CTC": "CAT", "SANC": "CAT", // Catamarca
+              "IRJ": "LAR", "SANL": "LAR", // La Rioja
+              "SFN": "SVO", "SAAV": "SVO", // Santa Fe
+              "PRA": "PAR", "SAAP": "PAR", // Paraná
+              "ROS": "ROS", "SAAR": "ROS", // Rosario
+              "VDM": "VIE", "SAVN": "VIE", // Viedma
+              "BHI": "BAI", "SAZB": "BAI", // Bahía Blanca
+              "MDQ": "MDP", "SAZM": "MDP", // Mar del Plata
+              "REL": "TRW", "SAVT": "TRW", // Trelew
+              "PMY": "MAD", "SAVY": "MAD", // Puerto Madryn
+              "CRV": "CRV", "SAVC": "CRV", // Comodoro Rivadavia
+              "RGL": "GAL", "SAWG": "GAL", // Río Gallegos
+              "RGA": "GRA", "SAWE": "GRA", // Río Grande
+              "CPC": "CHA", "SAZY": "CHA", // Chapelco / San Martín de los Andes
+              "EQS": "ESQ", "SAVV": "ESQ", // Esquel
+              "LGS": "MAL", "SAMO": "MAL", // Malargüe
+              "AFA": "SRA", "SAMR": "SRA", // San Rafael
+              "RSA": "OSA", "SAWR": "OSA", // Santa Rosa
+            };
+
+            return ANAC_MAPPINGS[c] || c;
           };
 
           const oriID = mapAirportCode(String(log.origenID || ""));

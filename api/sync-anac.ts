@@ -24,9 +24,53 @@ export default async function handler(req: any, res: any) {
 
     for (const log of logs) {
       try {
+        const mapAirportCode = (code: string) => {
+          const c = String(code || "").trim().toUpperCase();
+          if (!c) return c;
+          
+          const ANAC_MAPPINGS: Record<string, string> = {
+            "AEP": "AER", "SABE": "AER",
+            "EZE": "EZE", "SAEZ": "EZE",
+            "COR": "CBA", "SACO": "CBA",
+            "MDZ": "DOZ", "SAMM": "DOZ",
+            "BRC": "BAR", "SAZS": "BAR",
+            "IGR": "IGU", "SARI": "IGU",
+            "SLA": "SAL", "SASA": "SAL",
+            "NQN": "NEU", "SAZN": "NEU",
+            "TUC": "TUC", "SANT": "TUC",
+            "USH": "USU", "SAWH": "USU",
+            "FTE": "CAL", "SAWC": "CAL",
+            "JUJ": "JUJ", "SASJ": "JUJ",
+            "PSS": "POS", "SARP": "POS",
+            "CNQ": "CRR", "SARC": "CRR",
+            "RES": "SIS", "SARE": "SIS",
+            "UAQ": "JUA", "SANU": "JUA",
+            "LUQ": "UIS", "SAOU": "UIS",
+            "CTC": "CAT", "SANC": "CAT",
+            "IRJ": "LAR", "SANL": "LAR",
+            "SFN": "SVO", "SAAV": "SVO",
+            "PRA": "PAR", "SAAP": "PAR",
+            "ROS": "ROS", "SAAR": "ROS",
+            "VDM": "VIE", "SAVN": "VIE",
+            "BHI": "BAI", "SAZB": "BAI",
+            "MDQ": "MDP", "SAZM": "MDP",
+            "REL": "TRW", "SAVT": "TRW",
+            "PMY": "MAD", "SAVY": "MAD",
+            "CRV": "CRV", "SAVC": "CRV",
+            "RGL": "GAL", "SAWG": "GAL",
+            "RGA": "GRA", "SAWE": "GRA",
+            "CPC": "CHA", "SAZY": "CHA",
+            "EQS": "ESQ", "SAVV": "ESQ",
+            "LGS": "MAL", "SAMO": "MAL",
+            "AFA": "SRA", "SAMR": "SRA",
+            "RSA": "OSA", "SAWR": "OSA",
+          };
+          return ANAC_MAPPINGS[c] || c;
+        };
+
         const authId = log.autoridadCertificanteID || "15";
-        const destID = log.destinoID || "AER";
-        const oriID = log.origenID || "EZE";
+        const destID = mapAirportCode(log.destinoID || "AER");
+        const oriID = mapAirportCode(log.origenID || "EZE");
         const obs = log.observaciones || "";
         
         const discriminaciones = [];

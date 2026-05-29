@@ -63,6 +63,7 @@ import { supabase } from '@/src/utils/supabase/client';
 import { getApiUrl } from '@/src/utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 
 interface LibroScreenProps {
   logs: FlightLog[];
@@ -451,21 +452,35 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     if (!input) return '';
     const search = input.trim().toUpperCase();
     
+    // Fallback manual prioritario por seguridad
+    if (search === "AEP" || search === "SABE") return "AER";
+    if (search === "CNQ" || search === "SARC") return "CRR";
+    if (search === "BRC" || search === "SAZS") return "BAR";
+    if (search === "PSS" || search === "SARP") return "POS";
+    
     // Look in dbAirports (Supabase)
     const found = airports.find(a => 
       (a.anac_code && a.anac_code.toUpperCase() === search) || 
+      (a.key_code && a.key_code.toUpperCase() === search) || 
       (a.icao_code && a.icao_code.toUpperCase() === search) || 
       (a.iata_code && a.iata_code.toUpperCase() === search)
     );
     
-    if (found) return found.anac_code || found.iata_code || search;
+    if (found) return found.anac_code || found.key_code || found.iata_code || search;
     
     // Fallback to local IATA_AIRPORTS (mostly used for initial setup/demo)
     const localFound = Object.entries(IATA_AIRPORTS).find(([icao, info]) => 
       icao.toUpperCase() === search || info.iata.toUpperCase() === search
     );
     
-    if (localFound) return localFound[1].iata;
+    if (localFound) {
+      const iata = localFound[1].iata;
+      if (iata === "AEP") return "AER";
+      if (iata === "CNQ") return "CRR";
+      if (iata === "BRC") return "BAR";
+      if (iata === "PSS") return "POS";
+      return iata;
+    }
 
     return search;
   };
@@ -593,22 +608,25 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         const c = (code || "").trim().toUpperCase();
         if (!c) return c;
         
-        // Buscar coincidencia en la base de datos de aeropuertos (por IATA, OACI o Local)
+        // Fallback manual prioritario por seguridad
+        if (c === "AEP" || c === "SABE") return "AER";
+        if (c === "CNQ" || c === "SARC") return "CRR";
+        if (c === "BRC" || c === "SAZS") return "BAR";
+        if (c === "PSS" || c === "SARP") return "POS";
+        
+        // Buscar coincidencia en la base de datos de aeropuertos (por IATA, OACI/ICAO o ANAC/key_code)
         const airport = dbAirports.find(a => 
           (a.iata_code && a.iata_code.toUpperCase() === c) || 
-          (a.oaci_code && a.oaci_code.toUpperCase() === c) || 
-          (a.local_code && a.local_code.toUpperCase() === c) ||
-          (a.key_code && a.key_code.toUpperCase() === c) ||
-          (a.code && a.code.toUpperCase() === c) // fallback for generic 'code' column
+          (a.icao_code && a.icao_code.toUpperCase() === c) || 
+          (a.anac_code && a.anac_code.toUpperCase() === c) ||
+          (a.key_code && a.key_code.toUpperCase() === c)
         );
         
-        // Si encontramos el aeropuerto y tiene un key_code definido, lo usamos.
-        if (airport && airport.key_code) {
-          return airport.key_code;
+        // Si encontramos el aeropuerto y tiene un anac_code o key_code definido, lo usamos.
+        if (airport) {
+          return airport.anac_code || airport.key_code || c;
         }
         
-        // Fallback genérico por seguridad (mantiene el parche anterior)
-        if (c === "AEP" || c === "SABE") return "AER";
         return c;
       };
 
@@ -1688,7 +1706,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       const folioRangeLabel = pages.length > 1 ? `Folios_${startFolio}_al_${endFolio}` : `Folio_${startFolio}`;
       const fileName = `Libro_Vuelo_${profile?.last_name || 'Piloto'}_${folioRangeLabel}.xlsx`;
       
-      const isMobile = (window as any).Capacitor !== undefined;
+      const isMobile = Capacitor.isNativePlatform();
       if (isMobile) {
         try {
           const base64Data = btoa(
@@ -1717,6 +1735,24 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     } catch (err) {
       console.error("Excel export error:", err);
       alert("Error al generar el archivo Excel");
+    }
+  };
+
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const exportToPDFWeb = async (folioRangeLabel: string) => {
+    if (logs.length === 0) return;
+    setIsGeneratingPDF(true);
+    try {
+      const doc = <FlightLogPDF logs={logs} profile={profile || undefined} />;
+      const pdfBlob = await pdf(doc).toBlob();
+      const fileName = `Libro_Vuelo_${profile?.last_name || 'Piloto'}_${folioRangeLabel}.pdf`;
+      saveAs(pdfBlob, fileName);
+    } catch (err) {
+      console.error("PDF Web export error:", err);
+      showAlert("Error", "Error al generar el archivo PDF", "danger");
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -2798,7 +2834,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   const startFolio = profile?.initial_folio_number || 1;
                   const endFolio = startFolio + Math.max(0, numPages - 1);
                   const folioRangeLabel = numPages > 1 ? `Folios_${startFolio}_al_${endFolio}` : `Folio_${startFolio}`;
-                  const isMobile = (window as any).Capacitor !== undefined;
+                  const isMobile = Capacitor.isNativePlatform();
                   
                   if (isMobile) {
                     return (
@@ -2815,16 +2851,15 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   }
                   
                   return (
-                    <PDFDownloadLink 
-                      document={<FlightLogPDF logs={logs} profile={profile || undefined} />} 
-                      fileName={`Libro_Vuelo_${profile?.last_name || 'Piloto'}_${folioRangeLabel}.pdf`}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 gap-2 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" 
+                      disabled={isGeneratingPDF || logs.length === 0}
+                      onClick={() => exportToPDFWeb(folioRangeLabel)}
                     >
-                      {({ loading }) => (
-                        <Button variant="outline" size="sm" className="h-8 gap-2 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" disabled={loading || logs.length === 0}>
-                          <FileDown size={14} /> {loading ? 'Cargando...' : 'Generar Folio PDF'}
-                        </Button>
-                      )}
-                    </PDFDownloadLink>
+                      <FileDown size={14} /> {isGeneratingPDF ? 'Generando...' : 'Generar Folio PDF'}
+                    </Button>
                   );
                 })()}
                 <Button variant="outline" size="sm" className="h-8 gap-2" onClick={exportToExcel}>
