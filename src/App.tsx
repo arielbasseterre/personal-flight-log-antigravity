@@ -1003,6 +1003,20 @@ export default function App() {
     let finalProfile: Profile | null = null;
     
     try {
+      const cachedLogs = localStorage.getItem(`logs_cache_${userId}`);
+      if (cachedLogs) setLogs(JSON.parse(cachedLogs));
+      
+      const cachedProfile = localStorage.getItem(`profile_cache_${userId}`);
+      if (cachedProfile) {
+        const p = JSON.parse(cachedProfile);
+        setProfile(p);
+        finalProfile = p;
+      }
+    } catch (e) {
+      console.error("Cache read error:", e);
+    }
+    
+    try {
       const { data: { session } } = await supabase.auth.getSession();
       const authUser = session?.user;
 
@@ -1019,10 +1033,15 @@ export default function App() {
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
-        if (fallbackLogs) setLogs(fallbackLogs);
+        if (fallbackLogs) {
+          setLogs(fallbackLogs);
+          localStorage.setItem(`logs_cache_${userId}`, JSON.stringify(fallbackLogs));
+        }
       } else if (logsData) {
         setLogs(logsData);
+        localStorage.setItem(`logs_cache_${userId}`, JSON.stringify(logsData));
       }
+
 
       // console.log("Fetching profile from DB for userId:", userId, "email:", authUser?.email);
       let { data: profileData, error: profileError } = await supabase
@@ -1065,7 +1084,7 @@ export default function App() {
           last_name: profileData.last_name || authUser?.user_metadata?.last_name || authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
         };
         // console.log("Final merged profile with folio:", finalProfile.initial_folio_number);
-      } else {
+      } else if (!profileError) {
         console.log("No record found in profiles table. Using auth metadata as fallback.");
         // Initialize from auth if no DB record exists yet
         finalProfile = {
@@ -1107,6 +1126,7 @@ export default function App() {
       // Let's at least log it.
       
       setProfile(finalProfile);
+      localStorage.setItem(`profile_cache_${userId}`, JSON.stringify(finalProfile));
       return finalProfile;
     } catch (error) {
       console.error("Error fetching user data:", error);
