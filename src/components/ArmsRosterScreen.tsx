@@ -237,6 +237,18 @@ function FlightLegCard({
         </div>
       )}
 
+      {/* ── Turn time (tiempo en tierra desde el tramo anterior) ─────── */}
+      {leg.turnTime && (
+        <div className="ml-8 pl-7 border-l border-dashed border-slate-200 dark:border-[#2d3748] flex items-center gap-2 py-2">
+          <div className="h-px w-3 bg-[#2d3748]" />
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-0.5">
+            <span className="text-[10px] text-amber-400 font-mono font-medium">
+              escala {leg.turnTime}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── Línea de timeline + Card del tramo ───────────────────────── */}
       <div className="ml-8 pl-7 border-l border-dashed border-slate-200 dark:border-[#2d3748] py-1">
         <button
@@ -283,18 +295,6 @@ function FlightLegCard({
           </div>
         </button>
       </div>
-
-      {/* ── Turn time (tiempo en tierra hasta el siguiente tramo) ─────── */}
-      {leg.turnTime && (
-        <div className="ml-8 pl-7 border-l border-dashed border-slate-200 dark:border-[#2d3748] flex items-center gap-2 py-2">
-          <div className="h-px w-3 bg-[#2d3748]" />
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-0.5">
-            <span className="text-[10px] text-amber-400 font-mono font-medium">
-              escala {leg.turnTime}
-            </span>
-          </div>
-        </div>
-      )}
     </motion.div>
   );
 }
