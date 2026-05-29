@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Plus, 
   History, 
@@ -259,6 +259,89 @@ const DecimalInput = ({ value, onChange, id, disabled, placeholder, className, o
       lang={lang}
       step={step}
     />
+  );
+};
+
+const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, placeholder }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSearch(value || '');
+  }, [value]);
+
+  useEffect(() => {
+    function handleClickOutside(event: any) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [wrapperRef]);
+
+  const filtered = useMemo(() => {
+    if (!search) return [];
+    const lower = search.toLowerCase();
+    
+    let allApts: any[] = [];
+    if (dbAirports && dbAirports.length > 0) {
+      allApts = dbAirports.map((apt: any) => {
+        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
+        const uniqueCodes = Array.from(new Set(codes));
+        return {
+          code: apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code,
+          label: `${apt.name} (${uniqueCodes.join('/')})`,
+          searchStr: `${apt.name} ${uniqueCodes.join(' ')}`.toLowerCase()
+        }
+      });
+    } else {
+      allApts = IATA_LIST.map((apt: any) => ({
+        code: apt.iata,
+        label: `${apt.name} (${apt.iata})`,
+        searchStr: `${apt.name} ${apt.iata}`.toLowerCase()
+      }));
+    }
+
+    return allApts.filter((a: any) => a.searchStr.includes(lower)).slice(0, 15);
+  }, [search, dbAirports, IATA_LIST]);
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <Input
+        id={id}
+        placeholder={placeholder}
+        maxLength={30}
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value.toUpperCase());
+          onChange(e.target.value.toUpperCase());
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-xl">
+          <ul className="max-h-56 overflow-auto py-1">
+            {filtered.map((item: any, idx: number) => (
+              <li 
+                key={idx}
+                className="px-3 py-2 text-sm hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer flex flex-col gap-0.5"
+                onClick={() => {
+                  setSearch(item.code);
+                  onChange(item.code);
+                  setIsOpen(false);
+                }}
+              >
+                <div className="font-bold text-xs text-blue-600 dark:text-blue-400">{item.code}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{item.label}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -2261,42 +2344,26 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="origen">Origen (ANAC/IATA/OACI)</Label>
-                      <Input 
-                        id="origen" 
-                        list="airports-list"
-                        placeholder="Ej: AER o SABE" 
-                        maxLength={4}
-                        value={formData.origin_ad || ''} 
-                        onChange={e => setFormData({...formData, origin_ad: e.target.value.toUpperCase()})}
+                      <AirportAutocomplete
+                        id="origen"
+                        placeholder="Ej: AER o Ciudad"
+                        value={formData.origin_ad || ''}
+                        onChange={(val: string) => setFormData({...formData, origin_ad: val})}
+                        dbAirports={dbAirports}
+                        IATA_LIST={IATA_LIST}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="destino">Destino (ANAC/IATA/OACI)</Label>
-                      <Input 
-                        id="destino" 
-                        list="airports-list"
-                        placeholder="Ej: EZE o SAEZ" 
-                        maxLength={4}
-                        value={formData.destination_ad || ''} 
-                        onChange={e => setFormData({...formData, destination_ad: e.target.value.toUpperCase()})}
+                      <AirportAutocomplete
+                        id="destino"
+                        placeholder="Ej: EZE o Ciudad"
+                        value={formData.destination_ad || ''}
+                        onChange={(val: string) => setFormData({...formData, destination_ad: val})}
+                        dbAirports={dbAirports}
+                        IATA_LIST={IATA_LIST}
                       />
                     </div>
-                    <datalist id="airports-list">
-                      {(dbAirports.length > 0 ? 
-                        dbAirports.flatMap(apt => {
-                          const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
-                          const uniqueCodes = Array.from(new Set(codes));
-                          return uniqueCodes.map(code => ({
-                            value: code,
-                            label: `${apt.name} (${uniqueCodes.join('/')})`
-                          }));
-                        }) : 
-                        IATA_LIST.map(apt => ({ value: apt.iata, label: apt.name }))
-                      )
-                      .map((apt: any, idx: number) => (
-                        <option key={`${apt.value}-${idx}`} value={apt.value}>{apt.label}</option>
-                      ))}
-                    </datalist>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">

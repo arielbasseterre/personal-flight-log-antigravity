@@ -628,8 +628,25 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   // ╚═════════════════════════════════════════════════════════════════════╝
   const loadCachedRoster = useCallback(async () => {
     setInitialLoading(true);
+    
+    // Primero intentar cargar desde caché local para acceso offline inmediato
+    const cacheKey = `roster_cache_${userId}_${year}_${month}`;
+    const cachedStr = localStorage.getItem(cacheKey);
+    let hasLocalCache = false;
+    
+    if (cachedStr) {
+      try {
+        const cachedData = JSON.parse(cachedStr);
+        setEntries(cachedData.entries || []);
+        setLastSynced(cachedData.synced_at || null);
+        hasLocalCache = true;
+      } catch (e) {
+        console.error("Error parsing local roster cache", e);
+      }
+    }
+
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('arms_roster')
         .select('roster_json, synced_at')
         .eq('user_id', userId)
@@ -637,15 +654,25 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         .eq('year', year)
         .maybeSingle();
 
+      if (error) {
+         throw error;
+      }
+
       if (data?.roster_json) {
         setEntries(data.roster_json as ArmsDayEntry[]);
         setLastSynced(data.synced_at);
-      } else {
+        // Guardar en caché local para el futuro
+        localStorage.setItem(cacheKey, JSON.stringify({
+          entries: data.roster_json,
+          synced_at: data.synced_at
+        }));
+      } else if (!hasLocalCache) {
         setEntries([]);
         setLastSynced(null);
       }
     } catch (e: any) {
-      console.error('[ARMS_UI] Error cargando roster cacheado:', e.message);
+      console.error('[ARMS_UI] Error cargando roster desde base de datos:', e.message);
+      // Si falla (ej. sin conexión), mantenemos lo que ya cargamos desde localStorage
     } finally {
       setInitialLoading(false);
     }
@@ -682,8 +709,16 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
 
       const data = await response.json();
       setEntries(data.entries);
-      setLastSynced(new Date().toISOString());
+      const nowSync = new Date().toISOString();
+      setLastSynced(nowSync);
       setShowCredentials(false); // Cerrar modal de credenciales
+      
+      // Actualizar caché local tras sincronización exitosa
+      const cacheKey = `roster_cache_${userId}_${year}_${month}`;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        entries: data.entries,
+        synced_at: nowSync
+      }));
 
       console.log(`[ARMS_UI] Sincronización exitosa: ${data.entriesCount} entradas.`);
 
