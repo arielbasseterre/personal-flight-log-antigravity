@@ -64,6 +64,7 @@ import { getApiUrl } from '@/src/utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import airportsCsvRaw from '../../airports.csv?raw';
 
 interface LibroScreenProps {
   logs: FlightLog[];
@@ -262,6 +263,34 @@ const DecimalInput = ({ value, onChange, id, disabled, placeholder, className, o
   );
 };
 
+const parseAirportsCsv = (csvText: string) => {
+  const lines = csvText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length <= 1) return [];
+  const airports = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    if (parts.length < 2) continue;
+    const iata = parts[0]?.trim().replace(/^"|"$/g, '');
+    const icao = parts[1]?.trim().replace(/^"|"$/g, '');
+    const anac = parts[2]?.trim().replace(/^"|"$/g, '');
+    const name = parts[3]?.trim().replace(/^"|"$/g, '');
+    const city = parts[4]?.trim().replace(/^"|"$/g, '');
+    
+    const cleanAnac = anac && anac !== 'N/A' && anac !== '' ? anac.toUpperCase() : null;
+    airports.push({
+      iata_code: iata?.toUpperCase(),
+      icao_code: icao?.toUpperCase(),
+      anac_code: cleanAnac,
+      key_code: cleanAnac || iata?.toUpperCase(),
+      name: name || '',
+      city: city || ''
+    });
+  }
+  return airports;
+};
+
+const localAirportsList = parseAirportsCsv(airportsCsvRaw);
+
 const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, placeholder }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -285,9 +314,11 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
     if (!search) return [];
     const lower = search.toLowerCase();
     
-    let allApts: any[] = [];
+    let allApts: any[] = localAirportsList;
     if (dbAirports && dbAirports.length > 0) {
-      allApts = dbAirports.map((apt: any) => {
+      // Merge dbAirports and localAirportsList, giving priority to local list for duplicates
+      const localKeys = new Set(localAirportsList.map(a => a.key_code));
+      const dbAptsMerged = dbAirports.filter((apt: any) => !localKeys.has(apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code)).map((apt: any) => {
         const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
         const uniqueCodes = Array.from(new Set(codes));
         return {
@@ -296,12 +327,33 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
           searchStr: `${apt.name} ${uniqueCodes.join(' ')}`.toLowerCase()
         }
       });
+      allApts = [...localAirportsList.map(apt => {
+        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
+        const uniqueCodes = Array.from(new Set(codes));
+        return {
+          code: apt.key_code,
+          label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`,
+          searchStr: `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`.toLowerCase()
+        }
+      }), ...dbAptsMerged];
     } else {
-      allApts = IATA_LIST.map((apt: any) => ({
-        code: apt.iata,
-        label: `${apt.name} (${apt.iata})`,
-        searchStr: `${apt.name} ${apt.iata}`.toLowerCase()
-      }));
+      // Fallback if dbAirports is empty, use local list anyway
+      allApts = localAirportsList.map(apt => {
+        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
+        const uniqueCodes = Array.from(new Set(codes));
+        return {
+          code: apt.key_code,
+          label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`,
+          searchStr: `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`.toLowerCase()
+        }
+      });
+      if (allApts.length === 0) {
+        allApts = IATA_LIST.map((apt: any) => ({
+          code: apt.iata,
+          label: `${apt.name} (${apt.iata})`,
+          searchStr: `${apt.name} ${apt.iata}`.toLowerCase()
+        }));
+      }
     }
 
     return allApts.filter((a: any) => a.searchStr.includes(lower)).slice(0, 15);
