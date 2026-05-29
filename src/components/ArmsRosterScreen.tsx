@@ -955,13 +955,13 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                   </div>
                   
                   {/* Trg/Remarks for OTH tasks */}
-                  {selectedEntry.rawTask.toUpperCase().startsWith('OTH') && selectedEntry.remarks && (
+                  {selectedEntry.rawTask?.toUpperCase().startsWith('OTH') && selectedEntry.remarks && selectedEntry.remarks.replace(/&nbsp;/gi, ' ').trim() !== '' && (
                     <div className="mt-2 p-3 bg-slate-50 dark:bg-[#101622]/50 border border-purple-500/10 rounded-xl">
                       <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
                         Trg / Remarks
                       </p>
                       <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                        {selectedEntry.remarks}
+                        {selectedEntry.remarks.replace(/&nbsp;/gi, ' ').trim()}
                       </p>
                     </div>
                   )}

@@ -443,8 +443,13 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
       // Evitar duplicados si ya hay una entrada para este día
       if (entries.find(e => e.dateISO === currentDateISO)) continue;
 
-      // Extract remarks
-      const remarks = cells[cells.length - 1]?.innerText.trim() || '';
+      // Extract remarks (second to last column, since last is Crew Complement)
+      let rawRemarks = cells[cells.length - 2]?.innerText || '';
+      if (!rawRemarks.replace(/&nbsp;/gi, ' ').trim() && cells.length > 0) {
+          // Fallback just in case Crew Complement is missing
+          rawRemarks = cells[cells.length - 1]?.innerText || '';
+      }
+      const remarks = rawRemarks.replace(/&nbsp;/gi, ' ').trim();
 
       // Extract times for STANDBY
       let startTimeLoc, startTimeUtc, endTimeLoc, endTimeUtc;
