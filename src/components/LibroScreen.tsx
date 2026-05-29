@@ -1813,7 +1813,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           alert("Error al intentar compartir el archivo");
         }
       } else {
-        saveAs(new Blob([buffer]), fileName);
+        const excelBlob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(excelBlob, fileName);
       }
     } catch (err) {
       console.error("Excel export error:", err);
