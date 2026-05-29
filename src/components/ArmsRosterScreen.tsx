@@ -21,7 +21,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
-  Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff,
+  Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff, HelpCircle,
   Calendar, Loader2, Coffee
 } from 'lucide-react';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
@@ -66,8 +66,12 @@ const SPRING_CONFIG = { type: 'spring' as const, stiffness: 200, damping: 24 };
  *   - Standby → Escudo gris
  *   - Layover → Maleta ámbar
  */
-function DayMarker({ eventType }: { eventType: ArmsDayEntry['eventType'] }) {
-  switch (eventType) {
+function DayMarker({ entry }: { entry: ArmsDayEntry }) {
+  if (entry.rawTask?.toUpperCase().startsWith('OTH')) {
+    return <HelpCircle size={16} className="text-cyan-400" />;
+  }
+
+  switch (entry.eventType) {
     case 'FLIGHT_OP':
     case 'FLIGHT_DH':
       return <Plane size={16} className="text-[#1152d4] fill-[#1152d4]/30" />;
@@ -168,7 +172,7 @@ function MonthlyCalendar({
               </span>
 
               {/* Ícono marcador del tipo de evento */}
-              {entry && <DayMarker eventType={entry.eventType} />}
+              {entry && <DayMarker entry={entry} />}
             </motion.button>
           );
         })}
@@ -837,6 +841,10 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           <div className="flex items-center gap-1.5">
             <Coffee size={10} className="text-purple-400" />
             <span className="text-[9px] text-slate-500 dark:text-slate-400">NDA</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <HelpCircle size={10} className="text-cyan-400" />
+            <span className="text-[9px] text-slate-500 dark:text-slate-400">OTH</span>
           </div>
         </div>
 
