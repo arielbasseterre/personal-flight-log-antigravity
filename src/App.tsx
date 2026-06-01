@@ -195,6 +195,15 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "1 de Junio, 2026",
+    version: "1.4.0",
+    items: [
+      "Nueva pantalla Roster ARMS: calendario mensual sincronizado con el portal ARMS, con detalle de tramos por día y horarios locales/UTC.",
+      "Detalle de tripulación dividido en Tripulación de Vuelo (LS/RS) y Tripulación de Cabina (Jefe de Cabina primero).",
+      "Acceso offline al roster mediante caché local automático.",
+    ]
+  },
+  {
     date: "14 de Mayo, 2026",
     version: "1.3.1",
     items: [
