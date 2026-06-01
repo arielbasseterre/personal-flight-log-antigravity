@@ -866,6 +866,11 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
   const pdfUrl = "/normativa.pdf";
   const fullPdfUrl = window.location.origin + pdfUrl;
 
+  // Android WebView/TWA (Play Store) no puede renderizar PDFs nativamente.
+  // Google Docs Viewer actúa como visor universal que funciona en cualquier contexto.
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const googleViewerUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fullPdfUrl)}`;
+
   const handleDownload = () => {
     const a = document.createElement('a');
     a.href = pdfUrl;
@@ -874,7 +879,11 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
   };
 
   const handleOpenExternal = () => {
-    window.open(fullPdfUrl, '_blank');
+    if (isAndroid) {
+      window.open(googleViewerUrl, '_blank');
+    } else {
+      window.open(fullPdfUrl, '_blank');
+    }
   };
 
   const handleShare = async () => {
@@ -914,26 +923,37 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
 
       <main className="flex-1 bg-slate-100 dark:bg-slate-950 relative flex flex-col overflow-hidden">
         <div className="flex-1 w-full h-full">
-          <object
-            data={pdfUrl}
-            type="application/pdf"
-            className="w-full h-full"
-          >
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white dark:bg-[#1a2233]">
-              <BookOpen size={64} className="mb-6 text-slate-300 dark:text-slate-700" />
-              <h3 className="text-slate-900 dark:text-white font-bold mb-2">Previsualización no disponible</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 max-w-xs">
-                Tu dispositivo o navegador no permite ver el PDF aquí. Presiona el botón de abajo para abrirlo.
-              </p>
-              <button 
-                onClick={handleOpenExternal}
-                className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-4 px-8 rounded-xl flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-[#1152d4]/20"
-              >
-                <Search size={20} />
-                ABRIR NORMATIVA
-              </button>
-            </div>
-          </object>
+          {isAndroid ? (
+            /* Android WebView/TWA: usar Google Docs Viewer como iframe */
+            <iframe
+              src={googleViewerUrl}
+              className="w-full h-full border-0"
+              title="Normativa Aeronáutica - Anexo I"
+              allow="autoplay"
+            />
+          ) : (
+            /* Desktop/iOS: usar visor nativo del navegador */
+            <object
+              data={pdfUrl}
+              type="application/pdf"
+              className="w-full h-full"
+            >
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white dark:bg-[#1a2233]">
+                <BookOpen size={64} className="mb-6 text-slate-300 dark:text-slate-700" />
+                <h3 className="text-slate-900 dark:text-white font-bold mb-2">Previsualización no disponible</h3>
+                <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 max-w-xs">
+                  Tu dispositivo o navegador no permite ver el PDF aquí. Presiona el botón de abajo para abrirlo.
+                </p>
+                <button 
+                  onClick={handleOpenExternal}
+                  className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-4 px-8 rounded-xl flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-[#1152d4]/20"
+                >
+                  <Search size={20} />
+                  ABRIR NORMATIVA
+                </button>
+              </div>
+            </object>
+          )}
         </div>
 
         <div className="p-4 bg-white dark:bg-[#1a2233] border-t border-slate-200 dark:border-[#2d3748] grid grid-cols-2 gap-3">
