@@ -328,21 +328,34 @@ function CrewModal({
   flightNumber: string;
   onClose: () => void;
 }) {
-  // Agrupar crew por rol en dos secciones aeronáuticas
-  // Cabina: PU siempre primero, luego CC y otros
-  const cabinCrew = [
-    ...crew.filter(c => c.role === 'PU'),
-    ...crew.filter(c => c.role === 'CC' || c.role === 'OTHER'),
-  ];
-  const grouped: Record<string, ArmsCrewMember[]> = {
-    'Tripulación de vuelo':  crew.filter(c => c.role === 'CPT' || c.role === 'FO'),
-    'TRIPULANTES DE CABINA': cabinCrew,
-  };
+  // Normalizar roles: detectar LS/RS en el nombre del tripulante
+  // para reclasificar miembros con role='OTHER' que en realidad son pilotos
+  const normalizedCrew = crew.map(c => {
+    if (c.role === 'OTHER' || c.role === 'CC') {
+      if (/\(LS\)/i.test(c.name)) return { ...c, role: 'CPT' as const };
+      if (/\(RS\)/i.test(c.name)) return { ...c, role: 'FO'  as const };
+    }
+    return c;
+  });
 
   // Mapa para mostrar LS/RS en lugar de CPT/FO en los badges de vuelo
   const FLIGHT_BADGE: Record<string, { label: string; color: string }> = {
     CPT: { label: 'LS', color: 'text-amber-400' },
     FO:  { label: 'RS', color: 'text-[#1152d4]' },
+  };
+
+  // Agrupar: Tripulación de Vuelo (LS primero, luego RS) y Tripulación de Cabina (PU primero)
+  const flightCrew = [
+    ...normalizedCrew.filter(c => c.role === 'CPT'),
+    ...normalizedCrew.filter(c => c.role === 'FO'),
+  ];
+  const cabinCrew = [
+    ...normalizedCrew.filter(c => c.role === 'PU'),
+    ...normalizedCrew.filter(c => c.role === 'CC' || c.role === 'OTHER'),
+  ];
+  const grouped: Record<string, ArmsCrewMember[]> = {
+    'TRIPULACIÓN DE VUELO':  flightCrew,
+    'TRIPULACIÓN DE CABINA': cabinCrew,
   };
 
   return (
@@ -416,9 +429,12 @@ function CrewModal({
                       </span>
                     </div>
 
-                    {/* Nombre del tripulante */}
+                    {/* Nombre del tripulante — sin paréntesis vacíos ni badges de rol */}
                     <span className="text-sm text-slate-800 dark:text-slate-200 font-medium leading-tight">
-                      {member.name || 'Nombre no disponible'}
+                      {(member.name || 'Nombre no disponible')
+                        .replace(/\s*\((LS|RS|CPT|FO|PU|CC)\)\s*/gi, '')
+                        .replace(/\s*\(\s*\)\s*/g, '')
+                        .trim()}
                     </span>
                   </div>
                 ))}
