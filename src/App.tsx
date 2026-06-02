@@ -41,7 +41,7 @@ import { LibroScreen } from './components/LibroScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { AnacAuth } from './components/AnacAuth';
 import { ArmsRosterScreen } from './components/ArmsRosterScreen';
-// import { registerPushNotifications, unregisterPushNotifications } from './utils/push-notifications';
+
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
 
@@ -1246,7 +1246,7 @@ export default function App() {
       if (activeUser) {
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
-        // registerPushNotifications(activeUser.id);
+
       }
     });
 
@@ -1257,12 +1257,8 @@ export default function App() {
       if (activeUser) {
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
-        // registerPushNotifications(activeUser.id);
+
       } else {
-        if (lastUserId) {
-          // unregisterPushNotifications(lastUserId);
-          lastUserId = null;
-        }
         setProfile(null);
         setLogs([]);
       }
@@ -1272,7 +1268,7 @@ export default function App() {
     const handleOpenRoster = () => {
       setScreen('roster');
     };
-    window.addEventListener('open-arms-roster', handleOpenRoster);
+
 
     return () => {
       subscription.unsubscribe();

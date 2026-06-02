@@ -20,7 +20,7 @@
     "@capacitor/app": "^6.0.0",
     "@capacitor/core": "^6.0.0",
     "@capacitor/filesystem": "^6.0.0",
-    "@capacitor/push-notifications": "^6.0.5",
+
     "@capacitor/share": "^6.0.0",
     "@capacitor/status-bar": "^6.0.0",
     "@fontsource-variable/geist": "^5.2.8",
@@ -41,7 +41,7 @@
     "exceljs": "^4.4.0",
     "express": "^4.22.1",
     "file-saver": "^2.0.5",
-    "firebase-admin": "^13.10.0",
+
     "lucide-react": "^1.8.0",
     "motion": "^12.23.24",
     "node-html-parser": "^7.1.0",

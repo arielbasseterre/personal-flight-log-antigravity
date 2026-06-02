@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import axios from "axios";
 import dns from "dns";
 import { chromium } from "playwright";
-import * as admin from "firebase-admin";
+
 import crypto from "crypto";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "./api/arms-scraper";
 
@@ -16,33 +16,7 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
-// ═══════════════════════════════════════════════════════════════════════════
-// INICIALIZACIÓN DE FIREBASE ADMIN SDK (FCM)
-// ═══════════════════════════════════════════════════════════════════════════
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_SERVICE_ACCOUNT) {
-  try {
-    let serviceAccount;
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    }
-    
-    if (serviceAccount) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      console.log("[FIREBASE] Firebase Admin SDK inicializado usando FIREBASE_SERVICE_ACCOUNT.");
-    } else {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault()
-      });
-      console.log("[FIREBASE] Firebase Admin SDK inicializado usando GOOGLE_APPLICATION_CREDENTIALS.");
-    }
-  } catch (error: any) {
-    console.error("[FIREBASE] Error al inicializar Firebase Admin SDK:", error.message);
-  }
-} else {
-  console.warn("[FIREBASE] No se encontraron credenciales de Firebase. Las notificaciones push de fondo estarán desactivadas.");
-}
+
 
 const app = express();
 app.use(express.json());
@@ -524,7 +498,7 @@ app.use((req, res, next) => {
       // We send back the exact error string so the frontend can display it
       res.status(500).json({ 
         error: error.message, 
-        detail: typeof error.response?.data === 'string' ? error.response.data : JSON.stringify(error.response?.data) 
+        error: error.message
       });
     }
   });
@@ -533,44 +507,7 @@ app.use((req, res, next) => {
   // ARMS ROSTER SYNC APIs
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Helper para enviar notificaciones push a través de Firebase Cloud Messaging
-  async function sendRosterPushNotification(userId: string, title: string, body: string) {
-    if (!admin.apps.length) {
-      console.warn(`[PUSH] Firebase Admin no inicializado. Omitiendo notificación para ${userId}.`);
-      return;
-    }
-    try {
-      const { data, error } = await supabase
-        .from('push_tokens')
-        .select('fcm_token')
-        .eq('user_id', userId)
-        .single();
 
-      if (error || !data?.fcm_token) {
-        console.log(`[PUSH] No se encontró token de push para el usuario: ${userId}`);
-        return;
-      }
-
-      console.log(`[PUSH] Enviando notificación a ${userId}...`);
-      await admin.messaging().send({
-        notification: { title, body },
-        android: {
-          notification: {
-            icon: 'stock_ticker_update',
-            color: '#7e57c2',
-            clickAction: 'roster' // Redirige a pantalla de roster en la app
-          }
-        },
-        data: {
-          screen: 'roster'
-        },
-        token: data.fcm_token
-      });
-      console.log(`[PUSH] Notificación enviada con éxito a ${userId}.`);
-    } catch (e: any) {
-      console.error(`[PUSH] Error al enviar notificación al usuario ${userId}:`, e.message);
-    }
-  }
 
   app.post("/api/arms/sync-roster", async (req, res) => {
     const { user_id, username, password, month, year, rememberMe, rememberSession } = req.body;
@@ -821,7 +758,7 @@ app.use((req, res, next) => {
               // Notificar al usuario
               const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
               const periodStr = `${monthNames[period.month - 1]} ${period.year}`;
-              await sendRosterPushNotification(
+              // Push notification removed
                 user_id,
                 "Roster de ARMS Actualizado ✈️",
                 `Se han detectado cambios en tu programación de ${periodStr}. Entra a la app para verlos.`
@@ -848,7 +785,7 @@ app.use((req, res, next) => {
                 .eq('user_id', user_id);
 
               // Notificar al usuario
-              await sendRosterPushNotification(
+              // Push notification removed
                 user_id,
                 "Sesión de ARMS Expirada ⚠️",
                 "Tu sesión automática de ARMS ha expirado. Por favor, abre la app y vuelve a iniciar sesión en tu roster."
