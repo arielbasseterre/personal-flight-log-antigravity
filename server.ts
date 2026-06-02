@@ -494,12 +494,8 @@ app.use((req, res, next) => {
 
       res.json(anacResponse.data);
     } catch (error: any) {
-      console.error("Error fetching ANAC logs:", error.response?.status, error.response?.data || error.message);
-      // We send back the exact error string so the frontend can display it
-      res.status(500).json({ 
-        error: error.message, 
-        error: error.message
-      });
+      console.error("[GET_ANAC_LOGS] Error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 
