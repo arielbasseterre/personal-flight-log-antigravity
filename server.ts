@@ -783,10 +783,6 @@ app.use((req, res, next) => {
 
               // Notificar al usuario
               // Push notification removed
-                user_id,
-                "Sesión de ARMS Expirada ⚠️",
-                "Tu sesión automática de ARMS ha expirado. Por favor, abre la app y vuelve a iniciar sesión en tu roster."
-              );
             }
           }
         }
