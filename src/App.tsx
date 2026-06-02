@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { heroBase64 } from './assets/hero-base64';
-import { 
-  Plane, 
+import {
+  Plane,
   PlaneTakeoff,
-  Calculator, 
-  BookOpen, 
+  Calculator,
+  BookOpen,
   User,
   Users as UsersIcon,
-  LayoutDashboard, 
-  ArrowLeft, 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Bus, 
+  LayoutDashboard,
+  ArrowLeft,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  Bus,
   Bed,
   Settings,
   Search,
@@ -28,35 +28,35 @@ import {
   Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  timeToMinutes, 
-  minutesToTime, 
-  addMinutes, 
-  diffMinutes, 
-  getPilotTSMax, 
-  getTcpTSMax 
+import {
+  timeToMinutes,
+  minutesToTime,
+  addMinutes,
+  diffMinutes,
+  getPilotTSMax,
+  getTcpTSMax
 } from './utils/aviation';
 import { Screen, CalculationResult, FlightLog, Profile } from './types';
 import { LibroScreen } from './components/LibroScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { AnacAuth } from './components/AnacAuth';
 import { ArmsRosterScreen } from './components/ArmsRosterScreen';
-import { registerPushNotifications, unregisterPushNotifications } from './utils/push-notifications';
+// import { registerPushNotifications, unregisterPushNotifications } from './utils/push-notifications';
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
 
 // --- Components ---
 
 const PilotIcon = ({ size = 24, className = "", active = false }: { size?: number, className?: string, active?: boolean }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
     className={className}
     fill={active ? "currentColor" : "none"}
     stroke="currentColor"
     strokeWidth="1.2"
-    strokeLinecap="round" 
+    strokeLinecap="round"
     strokeLinejoin="round"
   >
     {/* Cap Top */}
@@ -65,41 +65,41 @@ const PilotIcon = ({ size = 24, className = "", active = false }: { size?: numbe
     <path d="M10.5 6.5c0.5-0.3 2.5-0.3 3 0l-1.5 0.5z" />
     {/* Cap Brim */}
     <path d="M5.5 8.5h13l-0.5 1.5c-1 1-3 1.5-6 1.5s-5-0.5-6-1.5z" />
-    
+
     {/* Head */}
     <path d="M12 11.5c-1.8 0-3.2 1.4-3.2 3.2s1.4 3.2 3.2 3.2 3.2-1.4 3.2-3.2-1.4-3.2-3.2-3.2z" />
-    
+
     {/* Shoulders */}
     <path d="M3 21.5c0-2.5 2.5-4.5 5-4.5h8c2.5 0 5 2 5 4.5" />
-    
+
     {/* Epaulettes (4 stripes) */}
     <g strokeWidth="1">
       <path d="M4 18.5l2 0.5" />
       <path d="M4 19.2l2 0.5" />
       <path d="M4 19.9l2 0.5" />
       <path d="M4 20.6l2 0.5" />
-      
+
       <path d="M18 18.5l2 0.5" />
       <path d="M18 19.2l2 0.5" />
       <path d="M18 19.9l2 0.5" />
       <path d="M18 20.6l2 0.5" />
     </g>
-    
+
     {/* Tie */}
     <path d="M12 18l-0.7 1.2 0.7 2.3 0.7-2.3z" />
   </svg>
 );
 
 const TcpIcon = ({ size = 24, className = "", active = false }: { size?: number, className?: string, active?: boolean }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
     className={className}
     fill={active ? "currentColor" : "none"}
     stroke="currentColor"
     strokeWidth="1.2"
-    strokeLinecap="round" 
+    strokeLinecap="round"
     strokeLinejoin="round"
   >
     {/* Hat - Pillbox style */}
@@ -107,21 +107,21 @@ const TcpIcon = ({ size = 24, className = "", active = false }: { size?: number,
     {/* V detail on hat */}
     <path d="M10.5 4.2l1.5 1 1.5-1" strokeWidth="0.8" fill="none" />
     <path d="M7.5 6h9v2h-9z" />
-    
+
     {/* Hair - Bob cut silhouette */}
     <path d="M6 14.5c0-4 2.5-6.5 6-6.5s6 2.5 6 6.5v3h-12v-3z" />
-    
+
     {/* Face (eyes and smile) */}
     <g fill="currentColor" stroke="none">
       <circle cx="10.5" cy="13.5" r="0.7" />
       <circle cx="13.5" cy="13.5" r="0.7" />
     </g>
     <path d="M11 15.5c0.3 0.4 1.7 0.4 2 0" fill="none" stroke="currentColor" strokeWidth="0.8" />
-    
+
     {/* Scarf - 4-petal/bow shape */}
     <path d="M12 18.5l-1.2 1.2 1.2 1.2 1.2-1.2z" />
     <path d="M10.8 19.7l1.2-1.2 1.2 1.2-1.2 1.2z" />
-    
+
     {/* Shoulders */}
     <path d="M4 22c0-2 2.5-3.5 8-3.5s8 1.5 8 3.5" />
   </svg>
@@ -132,9 +132,9 @@ const CustomTimeInput = ({ value, onChange, className = "" }: { value: string, o
     <div className={`input-field flex items-center ${className} group-focus-within:ring-2 group-focus-within:ring-[#1152d4] group-focus-within:border-[#1152d4]`}>
       {value}
     </div>
-    <input 
-      type="time" 
-      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+    <input
+      type="time"
+      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       lang="en-GB"
@@ -301,22 +301,22 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
         </div>
       </div>
       <h2 className="text-lg font-bold flex-1 text-center">Personal flight log</h2>
-      <button 
+      <button
         onClick={toggleDarkMode}
         className="p-2 hover:bg-slate-100 dark:hover:bg-[#2d3748] rounded-full transition-colors"
       >
         {darkMode ? <Sun size={20} className="text-amber-400" /> : <Moon size={20} className="text-slate-600" />}
       </button>
     </div>
-    
+
     <div className="flex-1 overflow-y-auto pb-32">
       <div className="p-4">
-        <div 
+        <div
           className="w-full bg-slate-200 dark:bg-slate-800 flex flex-col justify-end overflow-hidden rounded-xl min-h-[45vh] shadow-2xl relative"
         >
-          <img 
-            src={heroBase64} 
-            alt="Dashboard" 
+          <img
+            src={heroBase64}
+            alt="Dashboard"
             className="absolute inset-0 w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#101622] via-transparent to-transparent transition-colors duration-300 pointer-events-none" />
@@ -333,7 +333,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
 
         <div className="grid grid-cols-1 gap-4 mt-8 w-full">
           {/* Pilotos */}
-          <button 
+          <button
             onClick={onEnter}
             className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-[#1152d4]/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
           >
@@ -348,7 +348,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
           </button>
 
           {/* TCPs */}
-          <button 
+          <button
             onClick={onGoToTcp}
             className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-emerald-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
           >
@@ -363,7 +363,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
           </button>
 
           {/* Libro de Vuelo */}
-          <button 
+          <button
             onClick={onGoToLibro}
             className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-amber-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
           >
@@ -378,7 +378,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
           </button>
 
           {/* Roster de Vuelo ARMS */}
-          <button 
+          <button
             onClick={onGoToRoster}
             className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-violet-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
           >
@@ -392,7 +392,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
             <ChevronRight size={18} className="text-slate-300 group-hover:text-violet-500" />
           </button>
 
-          <button 
+          <button
             onClick={onViewNorms}
             className="group relative bg-slate-50 dark:bg-[#1a2233] p-4 rounded-xl border border-slate-200 dark:border-[#2d3748] text-left hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-3 active:scale-[0.98]"
           >
@@ -404,7 +404,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
           </button>
         </div>
 
-        <button 
+        <button
           onClick={onChangelog}
           className="text-slate-500 text-[10px] mt-12 mb-10 hover:text-[#1152d4] transition-colors font-medium tracking-widest uppercase p-4"
         >
@@ -469,18 +469,18 @@ const PilotCalculator = () => {
   const tsMaxMinutes = getPilotTSMax(horaPresentacion, segmentos, tipoTripulacion, claseDescanso);
   const tsMax = minutesToTime(tsMaxMinutes);
   const vencimiento = addMinutes(horaPresentacion, tsMaxMinutes);
-  
+
   const duracionServicioMinutes = diffMinutes(horaPresentacion, horaCierre);
   const duracionServicio = minutesToTime(duracionServicioMinutes);
-  
+
   const descansoMinimoMinutes = Math.max(10 * 60, duracionServicioMinutes);
   const descansoMinimo = minutesToTime(descansoMinimoMinutes);
-  
+
   const formatAvailability = (baseTime: string, waitMinutes: number) => {
     const totalMins = timeToMinutes(baseTime) + waitMinutes;
     const days = Math.floor(totalMins / (24 * 60));
     const time = minutesToTime(totalMins % (24 * 60));
-    
+
     if (days === 0) return `Hoy, ${time}`;
     if (days === 1) return `Mañana, ${time}`;
     return `En ${days} días, ${time}`;
@@ -498,11 +498,11 @@ const PilotCalculator = () => {
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Inicio de Servicio</h2>
         </div>
-        
+
         <div className="card space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-1">Hora de Presentación</label>
-            <CustomTimeInput 
+            <CustomTimeInput
               value={horaPresentacion}
               onChange={setHoraPresentacion}
               className="pr-12"
@@ -512,7 +512,7 @@ const PilotCalculator = () => {
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-1">Segmentos</label>
             <div className="relative">
-              <select 
+              <select
                 className="input-field appearance-none pr-12"
                 value={segmentos}
                 onChange={(e) => setSegmentos(e.target.value)}
@@ -524,7 +524,7 @@ const PilotCalculator = () => {
                 <option>7+ Segmentos</option>
               </select>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </div>
           </div>
@@ -532,7 +532,7 @@ const PilotCalculator = () => {
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-1">Tipo de Tripulación</label>
             <div className="relative">
-              <select 
+              <select
                 className="input-field appearance-none pr-12"
                 value={tipoTripulacion}
                 onChange={(e) => setTipoTripulacion(e.target.value)}
@@ -542,7 +542,7 @@ const PilotCalculator = () => {
                 <option>Aumentada 4 Pil</option>
               </select>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </div>
           </div>
@@ -552,7 +552,7 @@ const PilotCalculator = () => {
               Clase de Descanso {tipoTripulacion === 'Mínima' && <span className="text-[10px] font-normal italic">(No aplica en caso de tripulación mínima)</span>}
             </label>
             <div className="relative">
-              <select 
+              <select
                 className={`input-field appearance-none pr-12 transition-all ${tipoTripulacion === 'Mínima' ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800/50' : ''}`}
                 value={claseDescanso}
                 onChange={(e) => setClaseDescanso(e.target.value)}
@@ -563,7 +563,7 @@ const PilotCalculator = () => {
                 <option>Clase 3</option>
               </select>
               <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${tipoTripulacion === 'Mínima' ? 'text-slate-300 dark:text-slate-600' : 'text-slate-400'}`}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </div>
           </div>
@@ -607,7 +607,7 @@ const PilotCalculator = () => {
         <div className="card space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-1">Fin Tiempo de Servicio Real (On-Block + 30 min)</label>
-            <CustomTimeInput 
+            <CustomTimeInput
               value={horaCierre}
               onChange={setHoraCierre}
             />
@@ -622,7 +622,7 @@ const PilotCalculator = () => {
                 <p className="text-[11px] text-slate-500">Añadir tiempo de transporte</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setTraslado(!traslado)}
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-200 focus:outline-none ${traslado ? 'bg-[#1152d4]' : 'bg-slate-300 dark:bg-slate-700'}`}
             >
@@ -700,10 +700,10 @@ const TcpCalculator = () => {
   const tsMaxMinutes = getTcpTSMax(config);
   const tsMax = minutesToTime(tsMaxMinutes);
   const vencimiento = addMinutes(horaPresentacion, tsMaxMinutes);
-  
+
   const duracionServicioMinutes = diffMinutes(horaPresentacion, horaCierre);
   const duracionServicio = minutesToTime(duracionServicioMinutes);
-  
+
   const excessMinutes = Math.max(0, duracionServicioMinutes - tsMaxMinutes);
   const descansoMinimoMinutes = (10 * 60) + excessMinutes;
   const descansoMinimo = minutesToTime(descansoMinimoMinutes);
@@ -712,7 +712,7 @@ const TcpCalculator = () => {
     const totalMins = timeToMinutes(baseTime) + waitMinutes;
     const days = Math.floor(totalMins / (24 * 60));
     const time = minutesToTime(totalMins % (24 * 60));
-    
+
     if (days === 0) return `Hoy, ${time}`;
     if (days === 1) return `Mañana, ${time}`;
     return `En ${days} días, ${time}`;
@@ -730,16 +730,16 @@ const TcpCalculator = () => {
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Inicio de Servicio</h2>
         </div>
-        
+
         <div className="card space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-1">Hora de Presentación</label>
-            <CustomTimeInput 
+            <CustomTimeInput
               value={horaPresentacion}
               onChange={setHoraPresentacion}
             />
           </div>
-          
+
           <div className="space-y-3">
             <label className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-1">Configuración de Tripulación</label>
             <div className="grid grid-cols-1 gap-2">
@@ -748,14 +748,14 @@ const TcpCalculator = () => {
                 { id: 'minima1', label: 'Mínima + 1 (Límite 16h)' },
                 { id: 'minima2', label: 'Mínima + 2 (Límite 18h)' }
               ].map((opt) => (
-                <label 
+                <label
                   key={opt.id}
                   className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${config === opt.id ? 'border-[#1152d4] bg-[#1152d4]/10' : 'border-slate-200 dark:border-[#2d3748] bg-slate-50 dark:bg-[#101622]/50'}`}
                 >
                   <span className={`text-sm ${config === opt.id ? 'text-[#1152d4] dark:text-white font-bold' : 'text-slate-600 dark:text-slate-300'}`}>{opt.label}</span>
-                  <input 
-                    type="radio" 
-                    name="crew-config" 
+                  <input
+                    type="radio"
+                    name="crew-config"
                     className="sr-only"
                     checked={config === opt.id}
                     onChange={() => setConfig(opt.id)}
@@ -807,7 +807,7 @@ const TcpCalculator = () => {
         <div className="card space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-1">Fin Tiempo de Servicio Real (On-Block + 30 min)</label>
-            <CustomTimeInput 
+            <CustomTimeInput
               value={horaCierre}
               onChange={setHoraCierre}
             />
@@ -822,7 +822,7 @@ const TcpCalculator = () => {
                 <p className="text-[11px] text-slate-500">Añadir tiempo de transporte</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setTraslado(!traslado)}
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-200 focus:outline-none ${traslado ? 'bg-[#1152d4]' : 'bg-slate-300 dark:bg-slate-700'}`}
             >
@@ -944,7 +944,7 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
                 <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 max-w-xs">
                   Tu dispositivo o navegador no permite ver el PDF aquí. Presiona el botón de abajo para abrirlo.
                 </p>
-                <button 
+                <button
                   onClick={handleOpenExternal}
                   className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-4 px-8 rounded-xl flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-[#1152d4]/20"
                 >
@@ -957,14 +957,14 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
         </div>
 
         <div className="p-4 bg-white dark:bg-[#1a2233] border-t border-slate-200 dark:border-[#2d3748] grid grid-cols-2 gap-3">
-          <button 
+          <button
             onClick={handleOpenExternal}
             className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
           >
             <Search size={16} />
             VER PANTALLA COMPLETA
           </button>
-          <button 
+          <button
             onClick={handleDownload}
             className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
           >
@@ -975,7 +975,7 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
       </main>
 
       <nav className="bg-white dark:bg-[#1a2233] border-t border-slate-200 dark:border-[#2d3748] p-4 flex items-center justify-center pb-safe-area-inset-bottom">
-        <button 
+        <button
           onClick={onBack}
           className="text-slate-500 text-xs font-bold hover:text-slate-900 dark:hover:text-white transition-colors uppercase tracking-widest"
         >
@@ -989,7 +989,7 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
 const ChangelogScreen = ({ onBack }: { onBack: () => void }) => {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
-      <Header title="Historial de Cambios" onBack={onBack} darkMode={true} toggleDarkMode={() => {}} />
+      <Header title="Historial de Cambios" onBack={onBack} darkMode={true} toggleDarkMode={() => { }} />
       <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
         {CHANGELOG_DATA.map((change, idx) => (
           <div key={idx} className="relative pl-6 border-l-2 border-slate-200 dark:border-[#2d3748]">
@@ -1030,11 +1030,11 @@ export default function App() {
     if (!supabase) return null;
     setDataLoading(true);
     let finalProfile: Profile | null = null;
-    
+
     try {
       const cachedLogs = localStorage.getItem(`logs_cache_${userId}`);
       if (cachedLogs) setLogs(JSON.parse(cachedLogs));
-      
+
       const cachedProfile = localStorage.getItem(`profile_cache_${userId}`);
       if (cachedProfile) {
         const p = JSON.parse(cachedProfile);
@@ -1044,7 +1044,7 @@ export default function App() {
     } catch (e) {
       console.error("Cache read error:", e);
     }
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const authUser = session?.user;
@@ -1054,7 +1054,7 @@ export default function App() {
         .select('*')
         .eq('user_id', userId)
         .order('fechaHoraSalida', { ascending: false });
-      
+
       if (logsError) {
         console.error("Error fetching logs with new schema, trying fallback:", logsError);
         const { data: fallbackLogs } = await supabase
@@ -1078,11 +1078,11 @@ export default function App() {
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-      
+
       if (profileError) {
         console.error("Supabase profile fetch error:", profileError);
       }
-      
+
       // Fallback: search by email if ID fetch returned nothing
       if (!profileData && authUser?.email) {
         console.log("Profile not found by ID in profiles, trying by email:", authUser.email);
@@ -1091,7 +1091,7 @@ export default function App() {
           .select('*')
           .eq('email', authUser.email)
           .maybeSingle();
-        
+
         if (!emailProfileError && emailProfileData) {
           console.log("Profile found by email backup in profiles:", emailProfileData);
           profileData = emailProfileData;
@@ -1103,7 +1103,7 @@ export default function App() {
       if (profileData && Object.keys(profileData).length > 0) {
         // Record found in profiles table. Merging...
         finalProfile = {
-          ...profileData, 
+          ...profileData,
           id: userId,
           email: profileData.email || authUser?.email || '',
           initial_total_hours: profileData.initial_total_hours ?? null,
@@ -1148,12 +1148,12 @@ export default function App() {
           grand_total_hours: null
         } as any;
       }
-      
+
       // Safety: If we already have a profile with data, and the new one is 'empty' (meaning no DB record found),
       // we might want to keep the current one to avoid "resetting to empty" while syncing.
       // However, usually Sync implies "get what's in DB".
       // Let's at least log it.
-      
+
       setProfile(finalProfile);
       localStorage.setItem(`profile_cache_${userId}`, JSON.stringify(finalProfile));
       return finalProfile;
@@ -1176,7 +1176,7 @@ export default function App() {
       if (activeUser) {
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
-        registerPushNotifications(activeUser.id);
+        // registerPushNotifications(activeUser.id);
       }
     });
 
@@ -1187,16 +1187,16 @@ export default function App() {
       if (activeUser) {
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
-        registerPushNotifications(activeUser.id);
+        // registerPushNotifications(activeUser.id);
       } else {
         if (lastUserId) {
-          unregisterPushNotifications(lastUserId);
+          // unregisterPushNotifications(lastUserId);
           lastUserId = null;
         }
         setProfile(null);
         setLogs([]);
       }
-    }) || { data: { subscription: { unsubscribe: () => {} } } };
+    }) || { data: { subscription: { unsubscribe: () => { } } } };
 
     // Escuchar el evento de notificación tocada para abrir la pantalla de roster
     const handleOpenRoster = () => {
@@ -1255,11 +1255,11 @@ export default function App() {
               {!user ? (
                 <AuthScreen />
               ) : (
-                <LibroScreen 
-                  logs={logs} 
-                  setLogs={setLogs} 
-                  profile={profile} 
-                  setProfile={setProfile} 
+                <LibroScreen
+                  logs={logs}
+                  setLogs={setLogs}
+                  profile={profile}
+                  setProfile={setProfile}
                   refreshData={() => fetchData(user.id)}
                   loading={dataLoading}
                 />
@@ -1301,7 +1301,7 @@ export default function App() {
           {renderScreen()}
         </motion.div>
       </AnimatePresence>
-      
+
       {screen !== 'normas' && screen !== 'changelog' && <BottomNav currentScreen={screen} setScreen={setScreen} />}
     </div>
   );

@@ -9,9 +9,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "postinstall": "node scripts/postinstall.cjs"
   },
   "dependencies": {
+    "@capacitor/storage": "^5.0.0",
     "@base-ui/react": "^1.4.0",
     "@capacitor/android": "^6.2.1",
     "@capacitor/app": "^6.0.0",
