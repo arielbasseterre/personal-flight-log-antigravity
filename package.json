@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "react-is": "^18.3.1",
-    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/preferences": "^6.0.0",
     "@base-ui/react": "^1.4.0",
     "@capacitor/android": "^6.2.1",
     "@capacitor/app": "^6.0.0",
