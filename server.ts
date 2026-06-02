@@ -759,10 +759,7 @@ app.use((req, res, next) => {
               const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
               const periodStr = `${monthNames[period.month - 1]} ${period.year}`;
               // Push notification removed
-                user_id,
-                "Roster de ARMS Actualizado ✈️",
-                `Se han detectado cambios en tu programación de ${periodStr}. Entra a la app para verlos.`
-              );
+
             } else {
               console.log(`[CRON] Sin cambios en Roster de ${arms_username} para ${period.month}/${period.year}.`);
             }
