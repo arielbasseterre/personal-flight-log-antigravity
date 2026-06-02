@@ -309,7 +309,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
       </button>
     </div>
 
-    <div className="flex-1 overflow-y-auto pb-32">
+    <div className="flex-1 overflow-y-auto pb-44">
       <div className="p-4">
         <div
           className="w-full bg-slate-200 dark:bg-slate-800 flex flex-col justify-end overflow-hidden rounded-xl min-h-[45vh] shadow-2xl relative"
@@ -866,21 +866,106 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
   const pdfUrl = "/normativa.pdf";
   const fullPdfUrl = window.location.origin + pdfUrl;
 
-  // Android WebView/TWA (Play Store) no puede renderizar PDFs nativamente.
-  // Google Docs Viewer actúa como visor universal que funciona en cualquier contexto.
+  // Android WebView/TWA no puede renderizar PDFs nativamente de forma fiable.
+  // El visor de Google Docs no funciona con localhost.
   const isAndroid = /android/i.test(navigator.userAgent);
-  const googleViewerUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fullPdfUrl)}`;
 
-  const handleDownload = () => {
-    const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = 'Normativa_Anexo_I.pdf';
-    a.click();
+  const handleDownload = async () => {
+    if (isAndroid) {
+      try {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+
+        const response = await fetch(pdfUrl);
+        const blob = await response.blob();
+
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const base64data = reader.result as string;
+            resolve(base64data.split(',')[1]);
+          };
+        });
+        reader.readAsDataURL(blob);
+        const base64Data = await base64Promise;
+
+        const fileName = 'Normativa_Anexo_I.pdf';
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Documents // Usar Documents para descarga
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Documents
+        });
+
+        await Share.share({
+          title: 'Normativa Aeronáutica',
+          url: uri,
+        });
+      } catch (err) {
+        console.error('Error downloading PDF:', err);
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = 'Normativa_Anexo_I.pdf';
+        a.click();
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.download = 'Normativa_Anexo_I.pdf';
+      a.click();
+    }
   };
 
-  const handleOpenExternal = () => {
+  const handleOpenExternal = async () => {
     if (isAndroid) {
-      window.open(googleViewerUrl, '_blank');
+      try {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+
+        // 1. Leer el archivo desde los assets de la web
+        const response = await fetch(pdfUrl);
+        const blob = await response.blob();
+
+        // 2. Convertir a base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            const base64data = reader.result as string;
+            resolve(base64data.split(',')[1]);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(blob);
+        const base64Data = await base64Promise;
+
+        // 3. Guardar temporalmente en el dispositivo
+        const fileName = 'Normativa_Anexo_I.pdf';
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Cache
+        });
+
+        // 4. Usar el plugin Share para abrirlo
+        await Share.share({
+          title: 'Normativa Aeronáutica',
+          url: uri,
+        });
+
+      } catch (err) {
+        console.error('Error opening PDF:', err);
+        alert('Error al procesar el archivo. Intentando abrir en navegador...');
+        window.open(fullPdfUrl, '_blank');
+      }
     } else {
       window.open(fullPdfUrl, '_blank');
     }
@@ -901,6 +986,35 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
       alert('Copiado al portapapeles: ' + fullPdfUrl);
     }
   };
+
+  const FallbackUI = () => (
+    <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white dark:bg-[#1a2233]">
+      <BookOpen size={64} className="mb-6 text-slate-300 dark:text-slate-700" />
+      <h3 className="text-slate-900 dark:text-white font-bold mb-4">Visualización de Normativa</h3>
+      <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 max-w-xs leading-relaxed">
+        {isAndroid
+          ? "En Android, la previsualización directa está limitada. Presiona el botón para abrir el documento con el visor de tu sistema."
+          : "Tu dispositivo o navegador no permite ver el PDF aquí. Presiona el botón de abajo para abrirlo."
+        }
+      </p>
+      <div className="flex flex-col gap-4 w-full max-w-xs">
+        <button
+          onClick={handleOpenExternal}
+          className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-[#1152d4]/20"
+        >
+          <Search size={20} />
+          Abrir Documento
+        </button>
+        <button
+          onClick={handleDownload}
+          className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95"
+        >
+          <FileText size={20} />
+          Descargar PDF
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#0f172a] transition-colors">
@@ -924,13 +1038,7 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
       <main className="flex-1 bg-slate-100 dark:bg-slate-950 relative flex flex-col overflow-hidden">
         <div className="flex-1 w-full h-full">
           {isAndroid ? (
-            /* Android WebView/TWA: usar Google Docs Viewer como iframe */
-            <iframe
-              src={googleViewerUrl}
-              className="w-full h-full border-0"
-              title="Normativa Aeronáutica - Anexo I"
-              allow="autoplay"
-            />
+            <FallbackUI />
           ) : (
             /* Desktop/iOS: usar visor nativo del navegador */
             <object
@@ -938,53 +1046,15 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
               type="application/pdf"
               className="w-full h-full"
             >
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white dark:bg-[#1a2233]">
-                <BookOpen size={64} className="mb-6 text-slate-300 dark:text-slate-700" />
-                <h3 className="text-slate-900 dark:text-white font-bold mb-2">Previsualización no disponible</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 max-w-xs">
-                  Tu dispositivo o navegador no permite ver el PDF aquí. Presiona el botón de abajo para abrirlo.
-                </p>
-                <button
-                  onClick={handleOpenExternal}
-                  className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-4 px-8 rounded-xl flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-[#1152d4]/20"
-                >
-                  <Search size={20} />
-                  ABRIR NORMATIVA
-                </button>
-              </div>
+              <FallbackUI />
             </object>
           )}
         </div>
-
-        <div className="p-4 bg-white dark:bg-[#1a2233] border-t border-slate-200 dark:border-[#2d3748] grid grid-cols-2 gap-3">
-          <button
-            onClick={handleOpenExternal}
-            className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
-          >
-            <Search size={16} />
-            VER PANTALLA COMPLETA
-          </button>
-          <button
-            onClick={handleDownload}
-            className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
-          >
-            <Plus size={16} className="rotate-45" />
-            DESCARGAR PDF
-          </button>
-        </div>
       </main>
-
-      <nav className="bg-white dark:bg-[#1a2233] border-t border-slate-200 dark:border-[#2d3748] p-4 flex items-center justify-center pb-safe-area-inset-bottom">
-        <button
-          onClick={onBack}
-          className="text-slate-500 text-xs font-bold hover:text-slate-900 dark:hover:text-white transition-colors uppercase tracking-widest"
-        >
-          Cerrar Documento
-        </button>
-      </nav>
     </div>
   );
 };
+
 
 const ChangelogScreen = ({ onBack }: { onBack: () => void }) => {
   return (
@@ -1302,7 +1372,7 @@ export default function App() {
         </motion.div>
       </AnimatePresence>
 
-      {screen !== 'normas' && screen !== 'changelog' && <BottomNav currentScreen={screen} setScreen={setScreen} />}
+      {screen !== 'changelog' && <BottomNav currentScreen={screen} setScreen={setScreen} />}
     </div>
   );
 }
