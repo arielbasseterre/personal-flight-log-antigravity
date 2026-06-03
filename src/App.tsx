@@ -41,6 +41,7 @@ import { LibroScreen } from './components/LibroScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { AnacAuth } from './components/AnacAuth';
 import { ArmsRosterScreen } from './components/ArmsRosterScreen';
+import { PdfViewer } from './components/PdfViewer';
 
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
@@ -158,10 +159,6 @@ const BottomNav = ({ currentScreen, setScreen }: { currentScreen: Screen, setScr
       <button onClick={() => setScreen('tcp')} className={`nav-item ${currentScreen === 'tcp' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
         <TcpIcon size={24} active={currentScreen === 'tcp'} />
         <span className="text-[10px] font-medium">TCP</span>
-      </button>
-      <button onClick={() => setScreen('normas')} className={`nav-item ${currentScreen === 'normas' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
-        <BookOpen size={24} />
-        <span className="text-[10px] font-medium">Normas</span>
       </button>
       <button onClick={() => setScreen('libro')} className={`nav-item ${currentScreen === 'libro' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
         <Plane size={24} className={currentScreen === 'libro' ? 'fill-[#1152d4]/20' : ''} />
@@ -866,111 +863,6 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
   const pdfUrl = "/normativa.pdf";
   const fullPdfUrl = window.location.origin + pdfUrl;
 
-  // Android WebView/TWA no puede renderizar PDFs nativamente de forma fiable.
-  // El visor de Google Docs no funciona con localhost.
-  const isAndroid = /android/i.test(navigator.userAgent);
-
-  const handleDownload = async () => {
-    if (isAndroid) {
-      try {
-        const { Filesystem, Directory } = await import('@capacitor/filesystem');
-        const { Share } = await import('@capacitor/share');
-
-        const response = await fetch(pdfUrl);
-        const blob = await response.blob();
-
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
-          reader.onloadend = () => {
-            const base64data = reader.result as string;
-            resolve(base64data.split(',')[1]);
-          };
-        });
-        reader.readAsDataURL(blob);
-        const base64Data = await base64Promise;
-
-        const fileName = 'Normativa_Anexo_I.pdf';
-        await Filesystem.writeFile({
-          path: fileName,
-          data: base64Data,
-          directory: Directory.Documents // Usar Documents para descarga
-        });
-
-        const { uri } = await Filesystem.getUri({
-          path: fileName,
-          directory: Directory.Documents
-        });
-
-        await Share.share({
-          title: 'Normativa Aeronáutica',
-          url: uri,
-        });
-      } catch (err) {
-        console.error('Error downloading PDF:', err);
-        const a = document.createElement('a');
-        a.href = pdfUrl;
-        a.download = 'Normativa_Anexo_I.pdf';
-        a.click();
-      }
-    } else {
-      const a = document.createElement('a');
-      a.href = pdfUrl;
-      a.download = 'Normativa_Anexo_I.pdf';
-      a.click();
-    }
-  };
-
-  const handleOpenExternal = async () => {
-    if (isAndroid) {
-      try {
-        const { Filesystem, Directory } = await import('@capacitor/filesystem');
-        const { Share } = await import('@capacitor/share');
-
-        // 1. Leer el archivo desde los assets de la web
-        const response = await fetch(pdfUrl);
-        const blob = await response.blob();
-
-        // 2. Convertir a base64
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => {
-            const base64data = reader.result as string;
-            resolve(base64data.split(',')[1]);
-          };
-          reader.onerror = reject;
-        });
-        reader.readAsDataURL(blob);
-        const base64Data = await base64Promise;
-
-        // 3. Guardar temporalmente en el dispositivo
-        const fileName = 'Normativa_Anexo_I.pdf';
-        await Filesystem.writeFile({
-          path: fileName,
-          data: base64Data,
-          directory: Directory.Cache
-        });
-
-        const { uri } = await Filesystem.getUri({
-          path: fileName,
-          directory: Directory.Cache
-        });
-
-        // 4. Usar el plugin Share para abrirlo
-        await Share.share({
-          title: 'Normativa Aeronáutica',
-          url: uri,
-        });
-
-      } catch (err) {
-        console.error('Error opening PDF:', err);
-        alert('Error al procesar el archivo. Intentando abrir en navegador...');
-        window.open(fullPdfUrl, '_blank');
-      }
-    } else {
-      window.open(fullPdfUrl, '_blank');
-    }
-  };
-
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -986,35 +878,6 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
       alert('Copiado al portapapeles: ' + fullPdfUrl);
     }
   };
-
-  const FallbackUI = () => (
-    <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white dark:bg-[#1a2233]">
-      <BookOpen size={64} className="mb-6 text-slate-300 dark:text-slate-700" />
-      <h3 className="text-slate-900 dark:text-white font-bold mb-4">Visualización de Normativa</h3>
-      <p className="text-slate-600 dark:text-slate-400 text-sm mb-8 max-w-xs leading-relaxed">
-        {isAndroid
-          ? "En Android, la previsualización directa está limitada. Presiona el botón para abrir el documento con el visor de tu sistema."
-          : "Tu dispositivo o navegador no permite ver el PDF aquí. Presiona el botón de abajo para abrirlo."
-        }
-      </p>
-      <div className="flex flex-col gap-4 w-full max-w-xs">
-        <button
-          onClick={handleOpenExternal}
-          className="bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-[#1152d4]/20"
-        >
-          <Search size={20} />
-          Abrir Documento
-        </button>
-        <button
-          onClick={handleDownload}
-          className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95"
-        >
-          <FileText size={20} />
-          Descargar PDF
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#0f172a] transition-colors">
@@ -1036,20 +899,7 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
       </header>
 
       <main className="flex-1 bg-slate-100 dark:bg-slate-950 relative flex flex-col overflow-hidden">
-        <div className="flex-1 w-full h-full">
-          {isAndroid ? (
-            <FallbackUI />
-          ) : (
-            /* Desktop/iOS: usar visor nativo del navegador */
-            <object
-              data={pdfUrl}
-              type="application/pdf"
-              className="w-full h-full"
-            >
-              <FallbackUI />
-            </object>
-          )}
-        </div>
+        <PdfViewer url={pdfUrl} />
       </main>
     </div>
   );
