@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
   Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff, HelpCircle,
-  Calendar, Loader2, Coffee
+  Calendar, Loader2, Coffee, ArrowRight
 } from 'lucide-react';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
@@ -600,6 +600,93 @@ function ArmsCredentialsModal({
 }
 
 
+interface RosterChange {
+  dateISO: string;
+  oldActivity: string;
+  newActivity: string;
+}
+
+const getActivitySummary = (entry: ArmsDayEntry | null | undefined): string => {
+  if (!entry) return 'Libre / Sin programar';
+  if (entry.eventType === 'OFF') return 'Libre';
+  if (entry.eventType === 'LAYOVER') return `Layover (${entry.layoverAirport || '—'})`;
+  if (entry.eventType === 'STANDBY') return `Guardia (${entry.rawTask || ''})`;
+  if (entry.isFlight) {
+    const flights = entry.legs.map(l => l.flightNumber).join(', ');
+    return `Vuelo: ${flights || entry.rawTask || 'Tramos'}`;
+  }
+  return entry.rawTask || entry.eventType || 'Sin actividad';
+};
+
+function RosterChangesModal({
+  changes,
+  onClose,
+}: {
+  changes: RosterChange[];
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-md bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-5 max-h-[85vh] flex flex-col"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <div className="text-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-3">
+            <RefreshCw size={22} className="text-amber-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Cambios en tu Roster</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Se han detectado modificaciones en tu programación para este mes.
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto min-h-0 py-2 space-y-3 pr-1">
+          {changes.map((c, idx) => {
+            const dateObj = new Date(c.dateISO + 'T12:00');
+            const dateStr = dateObj.toLocaleDateString('es-AR', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            });
+            return (
+              <div key={idx} className="bg-white dark:bg-[#1a2233] p-4 rounded-2xl border border-slate-150 dark:border-[#2d3748] space-y-2">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 capitalize">{dateStr}</p>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm">
+                  <div className="bg-red-500/10 text-red-500 dark:text-red-400 px-3 py-2 rounded-xl text-xs line-through text-center font-medium min-h-[32px] flex items-center justify-center">
+                    {c.oldActivity}
+                  </div>
+                  <ArrowRight size={14} className="text-slate-400 dark:text-slate-600" />
+                  <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl text-xs text-center font-bold min-h-[32px] flex items-center justify-center">
+                    {c.newActivity}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-[#1152d4] hover:bg-[#0e47b5] text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98] shrink-0"
+        >
+          Entendido
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SECCIÓN E: COMPONENTE ROOT — ArmsRosterScreen
 // ═══════════════════════════════════════════════════════════════════════════
@@ -630,6 +717,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [syncError, setSyncError]           = useState<string | null>(null);
   const [lastSynced, setLastSynced]         = useState<string | null>(null);
   const [showCredentials, setShowCredentials] = useState(false);
+  const [rosterChanges, setRosterChanges]     = useState<RosterChange[] | null>(null);
 
   // ── Estado del modal de tripulación ───────────────────────────────────
   const [crewModal, setCrewModal] = useState<{
@@ -728,6 +816,36 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       }
 
       const data = await response.json();
+      
+      // Comparar cambios si ya había entries previas en este mes/año
+      if (entries && entries.length > 0) {
+        const changesList: RosterChange[] = [];
+        const allDates = Array.from(new Set([
+          ...entries.map(e => e.dateISO),
+          ...data.entries.map((e: any) => e.dateISO)
+        ])).sort();
+
+        for (const date of allDates) {
+          const oldEntry = entries.find(e => e.dateISO === date);
+          const newEntry = data.entries.find((e: any) => e.dateISO === date);
+          
+          const oldSum = getActivitySummary(oldEntry);
+          const newSum = getActivitySummary(newEntry);
+          
+          if (oldSum !== newSum) {
+            changesList.push({
+              dateISO: date,
+              oldActivity: oldSum,
+              newActivity: newSum
+            });
+          }
+        }
+
+        if (changesList.length > 0) {
+          setRosterChanges(changesList);
+        }
+      }
+
       setEntries(data.entries);
       const nowSync = new Date().toISOString();
       setLastSynced(nowSync);
@@ -1092,6 +1210,16 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             loading={syncing}
             onClose={() => setShowCredentials(false)}
             onSubmit={(user, pass, remember) => handleSync(user, pass, remember)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Cambios en Roster */}
+      <AnimatePresence>
+        {rosterChanges && (
+          <RosterChangesModal
+            changes={rosterChanges}
+            onClose={() => setRosterChanges(null)}
           />
         )}
       </AnimatePresence>
