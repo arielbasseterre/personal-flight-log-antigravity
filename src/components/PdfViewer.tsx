@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Loader2, Download } from 'lucide-react';
 
 interface PdfViewerProps {
   url: string;
@@ -13,14 +13,16 @@ declare global {
 
 export const PdfViewer: React.FC<PdfViewerProps> = ({ url }) => {
   const [pdf, setPdf] = useState<any>(null);
-  const [pageNum, setPageNum] = useState<number>(1);
   const [numPages, setNumPages] = useState<number>(0);
   const [scale, setScale] = useState<number>(1.0);
   const [loading, setLoading] = useState<boolean>(true);
   const [libraryLoaded, setLibraryLoaded] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const renderTaskRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pagesContainerRef = useRef<HTMLDivElement>(null);
+  const renderedPagesRef = useRef<{ [key: number]: boolean }>({});
+
+  const isAndroid = /android/i.test(navigator.userAgent);
 
   // Load PDF.js from CDN
   useEffect(() => {
@@ -41,10 +43,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url }) => {
       setLoading(false);
     };
     document.body.appendChild(script);
-
-    return () => {
-      // Keep script loaded to avoid multiple injections
-    };
   }, []);
 
   // Load PDF document
@@ -54,6 +52,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url }) => {
     let isMounted = true;
     setLoading(true);
     setError(null);
+    renderedPagesRef.current = {};
 
     const loadingTask = window.pdfjsLib.getDocument(url);
     loadingTask.promise.then(
@@ -61,7 +60,6 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url }) => {
         if (!isMounted) return;
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
-        setPageNum(1);
         setLoading(false);
       },
       (err: any) => {
@@ -77,167 +75,189 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url }) => {
     };
   }, [url, libraryLoaded]);
 
-  // Render Page
+  // Render all pages in a list
   useEffect(() => {
-    if (!pdf) return;
+    if (!pdf || numPages === 0) return;
 
-    // Cancel existing render task if any
-    if (renderTaskRef.current) {
-      renderTaskRef.current.cancel();
-    }
+    const renderPages = async () => {
+      const container = pagesContainerRef.current;
+      if (!container) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+      // Clear previous canvases if reloading
+      container.innerHTML = '';
+      renderedPagesRef.current = {};
 
-    const context = canvas.getContext('2d');
-    if (!context) return;
+      const width = container.clientWidth || 375;
 
-    setLoading(true);
+      for (let i = 1; i <= numPages; i++) {
+        try {
+          const page = await pdf.getPage(i);
+          
+          // Create wrapper for the page
+          const pageWrapper = document.createElement('div');
+          pageWrapper.className = 'w-full flex justify-center bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 py-2 relative';
+          
+          const canvas = document.createElement('canvas');
+          canvas.className = 'block w-full max-w-full';
+          pageWrapper.appendChild(canvas);
+          container.appendChild(pageWrapper);
 
-    pdf.getPage(pageNum).then((page: any) => {
-      // Adjust scale based on viewport width for responsive design
-      const containerWidth = canvas.parentElement?.clientWidth || 350;
-      const unscaledViewport = page.getViewport({ scale: 1.0 });
-      const responsiveScale = (containerWidth / unscaledViewport.width) * scale;
-      
-      const viewport = page.getViewport({ scale: responsiveScale });
-      
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+          const context = canvas.getContext('2d');
+          if (!context) continue;
 
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-      };
+          const unscaledViewport = page.getViewport({ scale: 1.0 });
+          // Make it fit the container width perfectly
+          const fitScale = (width / unscaledViewport.width) * scale;
+          const viewport = page.getViewport({ scale: fitScale });
 
-      const renderTask = page.render(renderContext);
-      renderTaskRef.current = renderTask;
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
 
-      renderTask.promise.then(
-        () => {
-          setLoading(false);
-          renderTaskRef.current = null;
-        },
-        (err: any) => {
-          if (err.name !== 'RenderingCancelledException') {
-            console.error('Error rendering page:', err);
-            setLoading(false);
-          }
+          const renderContext = {
+            canvasContext: context,
+            viewport: viewport,
+          };
+
+          await page.render(renderContext).promise;
+          renderedPagesRef.current[i] = true;
+        } catch (err) {
+          console.error(`Error rendering page ${i}:`, err);
         }
-      );
-    });
-
-    return () => {
-      if (renderTaskRef.current) {
-        renderTaskRef.current.cancel();
       }
     };
-  }, [pdf, pageNum, scale]);
 
-  const handlePrevPage = () => {
-    if (pageNum > 1) {
-      setPageNum(pageNum - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (pageNum < numPages) {
-      setPageNum(pageNum + 1);
-    }
-  };
+    renderPages();
+  }, [pdf, numPages, scale]);
 
   const handleZoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.25, 3.0));
+    setScale((prev) => Math.min(prev + 0.15, 2.5));
   };
 
   const handleZoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.25, 0.5));
+    setScale((prev) => Math.max(prev - 0.15, 0.7));
   };
 
   const handleResetZoom = () => {
     setScale(1.0);
   };
 
-  return (
-    <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white">
-      {/* Controls toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-white dark:bg-[#1a2233] border-b border-slate-200 dark:border-[#2d3748] sticky top-0 z-20 shadow-sm">
-        {/* Navigation */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handlePrevPage}
-            disabled={pageNum <= 1 || loading}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            title="Página Anterior"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <span className="text-sm font-semibold px-2 min-w-[70px] text-center">
-            {pageNum} / {numPages || '?'}
-          </span>
-          <button
-            onClick={handleNextPage}
-            disabled={pageNum >= numPages || loading}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-30 disabled:pointer-events-none transition-colors"
-            title="Siguiente Página"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
+  const handleDownload = async () => {
+    if (isAndroid) {
+      try {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1">
+        const response = await fetch(url);
+        const blob = await response.blob();
+
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const base64data = reader.result as string;
+            resolve(base64data.split(',')[1]);
+          };
+        });
+        reader.readAsDataURL(blob);
+        const base64Data = await base64Promise;
+
+        const fileName = 'Normativa_Anexo_I.pdf';
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Documents
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Documents
+        });
+
+        await Share.share({
+          title: 'Normativa Aeronáutica',
+          url: uri,
+        });
+      } catch (err) {
+        console.error('Error downloading PDF:', err);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Normativa_Anexo_I.pdf';
+        a.click();
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Normativa_Anexo_I.pdf';
+      a.click();
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="flex flex-col h-full bg-slate-900 text-white relative">
+      {/* Zoom toolbar */}
+      <div className="flex items-center justify-between p-3 bg-[#1a2233] border-b border-slate-800 sticky top-0 z-20 shadow-md">
+        <span className="text-xs font-semibold text-slate-400">
+          Scroll Continuo ({numPages} Págs)
+        </span>
+        <div className="flex items-center gap-1 bg-[#101622] rounded-lg p-0.5 border border-slate-800">
           <button
             onClick={handleZoomOut}
-            disabled={scale <= 0.5 || loading}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-30 transition-colors"
+            disabled={scale <= 0.7 || loading}
+            className="p-2 hover:bg-slate-800 rounded-md disabled:opacity-30 transition-colors"
             title="Alejar"
           >
-            <ZoomOut size={18} />
+            <ZoomOut size={16} />
           </button>
-          <span className="text-xs font-mono px-1 w-12 text-center">
+          <span className="text-[11px] font-mono w-10 text-center text-slate-300">
             {Math.round(scale * 100)}%
           </span>
           <button
             onClick={handleZoomIn}
-            disabled={scale >= 3.0 || loading}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-30 transition-colors"
+            disabled={scale >= 2.5 || loading}
+            className="p-2 hover:bg-slate-800 rounded-md disabled:opacity-30 transition-colors"
             title="Acercar"
           >
-            <ZoomIn size={18} />
+            <ZoomIn size={16} />
           </button>
           <button
             onClick={handleResetZoom}
             disabled={scale === 1.0 || loading}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-30 transition-colors"
-            title="Restaurar zoom"
+            className="p-2 hover:bg-slate-800 rounded-md disabled:opacity-30 transition-colors text-slate-400 hover:text-white"
+            title="Ajustar"
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={14} />
           </button>
         </div>
       </div>
 
-      {/* Canvas container */}
-      <div className="flex-1 overflow-auto p-4 flex justify-center items-start relative min-h-0">
+      {/* Pages Container - Full Width, scrollable, dark background for high contrast */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden w-full flex flex-col items-center bg-slate-950 pb-20">
         {loading && (
-          <div className="absolute inset-0 bg-slate-100/50 dark:bg-slate-950/50 backdrop-blur-[2px] flex items-center justify-center z-10">
-            <div className="bg-white dark:bg-[#1a2233] p-4 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-200 dark:border-[#2d3748]">
-              <Loader2 className="animate-spin text-[#1152d4]" size={24} />
-              <span className="text-sm font-medium">Cargando página...</span>
-            </div>
+          <div className="flex flex-col items-center justify-center p-12">
+            <Loader2 className="animate-spin text-[#1152d4] mb-3" size={32} />
+            <span className="text-sm font-medium text-slate-400">Cargando documento...</span>
           </div>
         )}
 
-        {error ? (
-          <div className="text-center p-8 bg-white dark:bg-[#1a2233] rounded-2xl border border-red-200 dark:border-red-900/30 max-w-sm mt-8 mx-auto shadow-sm">
+        {error && (
+          <div className="text-center p-8 bg-slate-900 border border-red-900/30 rounded-2xl max-w-sm mt-8 mx-4">
             <p className="text-red-500 font-bold mb-2">Error</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{error}</p>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden transition-all duration-200">
-            <canvas ref={canvasRef} className="block max-w-full" />
+            <p className="text-sm text-slate-400">{error}</p>
           </div>
         )}
+
+        {/* This container will hold canvas elements full width */}
+        <div ref={pagesContainerRef} className="w-full flex flex-col items-center" />
+      </div>
+
+      {/* Bottom Download Bar */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-950 to-slate-950/90 border-t border-slate-800 z-20 flex justify-center">
+        <button
+          onClick={handleDownload}
+          className="w-full max-w-xs bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-3.5 px-6 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-[#1152d4]/20 text-sm"
+        >
+          <Download size={18} />
+          Descargar Normativa (PDF)
+        </button>
       </div>
     </div>
   );
