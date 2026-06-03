@@ -864,18 +864,76 @@ const NormasScreen = ({ onBack }: { onBack: () => void }) => {
   const fullPdfUrl = window.location.origin + pdfUrl;
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Normativa Aeronáutica - Anexo I',
-          text: 'Consulta el Reglamento Nacional de Gestión de Tripulaciones.',
-          url: fullPdfUrl,
+    const isAndroid = /android/i.test(navigator.userAgent);
+    
+    try {
+      if (isAndroid) {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+
+        const response = await fetch(pdfUrl);
+        const blob = await response.blob();
+
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const base64data = reader.result as string;
+            resolve(base64data.split(',')[1]);
+          };
         });
-      } catch (err) {
-        console.log('Error sharing:', err);
+        reader.readAsDataURL(blob);
+        const base64Data = await base64Promise;
+
+        const fileName = 'Normativa_Anexo_I.pdf';
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Cache
+        });
+
+        await Share.share({
+          title: 'Normativa Aeronáutica - Anexo I',
+          url: uri,
+        });
+      } else {
+        const response = await fetch(pdfUrl);
+        const blob = await response.blob();
+        const file = new File([blob], 'Normativa_Anexo_I.pdf', { type: 'application/pdf' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Normativa Aeronáutica - Anexo I',
+          });
+        } else if (navigator.share) {
+          await navigator.share({
+            title: 'Normativa Aeronáutica - Anexo I',
+            text: 'Consulta el Reglamento Nacional de Gestión de Tripulaciones.',
+            url: fullPdfUrl,
+          });
+        } else {
+          alert('Copiado al portapapeles: ' + fullPdfUrl);
+        }
       }
-    } else {
-      alert('Copiado al portapapeles: ' + fullPdfUrl);
+    } catch (err) {
+      console.error('Error sharing file:', err);
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'Normativa Aeronáutica - Anexo I',
+            url: fullPdfUrl,
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        alert('Enlace: ' + fullPdfUrl);
+      }
     }
   };
 
