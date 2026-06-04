@@ -1224,7 +1224,17 @@ export default function App() {
       case 'libro':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
-            <Header title="Libro de Vuelo" onBack={() => setScreen('home')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+            <Header 
+              title="Libro de Vuelo" 
+              onBack={() => {
+                localStorage.removeItem('draft_flight_log_form');
+                localStorage.removeItem('draft_flight_log_editing_id');
+                localStorage.removeItem('draft_flight_log_active_tab');
+                setScreen('home');
+              }} 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode} 
+            />
             <div className="flex-1 overflow-y-auto">
               {!user ? (
                 <AuthScreen />
