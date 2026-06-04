@@ -68,21 +68,21 @@ const SPRING_CONFIG = { type: 'spring' as const, stiffness: 200, damping: 24 };
  */
 function DayMarker({ entry }: { entry: ArmsDayEntry }) {
   if (entry.rawTask?.toUpperCase().startsWith('OTH')) {
-    return <HelpCircle size={16} className="text-cyan-400" />;
+    return <HelpCircle size={22} className="text-cyan-400" />;
   }
 
   switch (entry.eventType) {
     case 'FLIGHT_OP':
     case 'FLIGHT_DH':
-      return <Plane size={16} className="text-[#1152d4] fill-[#1152d4]/30" />;
+      return <Plane size={22} className="text-[#1152d4] fill-[#1152d4]/30" />;
     case 'OFF':
-      return <Home size={16} className="text-emerald-400" />;
+      return <Home size={22} className="text-emerald-400" />;
     case 'NDA':
-      return <Coffee size={16} className="text-purple-400" />;
+      return <Coffee size={22} className="text-purple-400" />;
     case 'STANDBY':
-      return <Shield size={16} className="text-slate-400 dark:text-slate-600 dark:text-slate-400" />;
+      return <Shield size={22} className="text-slate-400 dark:text-slate-600 dark:text-slate-400" />;
     case 'LAYOVER':
-      return <Briefcase size={16} className="text-amber-400" />;
+      return <Briefcase size={22} className="text-amber-400" />;
     default:
       return null;
   }
@@ -271,7 +271,7 @@ function FlightLegCard({
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold text-[#1152d4]">{leg.flightNumber}</span>
                 <span className="text-[10px] text-slate-400 dark:text-slate-600">·</span>
-                <span className="text-[10px] font-mono text-slate-400 dark:text-slate-600 dark:text-slate-400">{leg.blockTime}h bloque</span>
+                <span className="text-xs font-mono font-bold text-slate-900 dark:text-slate-100">{leg.blockTime}h bloque</span>
               </div>
 
               {/* Ruta (origen → destino) */}
@@ -280,11 +280,11 @@ function FlightLegCard({
               </p>
 
               {/* Horarios de salida y llegada (local + UTC) */}
-              <p className="text-[11px] text-slate-400 dark:text-slate-600 dark:text-slate-400 mt-0.5">
+              <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1">
                 {leg.departureTimeLoc}L – {leg.arrivalTimeLoc}L
                 {/* Horarios UTC debajo */}
                 {leg.departureTimeUtc && leg.arrivalTimeUtc && (
-                  <span className="text-slate-400 dark:text-slate-600 ml-1.5">
+                  <span className="text-slate-800 dark:text-slate-200 font-medium ml-1.5">
                     ({leg.departureTimeUtc}Z – {leg.arrivalTimeUtc}Z)
                   </span>
                 )}
@@ -292,9 +292,9 @@ function FlightLegCard({
             </div>
 
             {/* Contador de tripulación */}
-            <div className="flex items-center gap-1 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
-              <Users size={12} className="text-slate-500 dark:text-slate-400" />
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">{leg.crewComplement.length}</span>
+            <div className="flex items-center gap-1.5 shrink-0 transition-opacity">
+              <Users size={16} className="text-slate-900 dark:text-slate-100" />
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{leg.crewComplement.length}</span>
             </div>
           </div>
         </button>
