@@ -398,7 +398,9 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
 };
 
 export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, loading }: LibroScreenProps) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('draft_flight_log_active_tab') || 'dashboard';
+  });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [dbAirports, setDbAirports] = useState<any[]>([]);
   const [confirmModal, setConfirmModal] = useState<{
@@ -498,8 +500,24 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     sim_student: 0
   };
 
-  const [formData, setFormData] = useState<Partial<FlightLog>>(initialFormState);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<FlightLog>>(() => {
+    try {
+      const saved = localStorage.getItem('draft_flight_log_form');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Error reading flight log draft:", e);
+    }
+    return initialFormState;
+  });
+  const [editingId, setEditingId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('draft_flight_log_editing_id') || null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [isSyncing, setIsSyncing] = useState(false);
   const [anacToken, setAnacToken] = useState('');
   const [anacSession, setAnacSession] = useState<any>(null);
@@ -511,6 +529,34 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [pendingLogs, setPendingLogs] = useState<FlightLog[]>([]);
   const [isComparing, setIsComparing] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_flight_log_form', JSON.stringify(formData));
+    } catch (e) {
+      console.error("Error writing flight log draft:", e);
+    }
+  }, [formData]);
+
+  useEffect(() => {
+    try {
+      if (editingId) {
+        localStorage.setItem('draft_flight_log_editing_id', editingId);
+      } else {
+        localStorage.removeItem('draft_flight_log_editing_id');
+      }
+    } catch (e) {
+      console.error("Error writing flight log editing ID:", e);
+    }
+  }, [editingId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('draft_flight_log_active_tab', activeTab);
+    } catch (e) {
+      console.error("Error writing flight log active tab:", e);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     fetchAirports();
