@@ -1975,25 +1975,42 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
 
 
-  // Stats calculation
+  // Stats calculation (matching the PDF logic exactly, including copilot fields)
   const totalDayHoursLogs = logs.reduce((acc, log) => {
     const newVal = parseFloat(log.horasDia || '0');
-    // If new value is 0 or missing, check old fields for backward compatibility
-    const oldVal = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).cross_country_day_pilot) || 0);
+    // If new value is 0 or missing, check old fields for backward compatibility (including copilot)
+    const oldVal = (Number((log as any).airfield_day_pilot) || 0) + 
+                   (Number((log as any).airfield_day_copilot) || 0) + 
+                   (Number((log as any).cross_country_day_pilot) || 0) + 
+                   (Number((log as any).cross_country_day_copilot) || 0);
     return acc + (newVal > 0 ? newVal : oldVal);
   }, 0);
 
   const totalNightHoursLogs = logs.reduce((acc, log) => {
     const newVal = parseFloat(log.horasNoche || '0');
-    const oldVal = (Number((log as any).airfield_night_pilot) || 0) + (Number((log as any).cross_country_night_pilot) || 0);
+    // If new value is 0 or missing, check old fields for backward compatibility (including copilot)
+    const oldVal = (Number((log as any).airfield_night_pilot) || 0) + 
+                   (Number((log as any).airfield_night_copilot) || 0) + 
+                   (Number((log as any).cross_country_night_pilot) || 0) + 
+                   (Number((log as any).cross_country_night_copilot) || 0);
     return acc + (newVal > 0 ? newVal : oldVal);
   }, 0);
   
-  const initialDayHours = (profile?.total_airfield_day_pilot || 0) + (profile?.total_cross_country_day_pilot || 0);
-  const initialNightHours = (profile?.total_airfield_night_pilot || 0) + (profile?.total_cross_country_night_pilot || 0);
+  const initialDayHours = (profile?.total_airfield_day_pilot || 0) + 
+                          (profile?.total_airfield_day_copilot || 0) + 
+                          (profile?.total_cross_country_day_pilot || 0) + 
+                          (profile?.total_cross_country_day_copilot || 0);
+                          
+  const initialNightHours = (profile?.total_airfield_night_pilot || 0) + 
+                            (profile?.total_airfield_night_copilot || 0) + 
+                            (profile?.total_cross_country_night_pilot || 0) + 
+                            (profile?.total_cross_country_night_copilot || 0);
   
   const totalDayHours = (totalDayHoursLogs + initialDayHours).toFixed(1);
   const totalNightHours = (totalNightHoursLogs + initialNightHours).toFixed(1);
+  
+  const grandTotalCalculated = (parseFloat(totalDayHours) + parseFloat(totalNightHours)).toFixed(1);
+
   const totalIfrHours = logs.reduce((acc, log) => acc + (Number(log.Discriminaciones?.find(d => d.tipoDiscriminacionID === 15)?.hora || 0)), 0);
 
   // Detailed hour breakdowns for dashboard (logs only, no profile carry-forward)
@@ -2203,7 +2220,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     <div className="text-sm font-medium opacity-80 uppercase tracking-wider">HORAS TOTALES</div>
                     <div className="text-[10px] opacity-60">(INICIAL MAS VUELOS CARGADOS)</div>
                     <div className="text-4xl font-black flex items-baseline gap-1 pt-1">
-                      {profile?.grand_total_hours?.toFixed(1) || '0.0'} <span className="text-sm font-bold uppercase">hs</span>
+                      {grandTotalCalculated} <span className="text-sm font-bold uppercase">hs</span>
                     </div>
                   </div>
                   <BarChart3 size={40} className="opacity-20" />
