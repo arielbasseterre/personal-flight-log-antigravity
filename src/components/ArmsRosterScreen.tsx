@@ -714,9 +714,12 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [month, setMonth]               = useState(today.getMonth() + 1);
   const [year, setYear]                 = useState(today.getFullYear());
   const [entries, setEntries]           = useState<ArmsDayEntry[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    today.toISOString().slice(0, 10)
-  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => {
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
 
   // ── Estado de sincronización ──────────────────────────────────────────
   const [syncing, setSyncing]               = useState(false);
