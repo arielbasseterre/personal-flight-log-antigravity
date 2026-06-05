@@ -118,8 +118,14 @@ function MonthlyCalendar({
   // Crear un mapa rápido: dateISO → entry, para lookup O(1)
   const entriesMap = new Map(entries.map(e => [e.dateISO, e]));
 
-  // Fecha de hoy en ISO para highlighting
-  const todayISO = new Date().toISOString().slice(0, 10);
+  // Fecha de hoy en ISO local para highlighting
+  const todayISO = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dayVal = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dayVal}`;
+  })();
 
   return (
     <div className="w-full select-none">
