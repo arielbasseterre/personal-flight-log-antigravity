@@ -556,6 +556,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
                 const log = pageLogs[idx];
                 const depDate = log ? new Date(log.fechaHoraSalida) : null;
                 const isLocal = log ? log.tipoVueloID === "1" : false;
+                const isSim = log ? log.tipoVueloID === "3" : false;
                 const isCargo1 = log ? log.cargoID === "1" : false;
                 const hDia = log ? parseFloat(log.horasDia || '0') : 0;
                 const hNoche = log ? parseFloat(log.horasNoche || '0') : 0;
@@ -577,34 +578,34 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
                     <View style={[styles.cell, { width: col.dia }]}><Text style={styles.cellText}>{depDate ? depDate.getUTCDate() : ''}</Text></View>
                     <View style={[styles.cell, { width: col.mes, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{depDate ? depDate.getUTCMonth() + 1 : ''}</Text></View>
                     <View style={[styles.cell, { width: col.salida }]}><Text style={styles.cellText}>{log ? formatTime(log.fechaHoraSalida) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.desdeh }]}><Text style={styles.cellText}>{log ? `${log.origenID} - ${log.destinoID}` : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.desdeh }]}><Text style={styles.cellText}>{log ? (isSim ? (log.Marca_Modelo?.split('--')[1]?.trim() || 'SIM') : `${log.origenID} - ${log.destinoID}`) : ''}</Text></View>
                     <View style={[styles.cell, { width: col.llegada, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log ? formatTime(log.fechaHoraLlegada) : ''}</Text></View>
                     <View style={[styles.cell, { width: col.finalidad, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{FLIGHT_PURPOSES.find(f => f.key === log?.finalidadID)?.sigla || log?.finalidadID || ''}</Text></View>
-                    <View style={[styles.cell, { width: col.marca }]}><Text style={styles.cellText}>{log?.Marca_Modelo || ''}</Text></View>
-                    <View style={[styles.cell, { width: col.matr }]}><Text style={styles.cellText}>{log?.matriculaAvion || ''}</Text></View>
-                    <View style={[styles.cell, { width: col.pot }]}><Text style={styles.cellText}>{log?.potencia || ''}</Text></View>
-                    <View style={[styles.cell, { width: col.clase, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log?.clase || ''}</Text></View>
+                    <View style={[styles.cell, { width: col.marca }]}><Text style={styles.cellText}>{log && !isSim ? (log.Marca_Modelo || '') : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.matr }]}><Text style={styles.cellText}>{log && !isSim ? (log.matriculaAvion || '') : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.pot }]}><Text style={styles.cellText}>{log && !isSim ? (log.potencia || '') : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.clase, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log && !isSim ? (log.clase || '') : ''}</Text></View>
 
-                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && isLocal && isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.vueloC }]}><Text style={styles.cellText}>{log && isLocal && !isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && isLocal && isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.vueloC }]}><Text style={styles.cellText}>{log && isLocal && !isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && !isLocal && isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.vueloC }]}><Text style={styles.cellText}>{log && !isLocal && !isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && !isLocal && isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.vueloC, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log && !isLocal && !isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && !isSim && isLocal && isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloC }]}><Text style={styles.cellText}>{log && !isSim && isLocal && !isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && !isSim && isLocal && isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloC }]}><Text style={styles.cellText}>{log && !isSim && isLocal && !isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && !isSim && !isLocal && isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloC }]}><Text style={styles.cellText}>{log && !isSim && !isLocal && !isCargo1 ? hDia.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloP }]}><Text style={styles.cellText}>{log && !isSim && !isLocal && isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.vueloC, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log && !isSim && !isLocal && !isCargo1 ? hNoche.toFixed(1) : ''}</Text></View>
 
-                    <View style={[styles.cell, { width: col.aterr, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log?.aterrizajes || ''}</Text></View>
+                    <View style={[styles.cell, { width: col.aterr, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log && !isSim ? (log.aterrizajes || '') : ''}</Text></View>
                     
-                    <View style={[styles.cell, { width: col.inst }]}><Text style={styles.cellText}>{log?.instruction_time ? log.instruction_time.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.multi }]}><Text style={styles.cellText}>{log?.multi_engine ? log.multi_engine.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.jet }]}><Text style={styles.cellText}>{log?.jet ? log.jet.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.turb }]}><Text style={styles.cellText}>{log?.turboprop ? log.turboprop.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.ag, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log?.ag_application ? log.ag_application.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.inst }]}><Text style={styles.cellText}>{log && !isSim && log.instruction_time ? log.instruction_time.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.multi }]}><Text style={styles.cellText}>{log && !isSim && log.multi_engine ? log.multi_engine.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.jet }]}><Text style={styles.cellText}>{log && !isSim && log.jet ? log.jet.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.turb }]}><Text style={styles.cellText}>{log && !isSim && log.turboprop ? log.turboprop.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.ag, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log && !isSim && log.ag_application ? log.ag_application.toFixed(1) : ''}</Text></View>
                     
-                    <View style={[styles.cell, { width: col.ifr }]}><Text style={styles.cellText}>{log?.ifr_real_pilot ? log.ifr_real_pilot.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.ifr }]}><Text style={styles.cellText}>{log?.ifr_real_copilot ? log.ifr_real_copilot.toFixed(1) : ''}</Text></View>
-                    <View style={[styles.cell, { width: col.ifr, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log?.ifr_hood ? log.ifr_hood.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.ifr }]}><Text style={styles.cellText}>{log && !isSim && log.ifr_real_pilot ? log.ifr_real_pilot.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.ifr }]}><Text style={styles.cellText}>{log && !isSim && log.ifr_real_copilot ? log.ifr_real_copilot.toFixed(1) : ''}</Text></View>
+                    <View style={[styles.cell, { width: col.ifr, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log && !isSim && log.ifr_hood ? log.ifr_hood.toFixed(1) : ''}</Text></View>
                     
                     <View style={[styles.cell, { width: col.sim }]}><Text style={styles.cellText}>{log?.sim_instructor ? log.sim_instructor.toFixed(1) : ''}</Text></View>
                     <View style={[styles.cell, { width: col.sim, borderRightWidth: 1.5 }]}><Text style={styles.cellText}>{log?.sim_student ? log.sim_student.toFixed(1) : ''}</Text></View>

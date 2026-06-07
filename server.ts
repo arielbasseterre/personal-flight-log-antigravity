@@ -351,7 +351,30 @@ app.use((req, res, next) => {
             dLlegada.setDate(dLlegada.getDate() + 1);
           }
 
-          const payload = {
+          const isSimLog = String(log.tipoVueloID) === "3";
+
+          const payload = isSimLog ? {
+            Discriminaciones: [],
+            discriminaciones: [],
+            horasDia: 0,
+            horasNoche: 0,
+            tipoVueloID: "3",
+            fechaHoraSalida: dSalida.toISOString(),
+            fechaHoraLlegada: dLlegada.toISOString(),
+            aterrizajes: 0,
+            autoridadCertificanteID: String(authId || "5"),
+            observaciones: obs,
+            finalidadID: String(log.finalidadID || "63"),
+            potencia: "",
+            clase: log.clase || "D",
+            cargoID: String(log.cargoID || "6"),
+            simulador: {
+              simuladorID: String(log.matriculaAvion || "86"),
+              nombre: log.Marca_Modelo || "",
+              modeloID: "",
+              modelo: ""
+            }
+          } : {
             Discriminaciones: uniqueDiscriminaciones,
             aterrizajes: parseInt(log.aterrizajes || "1"),
             autoridadCertificanteID: parseInt(authId || "15"),

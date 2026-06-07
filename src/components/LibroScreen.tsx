@@ -59,6 +59,7 @@ import { saveAs } from 'file-saver';
 import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { FlightLogPDF } from './FlightLogPDF';
 import { AnacAuth } from './AnacAuth';
+import { SIMULATOR_LIST } from './simulatorsData';
 import { supabase } from '@/src/utils/supabase/client';
 import { getApiUrl } from '@/src/utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -506,7 +507,15 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     try {
       const saved = localStorage.getItem('draft_flight_log_form');
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Si no estamos editando un registro existente, siempre usar la fecha actual
+        const isEditing = localStorage.getItem('draft_flight_log_editing_id');
+        if (!isEditing) {
+          parsed.year = new Date().getFullYear();
+          parsed.month = new Date().getMonth() + 1;
+          parsed.day = new Date().getDate();
+        }
+        return parsed;
       }
     } catch (e) {
       console.error("Error reading flight log draft:", e);
@@ -970,7 +979,9 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
-      if (!formData.origin_ad || !formData.destination_ad) {
+      const isSim = formData.tipoVueloID === '3';
+
+      if (!isSim && (!formData.origin_ad || !formData.destination_ad)) {
         showAlert("Ruta Incompleta", "Por favor ingrese aeródromo de origen y destino.", 'warning');
         return;
       }
@@ -997,7 +1008,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         Number(formData.cross_country_night_copilot || 0)
       );
 
-      if (currentSum > (totalRef + 0.01)) {
+      if (!isSim && currentSum > (totalRef + 0.01)) {
         showAlert("Error de Tiempos", `La discriminación de horas (${currentSum.toFixed(1)} hs) excede el total del vuelo (${totalRef.toFixed(1)} hs).`, 'danger');
         return;
       }
@@ -1006,7 +1017,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       let flight_type_id = "2"; // Travesia
       const hasSimHours = Number(formData.sim_instructor || 0) > 0 || Number(formData.sim_student || 0) > 0;
       
-      if (hasSimHours) {
+      if (isSim || hasSimHours) {
         flight_type_id = "3"; // Simulador
       } else {
         const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
@@ -1017,23 +1028,27 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       }
 
       let determined_cargo_id = "1"; // Piloto
-      const hasPilotHours = (
-        Number(formData.airfield_day_pilot || 0) > 0 ||
-        Number(formData.airfield_night_pilot || 0) > 0 ||
-        Number(formData.cross_country_day_pilot || 0) > 0 ||
-        Number(formData.cross_country_night_pilot || 0) > 0 ||
-        Number(formData.sim_instructor || 0) > 0 ||
-        Number(formData.ifr_real_pilot || 0) > 0 ||
-        Number(formData.ifr_hood || 0) > 0
-      );
-      const hasCopilotHours = (
-        Number(formData.airfield_day_copilot || 0) > 0 ||
-        Number(formData.airfield_night_copilot || 0) > 0 ||
-        Number(formData.cross_country_day_copilot || 0) > 0 ||
-        Number(formData.cross_country_night_copilot || 0) > 0 ||
-        Number(formData.ifr_real_copilot || 0) > 0
-      );
-      if (hasCopilotHours && !hasPilotHours) determined_cargo_id = "2";
+      if (isSim) {
+        determined_cargo_id = formData.cargoID || "6";
+      } else {
+        const hasPilotHours = (
+          Number(formData.airfield_day_pilot || 0) > 0 ||
+          Number(formData.airfield_night_pilot || 0) > 0 ||
+          Number(formData.cross_country_day_pilot || 0) > 0 ||
+          Number(formData.cross_country_night_pilot || 0) > 0 ||
+          Number(formData.sim_instructor || 0) > 0 ||
+          Number(formData.ifr_real_pilot || 0) > 0 ||
+          Number(formData.ifr_hood || 0) > 0
+        );
+        const hasCopilotHours = (
+          Number(formData.airfield_day_copilot || 0) > 0 ||
+          Number(formData.airfield_night_copilot || 0) > 0 ||
+          Number(formData.cross_country_day_copilot || 0) > 0 ||
+          Number(formData.cross_country_night_copilot || 0) > 0 ||
+          Number(formData.ifr_real_copilot || 0) > 0
+        );
+        if (hasCopilotHours && !hasPilotHours) determined_cargo_id = "2";
+      }
 
       // 3. Preparación de datos y Timestamps
       const buildISO = (y: number, mon: number, d: number, timeStr: string, isNextDay: boolean = false) => {
@@ -1049,8 +1064,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
-      const resolvedOrigin = resolveToAnac(formData.origin_ad, dbAirports);
-      const resolvedDest = resolveToAnac(formData.destination_ad, dbAirports);
+      const resolvedOrigin = isSim ? "SIM" : resolveToAnac(formData.origin_ad, dbAirports);
+      const resolvedDest = isSim ? "SIM" : resolveToAnac(formData.destination_ad, dbAirports);
       const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
 
       const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
@@ -1074,6 +1089,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
+      const duration = isSim ? parseFloat(totalRef.toFixed(1)) : 0;
+
       // 5. Mapeo final y Guardado
       const logToSave: any = {
         user_id,
@@ -1082,37 +1099,37 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         origenID: resolvedOrigin,
         destinoID: resolvedDest,
         finalidadID: formData.flight_purpose || '78',
-        clase: formData.aircraft_class || 'MULT-T',
-        matriculaAvion: (formData.registration || '').toUpperCase(),
+        clase: formData.aircraft_class || (isSim ? 'D' : 'MULT-T'),
+        matriculaAvion: isSim ? (formData.registration || '') : (formData.registration || '').toUpperCase(),
         Marca_Modelo: formData.aircraft_model || '',
-        potencia: Number(formData.power_rating || 0),
-        aterrizajes: Number(formData.landings || 1),
-        horasDia: (Number(formData.airfield_day_pilot || 0) + Number(formData.airfield_day_copilot || 0) + Number(formData.cross_country_day_pilot || 0) + Number(formData.cross_country_day_copilot || 0)).toString(),
-        horasNoche: (Number(formData.airfield_night_pilot || 0) + Number(formData.airfield_night_copilot || 0) + Number(formData.cross_country_night_pilot || 0) + Number(formData.cross_country_night_copilot || 0)).toString(),
+        potencia: isSim ? 0 : Number(formData.power_rating || 0),
+        aterrizajes: isSim ? 0 : Number(formData.landings || 1),
+        horasDia: isSim ? '0' : (Number(formData.airfield_day_pilot || 0) + Number(formData.airfield_day_copilot || 0) + Number(formData.cross_country_day_pilot || 0) + Number(formData.cross_country_day_copilot || 0)).toString(),
+        horasNoche: isSim ? '0' : (Number(formData.airfield_night_pilot || 0) + Number(formData.airfield_night_copilot || 0) + Number(formData.cross_country_night_pilot || 0) + Number(formData.cross_country_night_copilot || 0)).toString(),
         tipoVueloID: flight_type_id,
         cargoID: determined_cargo_id,
         autoridadCertificanteID: formData.certifier_role_id || '2',
         observaciones: formData.certifier_name || '',
-        ifr_instrument: Number(formData.ifr_real_pilot || 0) + Number(formData.ifr_real_copilot || 0) + Number(formData.ifr_hood || 0),
-        instruccion: Number(formData.instruction_time || 0),
-        multi_engine: Number(formData.multi_engine || 0),
-        jet: Number(formData.jet || 0),
-        turboprop: Number(formData.turboprop || 0),
-        ag_application: Number(formData.ag_application || 0),
+        ifr_instrument: isSim ? 0 : Number(formData.ifr_real_pilot || 0) + Number(formData.ifr_real_copilot || 0) + Number(formData.ifr_hood || 0),
+        instruccion: isSim ? 0 : Number(formData.instruction_time || 0),
+        multi_engine: isSim ? 0 : Number(formData.multi_engine || 0),
+        jet: isSim ? 0 : Number(formData.jet || 0),
+        turboprop: isSim ? 0 : Number(formData.turboprop || 0),
+        ag_application: isSim ? 0 : Number(formData.ag_application || 0),
         folio_number: Number(formData.folio_number || 1),
-        airfield_day_pilot: Number(formData.airfield_day_pilot || 0),
-        airfield_day_copilot: Number(formData.airfield_day_copilot || 0),
-        airfield_night_pilot: Number(formData.airfield_night_pilot || 0),
-        airfield_night_copilot: Number(formData.airfield_night_copilot || 0),
-        cross_country_day_pilot: Number(formData.cross_country_day_pilot || 0),
-        cross_country_day_copilot: Number(formData.cross_country_day_copilot || 0),
-        cross_country_night_pilot: Number(formData.cross_country_night_pilot || 0),
-        cross_country_night_copilot: Number(formData.cross_country_night_copilot || 0),
-        ifr_real_pilot: Number(formData.ifr_real_pilot || 0),
-        ifr_real_copilot: Number(formData.ifr_real_copilot || 0),
-        ifr_hood: Number(formData.ifr_hood || 0),
-        sim_instructor: Number(formData.sim_instructor || 0),
-        sim_student: Number(formData.sim_student || 0)
+        airfield_day_pilot: isSim ? 0 : Number(formData.airfield_day_pilot || 0),
+        airfield_day_copilot: isSim ? 0 : Number(formData.airfield_day_copilot || 0),
+        airfield_night_pilot: isSim ? 0 : Number(formData.airfield_night_pilot || 0),
+        airfield_night_copilot: isSim ? 0 : Number(formData.airfield_night_copilot || 0),
+        cross_country_day_pilot: isSim ? 0 : Number(formData.cross_country_day_pilot || 0),
+        cross_country_day_copilot: isSim ? 0 : Number(formData.cross_country_day_copilot || 0),
+        cross_country_night_pilot: isSim ? 0 : Number(formData.cross_country_night_pilot || 0),
+        cross_country_night_copilot: isSim ? 0 : Number(formData.cross_country_night_copilot || 0),
+        ifr_real_pilot: isSim ? 0 : Number(formData.ifr_real_pilot || 0),
+        ifr_real_copilot: isSim ? 0 : Number(formData.ifr_real_copilot || 0),
+        ifr_hood: isSim ? 0 : Number(formData.ifr_hood || 0),
+        sim_instructor: isSim && determined_cargo_id === '3' ? duration : 0,
+        sim_student: isSim && determined_cargo_id === '6' ? duration : 0
       };
 
       setIsSavingProfile(true);
@@ -1785,9 +1802,12 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           const isCargo1 = log.cargoID === "1";
           const finalidadLabel = FLIGHT_PURPOSES.find(f => f.key === log.finalidadID)?.sigla || log.finalidadID;
 
+          const isSim = log.tipoVueloID === '3';
+          const desdeHasta = isSim ? (log.Marca_Modelo?.split('--')[1]?.trim() || 'SIM') : `${log.origenID} - ${log.destinoID}`;
+
           const lRow = sheet.addRow([
-            depDate.getUTCDate(), depDate.getUTCMonth() + 1, formatTime(log.fechaHoraSalida), `${log.origenID} - ${log.destinoID}`, formatTime(log.fechaHoraLlegada),
-            finalidadLabel, log.Marca_Modelo || "", log.matriculaAvion, log.potencia || "", log.clase || "",
+            depDate.getUTCDate(), depDate.getUTCMonth() + 1, formatTime(log.fechaHoraSalida), desdeHasta, formatTime(log.fechaHoraLlegada),
+            finalidadLabel, isSim ? "" : (log.Marca_Modelo || ""), isSim ? "" : log.matriculaAvion, isSim ? "" : (log.potencia || ""), isSim ? "" : (log.clase || ""),
             isLocal && isCargo1 && hDia > 0 ? hDia : "", 
             isLocal && !isCargo1 && hDia > 0 ? hDia : "", 
             isLocal && isCargo1 && hNoche > 0 ? hNoche : "", 
@@ -2115,7 +2135,9 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     }
   };
 
-  const isItineraryComplete = !!(formData.origin_ad && formData.destination_ad);
+  const isItineraryComplete = formData.tipoVueloID === '3'
+    ? !!(formData.departure_time_utc && formData.arrival_time_utc)
+    : !!(formData.origin_ad && formData.destination_ad);
 
   // Exclusión mutua IFR en tiempo real
   const hasPilotFlightHours =
@@ -2449,6 +2471,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 
                 {/* Itinerario Section */}
                 <div className="space-y-4">
+
                   <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
                     <MapPin size={14} /> ITINERARIO
                   </h4>
@@ -2466,6 +2489,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                       <Input id="year" type="number" value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})}/>
                     </div>
                   </div>
+                  {formData.tipoVueloID !== '3' && (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="origen">Origen (ANAC/IATA/OACI)</Label>
@@ -2490,6 +2514,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                       />
                     </div>
                   </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="purpose">Finalidad (Siglas ANAC)</Label>
@@ -2562,58 +2587,143 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   </div>
                 </div>
 
+                <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <input
+                    type="checkbox"
+                    id="is_simulator_checkbox"
+                    className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    checked={formData.tipoVueloID === '3'}
+                    onChange={e => {
+                      const isSim = e.target.checked;
+                      setFormData(prev => ({
+                        ...prev,
+                        tipoVueloID: isSim ? '3' : '2',
+                        aircraft_class: isSim ? 'D' : 'MULT-T',
+                        registration: isSim ? '' : prev.registration,
+                        aircraft_model: isSim ? '' : prev.aircraft_model,
+                        power_rating: isSim ? 0 : prev.power_rating,
+                        cargoID: isSim ? '6' : '1'
+                      }));
+                    }}
+                  />
+                  <Label htmlFor="is_simulator_checkbox" className="text-sm font-bold cursor-pointer">
+                    Adiestrador Terrestre / Simulador
+                  </Label>
+                </div>
+
                 <Separator />
 
                 {/* Aeronave Section */}
+                {/* Aeronave/Simulador Section */}
                 <div className="space-y-4">
                   <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                    <PlaneTakeoff size={14} /> AERONAVE
+                    <PlaneTakeoff size={14} /> {formData.tipoVueloID === '3' ? 'ADIESTRADOR TERRESTRE / SIMULADOR' : 'AERONAVE'}
                   </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="model">Marca / Modelo</Label>
-                      <Input id="model" placeholder="Boeing 737" value={formData.aircraft_model || ''} onChange={e => setFormData({...formData, aircraft_model: e.target.value})}/>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reg">Matrícula</Label>
-                      <Input 
-                        id="reg" 
-                        list="registrations-list"
-                        placeholder="LV-ABC" 
-                        value={formData.registration || ''} 
-                        onChange={e => setFormData({...formData, registration: e.target.value.toUpperCase()})}
-                      />
-                      <datalist id="registrations-list">
-                        {Array.from(new Set(logs.map(log => log.registration).filter(Boolean))).sort().map(reg => (
-                          <option key={reg} value={reg} />
-                        ))}
-                      </datalist>
-                    </div>
-                  </div>
-                    <div className="grid grid-cols-2 gap-3">
+
+                  {formData.tipoVueloID === '3' ? (
+                    <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="power">Potencia (Manual)</Label>
-                        <Input 
-                          id="power_rating" 
-                          type="number" 
-                          lang="en" 
-                          placeholder="Ej: 180" 
-                          value={formData.power_rating ?? ''} 
-                          onChange={e => setFormData({...formData, power_rating: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={handleNumericFocus}
-                          onBlur={handleNumericBlur}
-                        />
+                        <Label htmlFor="simulator_select">Simulador</Label>
+                        <select
+                          id="simulator_select"
+                          className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm"
+                          value={formData.registration || ''}
+                          onChange={e => {
+                            const selectedKey = e.target.value;
+                            const selectedName = SIMULATOR_LIST.find(s => s.key === selectedKey)?.value || '';
+                            setFormData(prev => ({
+                              ...prev,
+                              registration: selectedKey,
+                              aircraft_model: selectedName
+                            }));
+                          }}
+                        >
+                          <option value="">Seleccione un simulador...</option>
+                          {SIMULATOR_LIST.map(sim => (
+                            <option key={sim.key} value={sim.key}>{sim.value}</option>
+                          ))}
+                        </select>
                       </div>
-                      <div className="space-y-2">
-                      <Label htmlFor="class">Clase (Sigla ANAC)</Label>
-                      <select id="class" className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm" value={formData.aircraft_class || ''} onChange={e => setFormData({...formData, aircraft_class: e.target.value})}>
-                        <option value="MONT-T">MONT-T (Monomotor Terrestre)</option>
-                        <option value="MULT-T">MULT-T (Multimotor Terrestre)</option>
-                        <option value="MONT-A">MONT-A (Monomotor Acuático)</option>
-                        <option value="MULT-A">MULT-A (Multimotor Acuático)</option>
-                      </select>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="sim_cargo">Cargo en vuelo</Label>
+                          <select
+                            id="sim_cargo"
+                            className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm"
+                            value={formData.cargoID || '6'}
+                            onChange={e => setFormData({...formData, cargoID: e.target.value})}
+                          >
+                            <option value="6">Piloto en instrucción</option>
+                            <option value="3">Instructor</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="class">Clase</Label>
+                          <select
+                            id="class"
+                            className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm"
+                            value={formData.aircraft_class || 'D'}
+                            onChange={e => setFormData({...formData, aircraft_class: e.target.value})}
+                          >
+                            <option value="A">Clase A</option>
+                            <option value="B">Clase B</option>
+                            <option value="C">Clase C</option>
+                            <option value="D">Clase D</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="model">Marca / Modelo</Label>
+                          <Input id="model" placeholder="Boeing 737" value={formData.aircraft_model || ''} onChange={e => setFormData({...formData, aircraft_model: e.target.value})}/>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="reg">Matrícula</Label>
+                          <Input 
+                            id="reg" 
+                            list="registrations-list"
+                            placeholder="LV-ABC" 
+                            value={formData.registration || ''} 
+                            onChange={e => setFormData({...formData, registration: e.target.value.toUpperCase()})}
+                          />
+                          <datalist id="registrations-list">
+                            {Array.from(new Set(logs.map(log => log.registration).filter(Boolean))).sort().map(reg => (
+                              <option key={reg} value={reg} />
+                            ))}
+                          </datalist>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="power">Potencia (Manual)</Label>
+                          <Input 
+                            id="power_rating" 
+                            type="number" 
+                            lang="en" 
+                            placeholder="Ej: 180" 
+                            value={formData.power_rating ?? ''} 
+                            onChange={e => setFormData({...formData, power_rating: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="class">Clase (Sigla ANAC)</Label>
+                          <select id="class" className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm" value={formData.aircraft_class || ''} onChange={e => setFormData({...formData, aircraft_class: e.target.value})}>
+                            <option value="MONT-T">MONT-T (Monomotor Terrestre)</option>
+                            <option value="MULT-T">MULT-T (Multimotor Terrestre)</option>
+                            <option value="MONT-A">MONT-A (Monomotor Acuático)</option>
+                            <option value="MULT-A">MULT-A (Multimotor Acuático)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   <div className="space-y-4">
                     <Label htmlFor="certifier">Nombre y Apellido del Certificante</Label>
                     <Input id="certifier" placeholder="Ej: Juan Pérez" value={formData.certifier_name || ''} onChange={e => setFormData({...formData, certifier_name: e.target.value})}/>
@@ -2631,384 +2741,393 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 <Separator />
 
                 {/* Discriminacion Tiempos Section */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} /> TIEMPOS DE VUELO (Horas Decimales)
-                    </div>
-                    {formData.departure_time_utc && formData.arrival_time_utc && (
-                      <div className="bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded text-[10px] font-mono border border-blue-200 dark:border-blue-800">
-                        Total: {calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc)} hs
+                {formData.tipoVueloID !== '3' ? (
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} /> TIEMPOS DE VUELO (Horas Decimales)
                       </div>
-                    )}
-                  </h4>
+                      {formData.departure_time_utc && formData.arrival_time_utc && (
+                        <div className="bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded text-[10px] font-mono border border-blue-200 dark:border-blue-800">
+                          Total: {calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc)} hs
+                        </div>
+                      )}
+                    </h4>
 
-                  {/* Validation Warning for Times */}
-                  {(() => {
-                    const totalRef = parseFloat(calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc) || '0');
-                    const currentSum = (
-                      Number(formData.airfield_day_pilot || 0) +
-                      Number(formData.airfield_day_copilot || 0) +
-                      Number(formData.airfield_night_pilot || 0) +
-                      Number(formData.airfield_night_copilot || 0) +
-                      Number(formData.cross_country_day_pilot || 0) +
-                      Number(formData.cross_country_day_copilot || 0) +
-                      Number(formData.cross_country_night_pilot || 0) +
-                      Number(formData.cross_country_night_copilot || 0)
-                    );
-
-                    if (currentSum > (totalRef + 0.01)) { // Small epsilon for float comparison
-                      return (
-                        <motion.div 
-                          initial={{ opacity: 0, y: -10 }} 
-                          animate={{ opacity: 1, y: 0 }}
-                          className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 p-3 rounded-lg flex gap-3"
-                        >
-                          <AlertTriangle className="text-amber-600 w-5 h-5 shrink-0" />
-                          <div className="space-y-1">
-                            <h5 className="text-[11px] font-bold text-amber-800 dark:text-amber-200">Exceso en Discriminación de Horas</h5>
-                            <p className="text-[10px] text-amber-700 dark:text-amber-300 leading-tight">
-                              Atención: La suma de los tiempos cargados ({currentSum.toFixed(1)} hs) excede el valor total permitido ({totalRef.toFixed(1)} hs) según el itinerario. Por favor verifique los datos.
-                            </p>
-                          </div>
-                        </motion.div>
+                    {/* Validation Warning for Times */}
+                    {(() => {
+                      const totalRef = parseFloat(calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc) || '0');
+                      const currentSum = (
+                        Number(formData.airfield_day_pilot || 0) +
+                        Number(formData.airfield_day_copilot || 0) +
+                        Number(formData.airfield_night_pilot || 0) +
+                        Number(formData.airfield_night_copilot || 0) +
+                        Number(formData.cross_country_day_pilot || 0) +
+                        Number(formData.cross_country_day_copilot || 0) +
+                        Number(formData.cross_country_night_pilot || 0) +
+                        Number(formData.cross_country_night_copilot || 0)
                       );
-                    }
-                    return null;
-                  })()}
-                  
-                  {(() => {
-                    const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
-                    const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
-                    const isCrossCountry = resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck !== resolvedDestCheck;
-                    return (
-                      <div className={`space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg transition-all duration-300 ${isCrossCountry ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <Label className="text-[10px] font-bold opacity-70">SOBRE AERÓDROMO</Label>
-                          {isCrossCountry && <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-tighter">Bloqueado por Travesía</span>}
-                        </div>
-                    <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-200 dark:border-slate-700">
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Día (Piloto)</Label>
-                            <DecimalInput 
-                              id="airfield_day_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isCrossCountry || !isItineraryComplete}
-                              value={isCrossCountry ? 0 : (formData.airfield_day_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_day_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Día (Copiloto)</Label>
-                            <DecimalInput 
-                              id="airfield_day_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isCrossCountry || !isItineraryComplete}
-                              value={isCrossCountry ? 0 : (formData.airfield_day_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_day_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Noche (Piloto)</Label>
-                            <DecimalInput 
-                              id="airfield_night_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isCrossCountry || !isItineraryComplete}
-                              value={isCrossCountry ? 0 : (formData.airfield_night_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_night_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Noche (Copiloto)</Label>
-                            <DecimalInput 
-                              id="airfield_night_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isCrossCountry || !isItineraryComplete}
-                              value={isCrossCountry ? 0 : (formData.airfield_night_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, airfield_night_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
 
-                  {(() => {
-                    const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
-                    const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
-                    const isLocal = resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck === resolvedDestCheck;
-                    return (
-                      <div className={`space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg transition-all duration-300 ${isLocal ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <Label className="text-[10px] font-bold opacity-70">TRAVESÍA</Label>
-                          {isLocal && <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tighter">Bloqueado por Vuelo Local</span>}
+                      if (currentSum > (totalRef + 0.01)) { // Small epsilon for float comparison
+                        return (
+                          <motion.div 
+                            initial={{ opacity: 0, y: -10 }} 
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 p-3 rounded-lg flex gap-3"
+                          >
+                            <AlertTriangle className="text-amber-600 w-5 h-5 shrink-0" />
+                            <div className="space-y-1">
+                              <h5 className="text-[11px] font-bold text-amber-800 dark:text-amber-200">Exceso en Discriminación de Horas</h5>
+                              <p className="text-[10px] text-amber-700 dark:text-amber-300 leading-tight">
+                                Atención: La suma de los tiempos cargados ({currentSum.toFixed(1)} hs) excede el valor total permitido ({totalRef.toFixed(1)} hs) según el itinerario. Por favor verifique los datos.
+                              </p>
+                            </div>
+                          </motion.div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    
+                    {(() => {
+                      const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
+                      const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
+                      const isCrossCountry = resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck !== resolvedDestCheck;
+                      return (
+                        <div className={`space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg transition-all duration-300 ${isCrossCountry ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-bold opacity-70">SOBRE AERÓDROMO</Label>
+                            {isCrossCountry && <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-tighter">Bloqueado por Travesía</span>}
+                          </div>
+                      <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-200 dark:border-slate-700">
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Día (Piloto)</Label>
+                              <DecimalInput 
+                                id="airfield_day_pilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isCrossCountry || !isItineraryComplete}
+                                value={isCrossCountry ? 0 : (formData.airfield_day_pilot ?? '')} 
+                                onChange={e => setFormData({...formData, airfield_day_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Día (Copiloto)</Label>
+                              <DecimalInput 
+                                id="airfield_day_copilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isCrossCountry || !isItineraryComplete}
+                                value={isCrossCountry ? 0 : (formData.airfield_day_copilot ?? '')} 
+                                onChange={e => setFormData({...formData, airfield_day_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Noche (Piloto)</Label>
+                              <DecimalInput 
+                                id="airfield_night_pilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isCrossCountry || !isItineraryComplete}
+                                value={isCrossCountry ? 0 : (formData.airfield_night_pilot ?? '')} 
+                                onChange={e => setFormData({...formData, airfield_night_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Noche (Copiloto)</Label>
+                              <DecimalInput 
+                                id="airfield_night_copilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isCrossCountry || !isItineraryComplete}
+                                value={isCrossCountry ? 0 : (formData.airfield_night_copilot ?? '')} 
+                                onChange={e => setFormData({...formData, airfield_night_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                          </div>
                         </div>
-                    <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-200 dark:border-slate-700">
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Día (Piloto)</Label>
-                            <DecimalInput 
-                              id="cross_country_day_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isLocal || !isItineraryComplete}
-                              value={isLocal ? 0 : (formData.cross_country_day_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_day_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Día (Copiloto)</Label>
-                            <DecimalInput 
-                              id="cross_country_day_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isLocal || !isItineraryComplete}
-                              value={isLocal ? 0 : (formData.cross_country_day_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_day_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Noche (Piloto)</Label>
-                            <DecimalInput 
-                              id="cross_country_night_pilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isLocal || !isItineraryComplete}
-                              value={isLocal ? 0 : (formData.cross_country_night_pilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_night_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px]">Noche (Copiloto)</Label>
-                            <DecimalInput 
-                              id="cross_country_night_copilot"
-                              type="number" 
-                              step="0.1" 
-                              lang="en" 
-                              disabled={!!isLocal || !isItineraryComplete}
-                              value={isLocal ? 0 : (formData.cross_country_night_copilot ?? '')} 
-                              onChange={e => setFormData({...formData, cross_country_night_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                              onFocus={handleNumericFocus}
-                              onBlur={handleNumericBlur}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                      );
+                    })()}
 
-                  {/* IFR Section */}
-                  <div className="space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg">
-                    <Label className="text-[10px] font-bold opacity-70">VUELO POR INSTRUMENTOS (Real / Capota)</Label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <Label className={`text-[10px] ${hasCopilotFlightHours ? 'opacity-40' : ''}`}>
-                          Real (Piloto){hasCopilotFlightHours ? ' 🚫' : ''}
-                        </Label>
-                        <DecimalInput 
-                          id="ifr_real_pilot"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete || hasCopilotFlightHours}
-                          value={formData.ifr_real_pilot ?? ''} 
-                          onChange={e => setFormData({...formData, ifr_real_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ifr_real_pilot'); }}
-                          onBlur={handleNumericBlur}
-                          placeholder={hasCopilotFlightHours ? 'N/A (Copiloto)' : '0'}
-                        />
+                    {(() => {
+                      const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
+                      const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
+                      const isLocal = resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck === resolvedDestCheck;
+                      return (
+                        <div className={`space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg transition-all duration-300 ${isLocal ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-bold opacity-70">TRAVESÍA</Label>
+                            {isLocal && <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tighter">Bloqueado por Vuelo Local</span>}
+                          </div>
+                      <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-200 dark:border-slate-700">
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Día (Piloto)</Label>
+                              <DecimalInput 
+                                id="cross_country_day_pilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isLocal || !isItineraryComplete}
+                                value={isLocal ? 0 : (formData.cross_country_day_pilot ?? '')} 
+                                onChange={e => setFormData({...formData, cross_country_day_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Día (Copiloto)</Label>
+                              <DecimalInput 
+                                id="cross_country_day_copilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isLocal || !isItineraryComplete}
+                                value={isLocal ? 0 : (formData.cross_country_day_copilot ?? '')} 
+                                onChange={e => setFormData({...formData, cross_country_day_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Noche (Piloto)</Label>
+                              <DecimalInput 
+                                id="cross_country_night_pilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isLocal || !isItineraryComplete}
+                                value={isLocal ? 0 : (formData.cross_country_night_pilot ?? '')} 
+                                onChange={e => setFormData({...formData, cross_country_night_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Noche (Copiloto)</Label>
+                              <DecimalInput 
+                                id="cross_country_night_copilot"
+                                type="number" 
+                                step="0.1" 
+                                lang="en" 
+                                disabled={!!isLocal || !isItineraryComplete}
+                                value={isLocal ? 0 : (formData.cross_country_night_copilot ?? '')} 
+                                onChange={e => setFormData({...formData, cross_country_night_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                                onFocus={handleNumericFocus}
+                                onBlur={handleNumericBlur}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* IFR Section */}
+                    <div className="space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg">
+                      <Label className="text-[10px] font-bold opacity-70">VUELO POR INSTRUMENTOS (Real / Capota)</Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className={`text-[10px] ${hasCopilotFlightHours ? 'opacity-40' : ''}`}>
+                            Real (Piloto){hasCopilotFlightHours ? ' 🚫' : ''}
+                          </Label>
+                          <DecimalInput 
+                            id="ifr_real_pilot"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete || hasCopilotFlightHours}
+                            value={formData.ifr_real_pilot ?? ''} 
+                            onChange={e => setFormData({...formData, ifr_real_pilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ifr_real_pilot'); }}
+                            onBlur={handleNumericBlur}
+                            placeholder={hasCopilotFlightHours ? 'N/A (Copiloto)' : '0'}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className={`text-[10px] ${hasPilotFlightHours ? 'opacity-40' : ''}`}>
+                            Real (Copiloto){hasPilotFlightHours ? ' 🚫' : ''}
+                          </Label>
+                          <DecimalInput 
+                            id="ifr_real_copilot"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete || hasPilotFlightHours}
+                            value={formData.ifr_real_copilot ?? ''} 
+                            onChange={e => setFormData({...formData, ifr_real_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ifr_real_copilot'); }}
+                            onBlur={handleNumericBlur}
+                            placeholder={hasPilotFlightHours ? 'N/A (Piloto)' : '0'}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Capota</Label>
+                          <DecimalInput 
+                            id="ifr_hood"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.ifr_hood ?? ''} 
+                            onChange={e => setFormData({...formData, ifr_hood: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className={`text-[10px] ${hasPilotFlightHours ? 'opacity-40' : ''}`}>
-                          Real (Copiloto){hasPilotFlightHours ? ' 🚫' : ''}
-                        </Label>
-                        <DecimalInput 
-                          id="ifr_real_copilot"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete || hasPilotFlightHours}
-                          value={formData.ifr_real_copilot ?? ''} 
-                          onChange={e => setFormData({...formData, ifr_real_copilot: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ifr_real_copilot'); }}
-                          onBlur={handleNumericBlur}
-                          placeholder={hasPilotFlightHours ? 'N/A (Piloto)' : '0'}
-                        />
+                    </div>
+
+                    {/* Other Discrimination Section */}
+                    <div className="space-y-3 p-3 bg-amber-50/50 dark:bg-amber-900/10 rounded-lg">
+                      <Label className="text-[10px] font-bold opacity-70">DISCRIMINACIÓN DE TIEMPOS DE VUELO</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Instructor de Vuelo</Label>
+                          <DecimalInput 
+                            id="instruction_time"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.instruction_time ?? ''} 
+                            onChange={e => setFormData({...formData, instruction_time: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('instruction_time'); }}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Aterrizajes (Cant.)</Label>
+                          <Input 
+                            id="landings"
+                            type="number" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.landings ?? ''} 
+                            onChange={e => setFormData({...formData, landings: e.target.value === '' ? 0 : parseInt(e.target.value)})}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Capota</Label>
-                        <DecimalInput 
-                          id="ifr_hood"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.ifr_hood ?? ''} 
-                          onChange={e => setFormData({...formData, ifr_hood: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={handleNumericFocus}
-                          onBlur={handleNumericBlur}
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Multimotor (Hs)</Label>
+                          <DecimalInput 
+                            id="multi_engine"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.multi_engine ?? ''} 
+                            onChange={e => setFormData({...formData, multi_engine: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('multi_engine'); }}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Reactor / Jet (Hs)</Label>
+                          <DecimalInput 
+                            id="jet"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.jet ?? ''} 
+                            onChange={e => setFormData({...formData, jet: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('jet'); }}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Turbohélice (Hs)</Label>
+                          <DecimalInput 
+                            id="turboprop"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.turboprop ?? ''} 
+                            onChange={e => setFormData({...formData, turboprop: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('turboprop'); }}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Aeroaplicador (Hs)</Label>
+                          <DecimalInput 
+                            id="ag_application"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.ag_application ?? ''} 
+                            onChange={e => setFormData({...formData, ag_application: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ag_application'); }}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Simulator Section */}
+                    <div className="space-y-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg">
+                      <Label className="text-[10px] font-bold opacity-70">SIMULADOR / ADIESTRADOR</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Instructor hs</Label>
+                          <DecimalInput 
+                            id="sim_instructor"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.sim_instructor ?? ''} 
+                            onChange={e => setFormData({...formData, sim_instructor: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Piloto en Inst. hs</Label>
+                          <DecimalInput 
+                            id="sim_student"
+                            type="number" 
+                            step="0.1" 
+                            lang="en" 
+                            disabled={!isItineraryComplete}
+                            value={formData.sim_student ?? ''} 
+                            onChange={e => setFormData({...formData, sim_student: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                            onFocus={handleNumericFocus}
+                            onBlur={handleNumericBlur}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Other Discrimination Section */}
-                  <div className="space-y-3 p-3 bg-amber-50/50 dark:bg-amber-900/10 rounded-lg">
-                    <Label className="text-[10px] font-bold opacity-70">DISCRIMINACIÓN DE TIEMPOS DE VUELO</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Instructor de Vuelo</Label>
-                        <DecimalInput 
-                          id="instruction_time"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.instruction_time ?? ''} 
-                          onChange={e => setFormData({...formData, instruction_time: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('instruction_time'); }}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Aterrizajes (Cant.)</Label>
-                        <Input 
-                          id="landings"
-                          type="number" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.landings ?? ''} 
-                          onChange={e => setFormData({...formData, landings: e.target.value === '' ? 0 : parseInt(e.target.value)})}
-                          onFocus={handleNumericFocus}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Multimotor (Hs)</Label>
-                        <DecimalInput 
-                          id="multi_engine"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.multi_engine ?? ''} 
-                          onChange={e => setFormData({...formData, multi_engine: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('multi_engine'); }}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Reactor / Jet (Hs)</Label>
-                        <DecimalInput 
-                          id="jet"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.jet ?? ''} 
-                          onChange={e => setFormData({...formData, jet: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('jet'); }}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Turbohélice (Hs)</Label>
-                        <DecimalInput 
-                          id="turboprop"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.turboprop ?? ''} 
-                          onChange={e => setFormData({...formData, turboprop: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('turboprop'); }}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Aeroaplicador (Hs)</Label>
-                        <DecimalInput 
-                          id="ag_application"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.ag_application ?? ''} 
-                          onChange={e => setFormData({...formData, ag_application: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={(e) => { handleNumericFocus(e); autocompleteDiscrimination('ag_application'); }}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                    </div>
+                ) : (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl space-y-2 mb-2">
+                    <h5 className="text-sm font-bold text-blue-800 dark:text-blue-200">Cálculo Automático de Horas</h5>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                      Al tratarse de un adiestrador terrestre / simulador, las horas se calculan de forma automática a partir del itinerario (Salida y Llegada) y se asignan directamente al cargo correspondiente en el libro y en el reporte PDF.
+                    </p>
                   </div>
-
-                  {/* Simulator Section */}
-                  <div className="space-y-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg">
-                    <Label className="text-[10px] font-bold opacity-70">SIMULADOR / ADIESTRADOR</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Instructor hs</Label>
-                        <DecimalInput 
-                          id="sim_instructor"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.sim_instructor ?? ''} 
-                          onChange={e => setFormData({...formData, sim_instructor: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={handleNumericFocus}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Piloto en Inst. hs</Label>
-                        <DecimalInput 
-                          id="sim_student"
-                          type="number" 
-                          step="0.1" 
-                          lang="en" 
-                          disabled={!isItineraryComplete}
-                          value={formData.sim_student ?? ''} 
-                          onChange={e => setFormData({...formData, sim_student: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                          onFocus={handleNumericFocus}
-                          onBlur={handleNumericBlur}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-lg rounded-xl shadow-lg shadow-blue-500/20" onClick={saveLog}>
                   <Save size={20} className="mr-2" /> {editingId ? 'Actualizar Cambios' : 'Guardar Vuelo'}
