@@ -610,21 +610,22 @@ app.use("/api/arms/sync-roster", authLimiter);
         throw dbError;
       }
 
-      // Guardar sesión de Playwright en Supabase para el cron job
-      if (shouldRemember || sessionData) {
-        const { error: sessionError } = await supabase
-          .from('arms_sessions')
-          .upsert({
-            user_id,
-            session_data: storageState,
-            arms_username: username,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
-
-        if (sessionError) {
-          console.error("[ARMS_SYNC] Error al guardar sesión de ARMS:", sessionError.message);
-        }
-      }
+      // [DESHABILITADO] Guardado de sesión para sincronización automática
+      // La sincronización automática del roster ha sido deshabilitada.
+      // if (shouldRemember || sessionData) {
+      //   const { error: sessionError } = await supabase
+      //     .from('arms_sessions')
+      //     .upsert({
+      //       user_id,
+      //       session_data: storageState,
+      //       arms_username: username,
+      //       updated_at: new Date().toISOString()
+      //     }, { onConflict: 'user_id' });
+      //
+      //   if (sessionError) {
+      //     console.error("[ARMS_SYNC] Error al guardar sesión de ARMS:", sessionError.message);
+      //   }
+      // }
 
       console.log(`[ARMS_SYNC] Sincronización manual exitosa para ${username}. Tramos guardados: ${rosterEntries.length}`);
       res.json({ success: true, entries: rosterEntries });
@@ -695,149 +696,14 @@ app.use("/api/arms/sync-roster", authLimiter);
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CRON JOB: Sincronización automática en segundo plano (cada 20 minutos)
+  // [DESHABILITADO] CRON JOB: Sincronización automática del Roster
   // ═══════════════════════════════════════════════════════════════════════════
-  async function runBackgroundRosterSync() {
-    console.log("[CRON] Iniciando tarea en segundo plano de sincronización de Roster...");
-    try {
-      // 1. Obtener todas las sesiones de ARMS activas
-      const { data: sessions, error } = await supabase
-        .from('arms_sessions')
-        .select('user_id, session_data, arms_username');
-
-      if (error) {
-        console.error("[CRON] Error al consultar sesiones de ARMS:", error.message);
-        return;
-      }
-
-      if (!sessions || sessions.length === 0) {
-        console.log("[CRON] No hay sesiones activas de ARMS registradas.");
-        return;
-      }
-
-      const browserInstance = await getBrowser();
-      const now = new Date();
-      
-      // Definir los dos meses a sincronizar (Mes actual y mes siguiente)
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
-
-      let nextMonth = currentMonth + 1;
-      let nextYear = currentYear;
-      if (nextMonth > 12) {
-        nextMonth = 1;
-        nextYear += 1;
-      }
-
-      const periods = [
-        { month: currentMonth, year: currentYear },
-        { month: nextMonth, year: nextYear }
-      ];
-
-      // 2. Sincronizar secuencialmente para cada usuario y período
-      for (const session of sessions) {
-        const { user_id, session_data, arms_username } = session;
-        console.log(`[CRON] Sincronizando usuario: ${arms_username} (${user_id})`);
-
-        let sessionExpired = false;
-
-        for (const period of periods) {
-          if (sessionExpired) break;
-
-          try {
-            console.log(`[CRON] Sincronizando período ${period.month}/${period.year} para ${arms_username}...`);
-            
-            // Hacer scraping con cookies cargadas
-            const { html, storageState } = await scrapeArmsRoster(
-              browserInstance,
-              arms_username,
-              undefined, // Sin contraseña para forzar uso exclusivo de cookies de sesión
-              period.month,
-              period.year,
-              session_data
-            );
-
-            // Actualizar las cookies almacenadas por si cambiaron o se renovaron
-            await supabase
-              .from('arms_sessions')
-              .update({
-                session_data: storageState,
-                updated_at: new Date().toISOString()
-              })
-              .eq('user_id', user_id);
-
-            // Parsear el roster
-            const rosterEntries = parseArmsRosterHtml(html);
-            const rosterHash = crypto.createHash("sha256").update(JSON.stringify(rosterEntries)).digest("hex");
-
-            // Comparar con el hash actual
-            const { data: currentRoster } = await supabase
-              .from('arms_roster')
-              .select('roster_hash')
-              .eq('user_id', user_id)
-              .eq('month', period.month)
-              .eq('year', period.year)
-              .single();
-
-            const oldHash = currentRoster?.roster_hash;
-
-            if (oldHash !== rosterHash) {
-              console.log(`[CRON] ¡Cambios detectados en Roster de ${arms_username} para ${period.month}/${period.year}!`);
-              
-              // Guardar en base de datos
-              await supabase
-                .from('arms_roster')
-                .upsert({
-                  user_id,
-                  month: period.month,
-                  year: period.year,
-                  roster_json: rosterEntries,
-                  roster_hash: rosterHash,
-                  synced_at: new Date().toISOString()
-                }, { onConflict: 'user_id,month,year' });
-
-              // Notificar al usuario
-              const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-              const periodStr = `${monthNames[period.month - 1]} ${period.year}`;
-              // Push notification removed
-
-            } else {
-              console.log(`[CRON] Sin cambios en Roster de ${arms_username} para ${period.month}/${period.year}.`);
-            }
-
-            // Esperar 3 segundos para no sobrecargar el portal
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-          } catch (itemError: any) {
-            console.error(`[CRON] Error al sincronizar periodo ${period.month}/${period.year} para ${arms_username}:`, itemError.message);
-            
-            // Si el error indica sesión expirada o credenciales
-            if (itemError.message.includes("expiró") || itemError.message.includes("login") || itemError.message.includes("Iniciar sesión") || itemError.message.includes("cookies")) {
-              sessionExpired = true;
-              console.warn(`[CRON] La sesión de ${arms_username} ha expirado. Limpiando y notificando...`);
-              
-              // Eliminar sesión para no seguir reintentando en vano
-              await supabase
-                .from('arms_sessions')
-                .delete()
-                .eq('user_id', user_id);
-
-              // Notificar al usuario
-              // Push notification removed
-            }
-          }
-        }
-      }
-    } catch (e: any) {
-      console.error("[CRON] Error general en el cron job de Roster:", e.message);
-    }
-  }
-
-  // Programar cron para ejecutarse cada 20 minutos (20 * 60 * 1000 ms)
-  setInterval(runBackgroundRosterSync, 20 * 60 * 1000);
-  
-  // Ejecutar una vez al arrancar el servidor (esperando 10 segundos para no bloquear el inicio)
-  setTimeout(runBackgroundRosterSync, 10000);
+  // La sincronización automática del roster ha sido completamente deshabilitada.
+  // Solo se permite la sincronización manual desde la UI.
+  //
+  // Para reactivar: descomentar la función runBackgroundRosterSync,
+  // el setInterval y el setTimeout al final de esta sección.
+  // ═══════════════════════════════════════════════════════════════════════════
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
