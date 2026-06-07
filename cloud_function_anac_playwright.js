@@ -12,8 +12,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ANAC_BASE_URL = 'https://cad.anac.gob.ar/foliadoweb';
 
 exports.syncAnacVuelos = async (req, res) => {
-  // CORS Headers
-  res.set('Access-Control-Allow-Origin', '*');
+  // CORS Headers — solo orígenes conocidos
+  const allowedOrigins = [
+    'https://personal-flight-log-antigravity.vercel.app',
+    'capacitor://localhost',
+    'http://localhost:3000',
+    'http://localhost:5173',
+  ];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  }
   if (req.method === 'OPTIONS') {
     res.set('Access-Control-Allow-Methods', 'POST');
     res.set('Access-Control-Allow-Headers', 'Content-Type');

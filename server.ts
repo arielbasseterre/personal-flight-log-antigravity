@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import path from "path";
 import fs from "fs/promises";
 import { createServer as createViteServer } from "vite";
@@ -37,6 +38,26 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// --- Rate Limiting ---
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: "Demasiadas solicitudes de autenticación. Intenta de nuevo en 1 minuto." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const syncLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: "Demasiadas solicitudes de sincronización. Intenta de nuevo en 1 minuto." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api/auth-anac", authLimiter);
+app.use("/api/sync-anac", syncLimiter);
+app.use("/api/arms/sync-roster", authLimiter);
 
   // --- Instancia global de Playwright para evitar cold-starts ---
   let globalBrowser: any = null;
@@ -95,7 +116,8 @@ app.use((req, res, next) => {
         anacResolve
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message, stack: error.stack });
+      console.error("[TEST_CONNECTIVITY]", error.stack || error.message);
+      res.status(500).json({ error: process.env.NODE_ENV === "production" ? "Error interno del servidor" : error.message });
     }
   });
 
@@ -836,8 +858,8 @@ app.use((req, res, next) => {
           '<head>',
           `<head>
             <script>
-              window.VITE_SUPABASE_URL = "${process.env.VITE_SUPABASE_URL || ''}";
-              window.VITE_SUPABASE_ANON_KEY = "${process.env.VITE_SUPABASE_ANON_KEY || ''}";
+              window.VITE_SUPABASE_URL = ${JSON.stringify(process.env.VITE_SUPABASE_URL || '')};
+              window.VITE_SUPABASE_ANON_KEY = ${JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || '')};
             </script>`
         );
         res.send(injectedHtml);

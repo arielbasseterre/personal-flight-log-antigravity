@@ -1,4 +1,5 @@
 const CACHE_NAME = 'flightlog-v3';
+const MAX_CACHE_ENTRIES = 50;
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -41,18 +42,20 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.match(event.request).then((cachedResponse) => {
-        const fetchedResponse = fetch(event.request).then((networkResponse) => {
-          // Guardar una copia en cache si la respuesta es válida
-          if (networkResponse && networkResponse.status === 200) {
-            cache.put(event.request, networkResponse.clone());
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cachedResponse = await cache.match(event.request);
+      const fetchedResponse = fetch(event.request).then(async (networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const keys = await cache.keys();
+          if (keys.length >= MAX_CACHE_ENTRIES) {
+            await cache.delete(keys[0]);
           }
-          return networkResponse;
-        }).catch(() => cachedResponse); // Si falla red y no hay cache, pues nada
+          cache.put(event.request, networkResponse.clone());
+        }
+        return networkResponse;
+      }).catch(() => cachedResponse);
 
-        return cachedResponse || fetchedResponse;
-      });
+      return cachedResponse || fetchedResponse;
     })
   );
 });

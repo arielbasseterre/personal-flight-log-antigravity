@@ -201,14 +201,12 @@ export const AuthScreen = () => {
               className="w-full border-dashed border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10"
               onClick={async () => {
                 setLoading(true);
-                const email = 'gomez@oasis.com';
-                const pass = 'gomez123';
+                const email = import.meta.env.VITE_DEMO_EMAIL || 'gomez@oasis.com';
+                const pass = import.meta.env.VITE_DEMO_PASS || 'gomez123';
                 try {
-                  // Try login
                   const { error: signInError } = await supabase!.auth.signInWithPassword({ email, password: pass });
                   
                   if (signInError) {
-                    // Try signup if user doesn't exist
                     const { error: signUpError } = await supabase!.auth.signUp({ email, password: pass });
                     if (signUpError) throw signUpError;
                     alert("Usuario 'Gómez' creado. Por favor haz click otra vez para Iniciar Sesión.");
