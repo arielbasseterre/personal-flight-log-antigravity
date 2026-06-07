@@ -461,8 +461,8 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     }
   };
 
-  // Initial state for the form
-  const initialFormState: Partial<FlightLog> = {
+  // Initial state for the form helper
+  const getInitialFormState = (): Partial<FlightLog> => ({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     day: new Date().getDate(),
@@ -498,7 +498,9 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     ifr_hood: 0,
     sim_instructor: 0,
     sim_student: 0
-  };
+  });
+
+  const initialFormState = getInitialFormState();
 
   const [formData, setFormData] = useState<Partial<FlightLog>>(() => {
     try {
@@ -1122,8 +1124,15 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           const { error } = await supabase.from('flight_logs').insert([logToSave]);
           if (error) throw error;
         }
+        // Guardar valores persistentes antes de limpiar
+        localStorage.setItem('saved_flight_purpose', formData.flight_purpose || '78');
+        localStorage.setItem('saved_aircraft_model', formData.aircraft_model || '');
+        localStorage.setItem('saved_power_rating', String(formData.power_rating || '0'));
+        localStorage.setItem('saved_certifier_name', formData.certifier_name || '');
+        localStorage.setItem('saved_certifier_role_id', formData.certifier_role_id || '2');
+
         await refreshData();
-        setFormData(initialFormState);
+        setFormData(getInitialFormState());
         setEditingId(null);
         setActiveTab('dashboard');
         setSyncStatus({ message: 'Vuelo guardado correctamente.', type: 'success' });
