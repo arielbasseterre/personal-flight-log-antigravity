@@ -1454,6 +1454,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   };
 
   const handleLogout = async () => {
+    localStorage.removeItem('arms_saved_username');
+    localStorage.removeItem('arms_saved_password');
     await supabase?.auth.signOut();
   };
 

@@ -484,8 +484,8 @@ function ArmsCredentialsModal({
   onClose: () => void;
   loading: boolean;
 }) {
-  const [user, setUser]       = useState('');
-  const [pass, setPass]       = useState('');
+  const [user, setUser]       = useState(() => localStorage.getItem('arms_saved_username') || '');
+  const [pass, setPass]       = useState(() => localStorage.getItem('arms_saved_password') || '');
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(true);
 
@@ -582,12 +582,14 @@ function ArmsCredentialsModal({
         {/* Botones */}
         <div className="flex gap-3 pt-1">
           <button
+            type="button"
             onClick={onClose}
             className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-[#2d3748] text-sm font-semibold text-slate-400 dark:text-slate-600 dark:text-slate-400 hover:bg-white dark:bg-[#1a2233] transition-colors"
           >
             Cancelar
           </button>
           <button
+            type="button"
             onClick={() => onSubmit(user, pass, remember)}
             disabled={!user || !pass || loading}
             className="flex-1 px-4 py-3 rounded-xl bg-[#1152d4] text-sm font-bold text-white hover:bg-[#0e47b5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -858,6 +860,15 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         }
       }
 
+      // Guardar credenciales si el usuario marcó "Recordar sesión"
+      if (remember) {
+        localStorage.setItem('arms_saved_username', username);
+        localStorage.setItem('arms_saved_password', password);
+      } else {
+        localStorage.removeItem('arms_saved_username');
+        localStorage.removeItem('arms_saved_password');
+      }
+
       setEntries(data.entries);
       const nowSync = new Date().toISOString();
       setLastSynced(nowSync);
@@ -875,8 +886,23 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     } catch (error: any) {
       console.error('[ARMS_UI] Error en sincronización:', error.message);
       setSyncError(error.message);
+      
+      // Si falló por credenciales o error general, limpiamos localStorage y abrimos login modal para reingresar
+      localStorage.removeItem('arms_saved_username');
+      localStorage.removeItem('arms_saved_password');
+      setShowCredentials(true);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSyncClick = () => {
+    const savedUser = localStorage.getItem('arms_saved_username');
+    const savedPass = localStorage.getItem('arms_saved_password');
+    if (savedUser && savedPass) {
+      handleSync(savedUser, savedPass, true);
+    } else {
+      setShowCredentials(true);
     }
   };
 
@@ -921,7 +947,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Mi Calendario</h1>
           </div>
           <button
-            onClick={() => setShowCredentials(true)}
+            onClick={handleSyncClick}
             disabled={syncing}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-200 dark:border-[#1152d4]/30 rounded-full text-[#1152d4] text-sm font-semibold hover:bg-[#1152d4]/20 active:scale-[0.96] transition-all disabled:opacity-50"
           >

@@ -170,9 +170,9 @@ export async function scrapeArmsRoster(
     
     // Volcar HTML de la página para diagnóstico (siempre, para ver la estructura real)
     const rosterPageHtml = await page.content().catch(() => '');
-    await fs.writeFile('arms_debug_crew_daily_roster.html', rosterPageHtml).catch(() => {});
-    await page.screenshot({ path: 'arms_debug_crew_daily_roster.png', fullPage: true }).catch(() => {});
-    console.log('[ARMS_SCRAPER] Debug: HTML de CrewDailyRoster.aspx guardado.');
+    await fs.writeFile('node_modules/arms_debug_crew_daily_roster.html', rosterPageHtml).catch(() => {});
+    await page.screenshot({ path: 'node_modules/arms_debug_crew_daily_roster.png', fullPage: true }).catch(() => {});
+    console.log('[ARMS_SCRAPER] Debug: HTML de CrewDailyRoster.aspx guardado en node_modules.');
 
     // ── PASO 5: Configurar rango de fechas (primer y último día del mes) ─
     // Los campos de fecha en CrewDailyRoster.aspx son:
@@ -274,9 +274,9 @@ export async function scrapeArmsRoster(
 
     if (!viewClicked) {
       console.log('[ARMS_SCRAPER] Error encontrando botón VIEW. Guardando HTML y screenshot para debug...');
-      await page.screenshot({ path: 'arms_debug_roster.png', fullPage: true }).catch(() => {});
+      await page.screenshot({ path: 'node_modules/arms_debug_roster.png', fullPage: true }).catch(() => {});
       const html = await page.content().catch(() => '');
-      await fs.writeFile('arms_debug_roster.html', html).catch(() => {});
+      await fs.writeFile('node_modules/arms_debug_roster.html', html).catch(() => {});
       throw new Error('No se encontró el botón VIEW (btnView) en la sección de Crew Daily Roster.');
     }
 

@@ -610,22 +610,21 @@ app.use("/api/arms/sync-roster", authLimiter);
         throw dbError;
       }
 
-      // [DESHABILITADO] Guardado de sesión para sincronización automática
-      // La sincronización automática del roster ha sido deshabilitada.
-      // if (shouldRemember || sessionData) {
-      //   const { error: sessionError } = await supabase
-      //     .from('arms_sessions')
-      //     .upsert({
-      //       user_id,
-      //       session_data: storageState,
-      //       arms_username: username,
-      //       updated_at: new Date().toISOString()
-      //     }, { onConflict: 'user_id' });
-      //
-      //   if (sessionError) {
-      //     console.error("[ARMS_SYNC] Error al guardar sesión de ARMS:", sessionError.message);
-      //   }
-      // }
+      // Guardado de sesión para sincronización automática / offline
+      if (shouldRemember || sessionData) {
+        const { error: sessionError } = await supabase
+          .from('arms_sessions')
+          .upsert({
+            user_id,
+            session_data: storageState,
+            arms_username: username,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+
+        if (sessionError) {
+          console.error("[ARMS_SYNC] Error al guardar sesión de ARMS:", sessionError.message);
+        }
+      }
 
       console.log(`[ARMS_SYNC] Sincronización manual exitosa para ${username}. Tramos guardados: ${rosterEntries.length}`);
       res.json({ success: true, entries: rosterEntries });
