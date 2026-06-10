@@ -22,11 +22,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
   Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff, HelpCircle,
-  Calendar, Loader2, Coffee, ArrowRight, Laptop
+  Calendar, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2
 } from 'lucide-react';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
+
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTES Y CONFIGURACIÓN VISUAL
@@ -698,6 +700,89 @@ function RosterChangesModal({
 }
 
 
+function OfflineAlert({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-sm bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 text-center"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto">
+          <WifiOff size={24} className="text-red-400" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sin conexión a internet</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            No se puede conectar con el servidor. Verificá tu conexión e intentá de nuevo.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-[#1152d4] hover:bg-[#0e47b5] text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
+        >
+          Entendido
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function NoChangesAlert({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-sm bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 text-center"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
+          <CheckCircle2 size={24} className="text-emerald-400" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sincronización completada</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            No se detectaron cambios en tu roster para este período.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-[#1152d4] hover:bg-[#0e47b5] text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
+        >
+          Entendido
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SECCIÓN E: COMPONENTE ROOT — ArmsRosterScreen
 // ═══════════════════════════════════════════════════════════════════════════
@@ -731,7 +816,9 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [syncError, setSyncError]           = useState<string | null>(null);
   const [lastSynced, setLastSynced]         = useState<string | null>(null);
   const [showCredentials, setShowCredentials] = useState(false);
-  const [rosterChanges, setRosterChanges]     = useState<RosterChange[] | null>(null);
+  const [rosterChanges, setRosterChanges]       = useState<RosterChange[] | null>(null);
+  const [showOfflineAlert, setShowOfflineAlert] = useState(false);
+  const [showNoChangesAlert, setShowNoChangesAlert] = useState(false);
 
   // ── Estado del modal de tripulación ───────────────────────────────────
   const [crewModal, setCrewModal] = useState<{
@@ -810,6 +897,9 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     setSyncing(true);
     setSyncError(null);
 
+    const abortController = new AbortController();
+    const abortTimeout = setTimeout(() => abortController.abort(), 25000);
+
     try {
       const response = await fetch(getApiUrl('/api/arms/sync-roster'), {
         method: 'POST',
@@ -822,7 +912,9 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           year,
           rememberSession: remember,
         }),
+        signal: abortController.signal,
       });
+      clearTimeout(abortTimeout);
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: 'Error desconocido' }));
@@ -857,6 +949,8 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
 
         if (changesList.length > 0) {
           setRosterChanges(changesList);
+        } else {
+          setShowNoChangesAlert(true);
         }
       }
 
@@ -884,19 +978,34 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       console.log(`[ARMS_UI] Sincronización exitosa: ${data.entriesCount} entradas.`);
 
     } catch (error: any) {
+      clearTimeout(abortTimeout);
       console.error('[ARMS_UI] Error en sincronización:', error.message);
-      setSyncError(error.message);
       
-      // Si falló por credenciales o error general, limpiamos localStorage y abrimos login modal para reingresar
-      localStorage.removeItem('arms_saved_username');
-      localStorage.removeItem('arms_saved_password');
-      setShowCredentials(true);
+      // Network errors (fetch no llegó al servidor) — preservar credenciales
+      if (error instanceof TypeError || error.name === 'AbortError') {
+        setShowOfflineAlert(true);
+      } else {
+        const msg = error.message || '';
+        // Error de autenticación con ARMS — limpiar credenciales y pedir reingreso
+        if (/Login fallido|credenciales|password incorrect/i.test(msg)) {
+          localStorage.removeItem('arms_saved_username');
+          localStorage.removeItem('arms_saved_password');
+          setShowCredentials(true);
+        } else {
+          // Otro error (servidor sin internet, timeout, etc.) — preservar credenciales
+          setSyncError(msg);
+        }
+      }
     } finally {
       setSyncing(false);
     }
   };
 
   const handleSyncClick = () => {
+    if (!navigator.onLine) {
+      setShowOfflineAlert(true);
+      return;
+    }
     const savedUser = localStorage.getItem('arms_saved_username');
     const savedPass = localStorage.getItem('arms_saved_password');
     if (savedUser && savedPass) {
@@ -1314,6 +1423,20 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             changes={rosterChanges}
             onClose={() => setRosterChanges(null)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Sin Conexión */}
+      <AnimatePresence>
+        {showOfflineAlert && (
+          <OfflineAlert onClose={() => setShowOfflineAlert(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Sync exitosa sin cambios */}
+      <AnimatePresence>
+        {showNoChangesAlert && (
+          <NoChangesAlert onClose={() => setShowNoChangesAlert(false)} />
         )}
       </AnimatePresence>
     </div>
