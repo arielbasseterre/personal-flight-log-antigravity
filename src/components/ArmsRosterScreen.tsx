@@ -701,9 +701,11 @@ function RosterChangesModal({
 
 
 function OfflineAlert({ onClose }: { onClose: () => void }) {
+  const [countdown, setCountdown] = useState(4);
   useEffect(() => {
     const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
+    const interval = setInterval(() => setCountdown(c => c - 1), 1000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
   }, [onClose]);
 
   return (
@@ -736,15 +738,20 @@ function OfflineAlert({ onClose }: { onClose: () => void }) {
         >
           Entendido
         </button>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500 text-right -mb-2">
+          cerrando ventana en... {countdown}
+        </p>
       </motion.div>
     </motion.div>
   );
 }
 
 function NoChangesAlert({ onClose }: { onClose: () => void }) {
+  const [countdown, setCountdown] = useState(5);
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
-    return () => clearTimeout(timer);
+    const interval = setInterval(() => setCountdown(c => c - 1), 1000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
   }, [onClose]);
 
   return (
@@ -777,6 +784,9 @@ function NoChangesAlert({ onClose }: { onClose: () => void }) {
         >
           Entendido
         </button>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500 text-right -mb-2">
+          cerrando ventana en... {countdown}
+        </p>
       </motion.div>
     </motion.div>
   );
