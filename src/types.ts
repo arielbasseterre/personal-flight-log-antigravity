@@ -160,7 +160,9 @@ export type ArmsDayEventType =
   | 'STANDBY'          // STB - STBY — Guardia o reserva de servicio
   | 'NDA'              // NDA — No Duty Assigned / Actividad sin servicio
   | 'LAYOVER'          // NDA/Layover — Pernocte fuera de base (destino remoto)
+  | 'GTR'              // GTR — Ground Training Recurrent
   | 'UNKNOWN';         // Tipo no reconocido — fallback
+
 
 /**
  * Miembro de la tripulación asignada a un tramo de vuelo.

@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
   Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff, HelpCircle,
-  Calendar, Loader2, Coffee, ArrowRight
+  Calendar, Loader2, Coffee, ArrowRight, Laptop
 } from 'lucide-react';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
@@ -79,6 +79,8 @@ function DayMarker({ entry }: { entry: ArmsDayEntry }) {
       return <Home size={22} className="text-emerald-400" />;
     case 'NDA':
       return <Coffee size={22} className="text-purple-400" />;
+    case 'GTR':
+      return <Laptop size={22} className="text-cyan-400" />;
     case 'STANDBY':
       return <Shield size={22} className="text-slate-400 dark:text-slate-600 dark:text-slate-400" />;
     case 'LAYOVER':
@@ -617,6 +619,7 @@ const getActivitySummary = (entry: ArmsDayEntry | null | undefined): string => {
   if (entry.eventType === 'OFF') return 'Libre';
   if (entry.eventType === 'LAYOVER') return `Layover (${entry.layoverAirport || '—'})`;
   if (entry.eventType === 'STANDBY') return `Guardia (${entry.rawTask || ''})`;
+  if (entry.eventType === 'GTR') return `Curso: ${entry.rawTask || 'GTR'}`;
   if (entry.isFlight) {
     const flights = entry.legs.map(l => l.flightNumber).join(', ');
     return `Vuelo: ${flights || entry.rawTask || 'Tramos'}`;
@@ -986,6 +989,10 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             <span className="text-[9px] text-slate-500 dark:text-slate-400">NDA</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <Laptop size={10} className="text-cyan-400" />
+            <span className="text-[9px] text-slate-500 dark:text-slate-400">GTR</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <HelpCircle size={10} className="text-cyan-400" />
             <span className="text-[9px] text-slate-500 dark:text-slate-400">OTH</span>
           </div>
@@ -1108,6 +1115,57 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                   {/* Trg/Remarks for OTH tasks */}
                   {selectedEntry.rawTask?.toUpperCase().startsWith('OTH') && selectedEntry.remarks && selectedEntry.remarks.replace(/&nbsp;/gi, ' ').trim() !== '' && (
                     <div className="mt-2 p-3 bg-slate-50 dark:bg-[#101622]/50 border border-purple-500/10 rounded-xl">
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
+                        Trg / Remarks
+                      </p>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                        {selectedEntry.remarks.replace(/&nbsp;/gi, ' ').trim()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── CASO: GTR (Ground Training Recurrent) ── */}
+              {selectedEntry.eventType === 'GTR' && (
+                <div className="flex flex-col gap-4 p-5 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center shrink-0">
+                      <Laptop size={18} className="text-cyan-400" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                        Curso / Capacitación
+                      </p>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight mt-0.5">
+                        {selectedEntry.rawTask || 'GTR'}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {(selectedEntry.startTimeLoc || selectedEntry.endTimeLoc) && (
+                    <div className="mt-1 flex items-center gap-8 p-3 bg-slate-50 dark:bg-[#101622]/50 border border-cyan-500/10 rounded-xl">
+                      {selectedEntry.startTimeLoc && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Inicio</p>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                            {selectedEntry.startTimeLoc}L {selectedEntry.startTimeUtc && <span className="text-xs font-normal text-slate-500 dark:text-slate-400">({selectedEntry.startTimeUtc}Z)</span>}
+                          </p>
+                        </div>
+                      )}
+                      {selectedEntry.endTimeLoc && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Fin</p>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                            {selectedEntry.endTimeLoc}L {selectedEntry.endTimeUtc && <span className="text-xs font-normal text-slate-500 dark:text-slate-400">({selectedEntry.endTimeUtc}Z)</span>}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {selectedEntry.remarks && selectedEntry.remarks.replace(/&nbsp;/gi, ' ').trim() !== '' && (
+                    <div className="mt-2 p-3 bg-slate-50 dark:bg-[#101622]/50 border border-cyan-500/10 rounded-xl">
                       <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
                         Trg / Remarks
                       </p>

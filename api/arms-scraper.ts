@@ -392,8 +392,8 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
     if (!currentDateISO) continue;
 
     // ── 2.2: Identificar el tipo de tarea de esta fila ────────────
-    // Buscar la celda que contiene el código de tarea (OP, DH, OFF, STB, NDA, OTH)
-    const taskCell = findCellContaining(cells, /\b(OP|DH|OFF|STB|STBY|NDA|OTH)\b/i);
+    // Buscar la celda que contiene el código de tarea (OP, DH, OFF, STB, NDA, OTH, GTR)
+    const taskCell = findCellContaining(cells, /\b(OP|DH|OFF|STB|STBY|NDA|OTH|GTR)\b/i);
     const rawTask  = taskCell?.innerText.trim() || '';
 
     // Si no hay task reconocible, es una fila de cabecera/separador — saltar
@@ -451,9 +451,9 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
       }
       const remarks = rawRemarks.replace(/&nbsp;/gi, ' ').trim();
 
-      // Extract times for STANDBY
+      // Extract times for STANDBY and GTR
       let startTimeLoc, startTimeUtc, endTimeLoc, endTimeUtc;
-      if (eventType === 'STANDBY') {
+      if (eventType === 'STANDBY' || eventType === 'GTR') {
         const extractTimeLoc = (idx: number) => {
           const text = cells[idx]?.innerText || '';
           const match = text.match(/\d{1,2}:\d{2}(?=\s*\(?L\)?)/i);
@@ -472,12 +472,19 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
           return '';
         };
         
-        const taskIdx = cells.findIndex(c => /\b(OP|DH|OFF|STB|STBY|NDA|OTH)\b/i.test(c.innerText));
-        if (taskIdx >= 0 && taskIdx + 4 < cells.length) {
-          startTimeLoc = extractTimeLoc(taskIdx + 3);
-          startTimeUtc = extractTimeUtc(taskIdx + 3);
-          endTimeLoc   = extractTimeLoc(taskIdx + 4);
-          endTimeUtc   = extractTimeUtc(taskIdx + 4);
+        const taskIdx = cells.findIndex(c => /\b(OP|DH|OFF|STB|STBY|NDA|OTH|GTR)\b/i.test(c.innerText));
+        if (taskIdx >= 0) {
+          const isGtr = eventType === 'GTR';
+          const startOffset = isGtr ? 2 : 3;
+          const endOffset = isGtr ? 3 : 4;
+          if (taskIdx + startOffset < cells.length) {
+            startTimeLoc = extractTimeLoc(taskIdx + startOffset);
+            startTimeUtc = extractTimeUtc(taskIdx + startOffset);
+          }
+          if (taskIdx + endOffset < cells.length) {
+            endTimeLoc   = extractTimeLoc(taskIdx + endOffset);
+            endTimeUtc   = extractTimeUtc(taskIdx + endOffset);
+          }
         }
       }
 
@@ -554,6 +561,7 @@ function classifyArmsTask(task: string): ArmsDayEntry['eventType'] {
   if (t === 'OFF')                                   return 'OFF';
   if (t.includes('LAYOVER'))                         return 'LAYOVER';
   if (t.includes('STB') || t.includes('STBY'))       return 'STANDBY';
+  if (t.includes('GTR'))                             return 'GTR';
   if (t.includes('NDA') && !t.includes('LAYOVER'))   return 'NDA';
   if (t.includes('OTH'))                             return 'NDA';
 
