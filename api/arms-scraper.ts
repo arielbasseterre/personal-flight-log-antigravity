@@ -476,7 +476,7 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
         if (taskIdx >= 0) {
           const isGtr = eventType === 'GTR';
           const startOffset = isGtr ? 2 : 3;
-          const endOffset = isGtr ? 3 : 4;
+          const endOffset = 4;
           if (taskIdx + startOffset < cells.length) {
             startTimeLoc = extractTimeLoc(taskIdx + startOffset);
             startTimeUtc = extractTimeUtc(taskIdx + startOffset);
