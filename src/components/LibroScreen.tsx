@@ -22,7 +22,10 @@ import {
   CheckCircle2,
   Globe,
   RefreshCw,
-  LogOut
+  LogOut,
+  WifiOff,
+  CloudOff,
+  Clock as ClockIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -65,6 +68,7 @@ import { getApiUrl } from '@/src/utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import { getQueue, addToQueue, removeFromQueue, pendingCount, PendingOp } from '@/src/utils/offlineQueue';
 import airportsCsvRaw from '../../airports.csv?raw';
 
 interface LibroScreenProps {
@@ -74,6 +78,7 @@ interface LibroScreenProps {
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
   refreshData: () => Promise<Profile | null>;
   loading: boolean;
+  userId: string;
 }
 
 const LICENSE_TYPES = [
@@ -398,7 +403,7 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
   );
 };
 
-export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, loading }: LibroScreenProps) => {
+export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, loading, userId }: LibroScreenProps) => {
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('draft_flight_log_active_tab') || 'dashboard';
   });
@@ -540,6 +545,42 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [pendingLogs, setPendingLogs] = useState<FlightLog[]>([]);
   const [isComparing, setIsComparing] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
+
+  // ── Offline Queue States ────────────────────────────────────────────
+  const [pendingOps, setPendingOps] = useState<PendingOp[]>([]);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isSyncingQueue, setIsSyncingQueue] = useState(false);
+
+  // Ref para evitar stale closure en event listeners
+  const processQueueRef = useRef<() => Promise<void>>(async () => {});
+  const refreshDataRef = useRef(refreshData);
+  refreshDataRef.current = refreshData;
+
+  // Load pending ops from queue on mount + sync if online
+  useEffect(() => {
+    setPendingOps(getQueue());
+    if (navigator.onLine && getQueue().length > 0) {
+      processQueueRef.current();
+    }
+  }, []);
+
+  // Listeners for online/offline detection + auto-sync (usa ref para evitar stale closure)
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      processQueueRef.current();
+    };
+    const handleOffline = () => setIsOnline(false);
+    const handleFocus = () => { if (navigator.onLine) processQueueRef.current(); };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -969,6 +1010,99 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     confirmFinal();
   };
 
+  // ╔══════════════════════════════════════════════════════════════════╗
+  // ║  OFFLINE QUEUE: Procesa operaciones pendientes                  ║
+  // ╚══════════════════════════════════════════════════════════════════╝
+  const processQueue = async () => {
+    if (!supabase || isSyncingQueue) return;
+    setIsSyncingQueue(true);
+
+    const queue = getQueue();
+    if (queue.length === 0) { setIsSyncingQueue(false); return; }
+
+    const insertedIds: string[] = [];
+
+    for (const op of queue) {
+      if (op.type === 'insert') {
+        try {
+          const { data: existing } = await supabase
+            .from('flight_logs')
+            .select('id')
+            .eq('user_id', op.data.user_id)
+            .eq('fechaHoraSalida', op.data.fechaHoraSalida)
+            .eq('fechaHoraLlegada', op.data.fechaHoraLlegada)
+            .eq('origenID', op.data.origenID)
+            .eq('destinoID', op.data.destinoID)
+            .maybeSingle();
+
+          if (existing) {
+            removeFromQueue(op.localId);
+            insertedIds.push(op.localId);
+            continue;
+          }
+
+          const { error } = await supabase.from('flight_logs').insert([op.data]);
+          if (error) {
+            op.retryCount++;
+            if (op.retryCount >= 5) {
+              console.error('[OFFLINE_QUEUE] Abandoning insert after 5 retries:', op.localId);
+              removeFromQueue(op.localId);
+            }
+            continue;
+          }
+
+          removeFromQueue(op.localId);
+          insertedIds.push(op.localId);
+        } catch (err) {
+          console.error('[OFFLINE_QUEUE] Error syncing insert:', err);
+          op.retryCount++;
+          if (op.retryCount >= 5) removeFromQueue(op.localId);
+        }
+      } else if (op.type === 'update') {
+        try {
+          const { error } = await supabase.from('flight_logs').update(op.data).eq('id', op.logId);
+          if (error) {
+            op.retryCount++;
+            if (op.retryCount >= 5) {
+              console.error('[OFFLINE_QUEUE] Abandoning update after 5 retries:', op.logId);
+              removeFromQueue(op.logId);
+            }
+            continue;
+          }
+          removeFromQueue(op.logId);
+        } catch (err) {
+          console.error('[OFFLINE_QUEUE] Error syncing update:', err);
+          op.retryCount++;
+          if (op.retryCount >= 5) removeFromQueue(op.logId);
+        }
+      } else if (op.type === 'delete') {
+        try {
+          const { error } = await supabase.from('flight_logs').delete().eq('id', op.remoteId);
+          if (error) {
+            op.retryCount++;
+            if (op.retryCount >= 5) {
+              console.error('[OFFLINE_QUEUE] Abandoning delete after 5 retries:', op.remoteId);
+              removeFromQueue(op.remoteId);
+            }
+            continue;
+          }
+          removeFromQueue(op.remoteId);
+        } catch (err) {
+          console.error('[OFFLINE_QUEUE] Error syncing delete:', err);
+          op.retryCount++;
+          if (op.retryCount >= 5) removeFromQueue(op.remoteId);
+        }
+      }
+    }
+
+    setPendingOps(getQueue());
+    await refreshData();
+    setIsSyncingQueue(false);
+  };
+
+  processQueueRef.current = processQueue;
+  refreshDataRef.current = refreshData;
+
   const saveLog = async () => {
     if (!supabase) return;
 
@@ -1058,8 +1192,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return date.toISOString();
       };
 
-      const user_id = (await supabase.auth.getUser()).data.user?.id;
-      if (!user_id) {
+      if (!userId) {
         showAlert("Sesión Expirada", "Por favor inicie sesión nuevamente.", 'danger');
         return;
       }
@@ -1093,7 +1226,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
       // 5. Mapeo final y Guardado
       const logToSave: any = {
-        user_id,
+        user_id: userId,
         fechaHoraSalida: checkSalida,
         fechaHoraLlegada: checkLlegada,
         origenID: resolvedOrigin,
@@ -1133,6 +1266,36 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       };
 
       setIsSavingProfile(true);
+
+      // ── OFFLINE: guardar en cola local ────────────────────────────────
+      if (!navigator.onLine) {
+        if (editingId) {
+          addToQueue({ type: 'update', logId: editingId, data: logToSave, createdAt: new Date().toISOString(), retryCount: 0 });
+          // Actualizar local state con datos editados
+          setLogs(prev => prev.map(l => l.id === editingId ? { ...l, ...logToSave, id: editingId } : l));
+        } else {
+          const localId = crypto.randomUUID();
+          addToQueue({ type: 'insert', localId, data: logToSave, createdAt: new Date().toISOString(), retryCount: 0 });
+          // Agregar entry optimista al state
+          const optimisticEntry: any = { ...logToSave, id: localId, _pending: true };
+          setLogs(prev => [optimisticEntry, ...prev]);
+        }
+
+        setPendingOps(getQueue());
+        localStorage.setItem('saved_flight_purpose', formData.flight_purpose || '78');
+        localStorage.setItem('saved_aircraft_model', formData.aircraft_model || '');
+        localStorage.setItem('saved_power_rating', String(formData.power_rating || '0'));
+        localStorage.setItem('saved_certifier_name', formData.certifier_name || '');
+        localStorage.setItem('saved_certifier_role_id', formData.certifier_role_id || '2');
+        setFormData(getInitialFormState());
+        setEditingId(null);
+        setActiveTab('dashboard');
+        showAlert("Guardado Local", "El vuelo se guardó localmente y se sincronizará automáticamente cuando tengas conexión.", 'info');
+        setIsSavingProfile(false);
+        return;
+      }
+
+      // ── ONLINE: guardar directo en Supabase ────────────────────────────
       try {
         if (editingId) {
           const { error } = await supabase.from('flight_logs').update(logToSave).eq('id', editingId);
@@ -1141,7 +1304,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           const { error } = await supabase.from('flight_logs').insert([logToSave]);
           if (error) throw error;
         }
-        // Guardar valores persistentes antes de limpiar
         localStorage.setItem('saved_flight_purpose', formData.flight_purpose || '78');
         localStorage.setItem('saved_aircraft_model', formData.aircraft_model || '');
         localStorage.setItem('saved_power_rating', String(formData.power_rating || '0'));
@@ -1348,6 +1510,15 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
   const deleteLog = async (id: string) => {
     if (!supabase) return;
+    
+    if (!navigator.onLine) {
+      addToQueue({ type: 'delete', remoteId: id, createdAt: new Date().toISOString(), retryCount: 0 });
+      const updatedLogs = logs.filter(l => l.id !== id);
+      setLogs(updatedLogs);
+      setPendingOps(getQueue());
+      return;
+    }
+    
     try {
       const { error } = await supabase
         .from('flight_logs')
@@ -2200,7 +2371,35 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       )}
 
       <div className="max-w-lg mx-auto w-full space-y-4">
-        
+
+        {/* ── Offline Queue Badge ───────────────────────────────────── */}
+        {pendingOps.length > 0 && (
+          <div className="flex items-center justify-between px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl">
+            <div className="flex items-center gap-2">
+              {isOnline ? <CloudOff size={16} className="text-amber-600 dark:text-amber-400" /> : <WifiOff size={16} className="text-amber-600 dark:text-amber-400" />}
+              <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                {pendingOps.length} {pendingOps.length === 1 ? 'cambio pendiente' : 'cambios pendientes'} {isOnline ? '' : '— Sin conexión'}
+              </span>
+            </div>
+            {isOnline && (
+              <button
+                onClick={processQueue}
+                disabled={isSyncingQueue}
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50"
+              >
+                {isSyncingQueue ? 'Sincronizando...' : 'Sincronizar ahora'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {!isOnline && pendingOps.length === 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl">
+            <WifiOff size={14} className="text-slate-400" />
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Sin conexión a internet</span>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
           <TabsList className="grid grid-cols-4 mb-4 sticky top-0 z-10 bg-white/50 dark:bg-[#1a2233]/50 backdrop-blur-md">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 text-xs">
@@ -3193,18 +3392,23 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logs.map((log) => (
-                      <TableRow key={log.id}>
+                    {logs.map((log) => {
+                      const isPending = (log as any)._pending === true;
+                      return (
+                      <TableRow key={log.id} className={isPending ? 'opacity-60' : ''}>
                         <TableCell className="text-xs font-medium">
-                          {(() => {
-                            const dStr = log.fechaHoraSalida || (log as any).created_at;
-                            if (dStr) {
-                              const d = new Date(dStr);
-                              return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear().toString().slice(-2)}`;
-                            }
-                            const y = (log as any).year;
-                            return `${(log as any).day || '--'}/${(log as any).month || '--'}/${y ? y.toString().slice(-2) : '--'}`;
-                          })()}
+                          <div className="flex items-center gap-1.5">
+                            {isPending && <ClockIcon size={12} className="text-amber-500 shrink-0" title="Pendiente de sincronización" />}
+                            {(() => {
+                              const dStr = log.fechaHoraSalida || (log as any).created_at;
+                              if (dStr) {
+                                const d = new Date(dStr);
+                                return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear().toString().slice(-2)}`;
+                              }
+                              const y = (log as any).year;
+                              return `${(log as any).day || '--'}/${(log as any).month || '--'}/${y ? y.toString().slice(-2) : '--'}`;
+                            })()}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-xs font-bold">
@@ -3241,7 +3445,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    );
+                  })}
                   </TableBody>
                 </Table>
                 {logs.length === 0 && (

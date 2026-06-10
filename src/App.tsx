@@ -1246,6 +1246,7 @@ export default function App() {
                   setProfile={setProfile}
                   refreshData={() => fetchData(user.id)}
                   loading={dataLoading}
+                  userId={user.id}
                 />
               )}
             </div>
