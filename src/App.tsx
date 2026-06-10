@@ -192,6 +192,22 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "10 de Junio, 2026",
+    version: "1.4.2",
+    items: [
+      "Libro de Vuelo: ahora podés guardar vuelos sin conexión a internet. Se sincronizan automáticamente cuando recuperes la conexión. Los vuelos pendientes se ven con un ícono de reloj en el historial.",
+      "Roster ARMS: la sincronización ahora detecta si estás desconectado y muestra un aviso claro sin borrar tus credenciales guardadas. Si no hay cambios en el roster, te lo notificamos.",
+    ]
+  },
+  {
+    date: "5 de Junio, 2026",
+    version: "1.4.1",
+    items: [
+      "Correcciones de seguridad: se ocultaron las trazas de error en producción, se escapó la inyección HTML, se agregó limitación de velocidad en los endpoints y se restringió CORS.",
+      "Se agregaron políticas de seguridad (RLS) en la base de datos de Supabase.",
+    ]
+  },
+  {
     date: "1 de Junio, 2026",
     version: "1.4.0",
     items: [
