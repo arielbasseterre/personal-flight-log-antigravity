@@ -143,8 +143,28 @@ app.use("/api/arms/sync-roster", authLimiter);
 
       const page = await context.newPage();
       
-      console.log("[AUTH_ANAC] Navegando a ANAC...");
-      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "load" });
+      // Pre-check DNS rápido para evitar timeout de 30s si ANAC está bloqueado desde Render
+      const ANAC_DOMAINS = ['cad.anac.gob.ar', 'cadam.anac.gob.ar'];
+      let anacUrl: string | null = null;
+      for (const domain of ANAC_DOMAINS) {
+        try {
+          await Promise.race([
+            dns.promises.lookup(domain),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+          ]);
+          anacUrl = `https://${domain}/portalApp`;
+          console.log(`[AUTH_ANAC] DNS resuelto: ${domain}`);
+          break;
+        } catch {
+          console.log(`[AUTH_ANAC] DNS no disponible para: ${domain}`);
+        }
+      }
+      if (!anacUrl) {
+        throw new Error("No se puede conectar con el portal ANAC desde este servidor. Verifica que cad.anac.gob.ar sea accesible.");
+      }
+      
+      console.log(`[AUTH_ANAC] Navegando a ${anacUrl}...`);
+      await page.goto(anacUrl, { waitUntil: "load" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
