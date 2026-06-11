@@ -164,7 +164,7 @@ app.use("/api/arms/sync-roster", authLimiter);
       }
       
       console.log(`[AUTH_ANAC] Navegando a ${anacUrl}...`);
-      await page.goto(anacUrl, { waitUntil: "load" });
+      await page.goto(anacUrl, { waitUntil: "domcontentloaded" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
