@@ -144,7 +144,7 @@ app.use("/api/arms/sync-roster", authLimiter);
       const page = await context.newPage();
       
       console.log("[AUTH_ANAC] Navegando a ANAC...");
-      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "networkidle" });
+      await page.goto("https://cad.anac.gob.ar/portalApp", { waitUntil: "load" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
