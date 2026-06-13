@@ -50,7 +50,113 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 
 ---
 
-## 5. Próximos Pasos
+## 5. Features a Desarrollar
+
+### 🔴 Alta Prioridad — Mercado Pago (Suscripciones)
+Implementar sistema de pagos por suscripción anual con redirect checkout de MP.
+
+**Tareas:**
+- [ ] Agregar paquete `mercadopago` a las dependencias
+- [ ] Server.ts: crear endpoints (create-subscription, callback, webhook, cancel-subscription, getOrCreateAnnualPlan)
+- [ ] AuthScreen.tsx: cambiar registro a flujo MP
+- [ ] App.tsx: agregar SubscriptionExpiredScreen + manejo de query params
+- [ ] LibroScreen/HomeScreen: mostrar info de suscripción
+- [ ] Supabase: agregar columnas subscription_* a profiles + tabla pending_registrations + tabla app_config
+- [ ] Configurar webhook en MP Dashboard (evento "Planes y suscripciones")
+- [ ] Agregar variables de entorno en Render (MP_ACCESS_TOKEN)
+- [ ] Probar flujo completo: registro → MP → pago → callback
+
+### 🟡 Media Prioridad
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
 - [ ] Probar la persistencia y refresco de sesiones de autenticación para ARMS y ANAC almacenadas en Supabase (`arms_sessions` y `user_remote_sessions`).
 - [ ] Validar el correcto flujo de envío de notificaciones push (FCM) registradas en la tabla `push_tokens`.
+
+---
+
+## 6. Implementación Futura: Mercado Pago (Referencia)
+
+### Paquetes npm
+```json
+"mercadopago": "^3.1.0"
+```
+
+### Variables de Entorno (Render)
+| Variable | Descripción |
+|---|---|
+| `MP_ACCESS_TOKEN` | Token de producción: `APP_USR-...` |
+| `VITE_API_URL` | URL base de la app (ej: `https://app.onrender.com`) |
+
+### Supabase — Tablas/Columnas a agregar
+
+**Tabla `profiles`** (columnas nuevas):
+- `subscription_id TEXT` — ID de la suscripción en MP
+- `subscription_end_date TIMESTAMPTZ` — fecha de vencimiento
+- `subscription_status TEXT` — `authorized`, `cancelled`, etc.
+
+**Tabla `pending_registrations`**:
+```sql
+CREATE TABLE pending_registrations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
+  license TEXT,
+  dni TEXT,
+  legajo TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Tabla `app_config`** (monto dinámico):
+```sql
+CREATE TABLE app_config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+INSERT INTO app_config (key, value) VALUES ('subscription_amount', '12000');
+ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
+```
+
+### Server.ts — Endpoints a agregar (5)
+
+1. **`getOrCreateAnnualPlan(backUrl)`** — Lee monto de `app_config`, cachea plan en memoria. Si el monto cambió vs caché, invalida y crea plan nuevo en MP.
+2. **`POST /api/mercadopago/create-subscription`** — Recibe `{ email, password, firstName, lastName, license, dni, legajo }`. Si el usuario existe (renovación), usa su `id` como `external_reference`. Si no existe, guarda en `pending_registrations`. Devuelve `{ success, init_point }` para redirect a MP.
+3. **`GET /api/mercadopago/subscription-callback`** — MP redirige acá tras el pago con `?preapproval_id&external_reference&status`. Si `status=authorized`, actualiza perfil existente o crea usuario desde `pending_registrations`.
+4. **`POST /api/mercadopago/webhook`** — Recibe notificaciones de MP. Procesa eventos de tipo `subscription_preapproval` (acción que contenga "subscription"). Busca la suscripción en MP, si está `authorized`, actualiza o crea el usuario según `external_reference`.
+5. **`POST /api/mercadopago/cancel-subscription`** — Recibe `{ userId }`. Cancela la suscripción en MP y marca `subscription_status = 'cancelled'`.
+
+### Frontend — Componentes a modificar
+
+**AuthScreen.tsx**:
+- En modo registro, enviar datos a `POST /api/mercadopago/create-subscription` en vez de `supabase.auth.signUp()`
+- Redirigir a `resData.init_point`
+
+**App.tsx**:
+- Agregar `SubscriptionExpiredScreen` para usuarios con suscripción vencida
+- Manejar query params `?payment=success|error`
+
+**LibroScreen.tsx / HomeScreen.tsx**:
+- Mostrar card con días restantes, fecha de expiración, estado
+- Botón "Cancelar suscripción"
+
+### Flujo Completo de Pago
+1. Usuario completa registro → frontend llama a `create-subscription`
+2. Server guarda datos en `pending_registrations` (si es nuevo) y genera URL de MP
+3. Usuario redirigido a MP → paga
+4. MP redirige a `subscription-callback` → server crea usuario o actualiza perfil
+5. MP envía webhook `subscription_preapproval` → server procesa async
+6. App detecta `?payment=success` y recarga
+
+### Flujo de Renovación
+1. Usuario logueado con suscripción vencida ve `SubscriptionExpiredScreen`
+2. Toca "Renovar Suscripción" → llama a `create-subscription` con su email
+3. Server detecta usuario existente, usa `profile.id` como `external_reference`
+4. Redirige a MP → paga → callback/webhook actualiza perfil existente
+
+### Decisiones Técnicas (MP)
+- Redirect checkout en vez de CardPayment Brick (sandbox de MP rechaza tokens con `"Card token service not found"`)
+- `back_url` dinámico: usa `req.headers.origin` → si es localhost, fallback a `VITE_API_URL`
+- `getOrCreateAnnualPlan()` cachea el plan en memoria con detección de cambio de monto
+- `express.json()` sin opciones especiales (no confiar en `curl.exe` para tests, usar `Invoke-WebRequest`)
+- Webhook en MP Dashboard configurado con evento "Planes y suscripciones"
