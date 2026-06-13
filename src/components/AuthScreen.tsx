@@ -66,7 +66,11 @@ export const AuthScreen = () => {
         alert("¡Registro exitoso! Revisa tu email para confirmar.");
       }
     } catch (err: any) {
-      setError(err.message || "Ocurrió un error");
+      if (err.message?.includes("Invalid login credentials")) {
+        setError("Revisa tu usuario y/o contraseña");
+      } else {
+        setError(err.message || "Ocurrió un error");
+      }
     } finally {
       setLoading(false);
     }
