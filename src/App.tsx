@@ -25,7 +25,10 @@ import {
   X,
   Moon,
   Sun,
-  Calendar
+  Calendar,
+  Lock,
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -45,6 +48,9 @@ import { PdfViewer } from './components/PdfViewer';
 
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 // --- Components ---
 
@@ -1019,6 +1025,14 @@ export default function App() {
     const saved = localStorage.getItem('darkMode');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [showResetPassword, setShowResetPassword] = useState(() => {
+    return window.location.hash.includes('type=recovery');
+  });
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   const fetchData = async (userId: string) => {
     if (!supabase) return null;
@@ -1176,6 +1190,11 @@ export default function App() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase?.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') {
+        setShowResetPassword(true);
+        setAuthLoading(false);
+        return;
+      }
       const activeUser = session?.user ?? null;
       setUser(activeUser);
       if (activeUser) {
@@ -1212,6 +1231,33 @@ export default function App() {
   }, [darkMode]);
 
   const toggleDarkMode = () => setDarkMode(!darkMode);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      setResetError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetError('Las contraseñas no coinciden');
+      return;
+    }
+    setResetLoading(true);
+    setResetError(null);
+    try {
+      const { error } = await supabase!.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setResetSuccess(true);
+      setTimeout(() => {
+        setShowResetPassword(false);
+        supabase!.auth.signOut();
+      }, 3000);
+    } catch (err: any) {
+      setResetError(err.message || 'Error al actualizar la contraseña');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const renderScreen = () => {
     switch (screen) {
@@ -1287,6 +1333,79 @@ export default function App() {
         return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
     }
   };
+
+  if (showResetPassword) {
+    return (
+      <div className={`h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative overflow-hidden font-sans transition-colors duration-300 flex items-center justify-center p-6 ${darkMode ? 'dark' : ''}`}>
+        <Card className="w-full border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-xl">
+              {resetSuccess ? 'Contraseña actualizada' : 'Restablecer contraseña'}
+            </CardTitle>
+            <CardDescription>
+              {resetSuccess
+                ? 'Tu contraseña se actualizó correctamente. Serás redirigido al inicio de sesión.'
+                : 'Ingresá tu nueva contraseña'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {resetSuccess ? (
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900/30 flex items-start gap-3">
+                <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={20} />
+                <div>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-300">¡Listo!</p>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">Redirigiendo al inicio de sesión...</p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                {resetError && (
+                  <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">
+                    {resetError}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-900 dark:text-white">Nueva contraseña</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      className="pl-10"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-900 dark:text-white">Confirmar contraseña</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      className="pl-10"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700" disabled={resetLoading}>
+                  {resetLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                  {resetLoading ? 'Actualizando...' : 'Actualizar contraseña'}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className={`h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative overflow-hidden font-sans transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>

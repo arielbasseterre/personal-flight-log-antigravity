@@ -4,11 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, UserPlus, Mail, Lock, Plane, ArrowRight, Loader2 } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, Plane, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const AuthScreen = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgot, setShowForgot] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -18,6 +19,7 @@ export const AuthScreen = () => {
   const [legajo, setLegajo] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotSent, setForgotSent] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +32,16 @@ export const AuthScreen = () => {
     setError(null);
 
     try {
+      if (showForgot) {
+        const appUrl = import.meta.env.VITE_API_URL || window.location.origin;
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: appUrl,
+        });
+        if (error) throw error;
+        setForgotSent(true);
+        return;
+      }
+
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -77,9 +89,15 @@ export const AuthScreen = () => {
 
         <Card className="border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">{isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}</CardTitle>
+            <CardTitle className="text-xl">
+              {showForgot ? 'Recuperar Contraseña' : isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+            </CardTitle>
             <CardDescription>
-              {isLogin ? 'Ingresa tus credenciales para acceder' : 'Regístrate para comenzar a registrar tus vuelos'}
+              {showForgot
+                ? 'Te enviaremos un enlace para restablecer tu contraseña'
+                : isLogin
+                  ? 'Ingresa tus credenciales para acceder'
+                  : 'Regístrate para comenzar a registrar tus vuelos'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -162,33 +180,54 @@ export const AuthScreen = () => {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    className="pl-10"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete={isLogin ? "current-password" : "new-password"}
-                  />
+              {!showForgot && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      placeholder="••••••••" 
+                      className="pl-10"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete={isLogin ? "current-password" : "new-password"}
+                    />
+                  </div>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowForgot(true); setError(null); }}
+                      className="text-xs text-blue-600 hover:underline self-start -mt-1"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  )}
                 </div>
-              </div>
+              )}
 
-              {error && (
+              {forgotSent ? (
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900/30 flex items-start gap-3">
+                  <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={20} />
+                  <div>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300">Enlace enviado</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Revisá tu email. Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.</p>
+                  </div>
+                </div>
+              ) : error && (
                 <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">
                   {error}
                 </div>
               )}
 
-              <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin mr-2" /> : (isLogin ? <LogIn className="mr-2" size={18} /> : <UserPlus className="mr-2" size={18} />)}
-                {isLogin ? 'Entrar' : 'Registrarme'}
-              </Button>
+              {!forgotSent && (
+                <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                  {loading ? <Loader2 className="animate-spin mr-2" /> : null}
+                  {showForgot ? 'Enviar enlace' : isLogin ? 'Entrar' : 'Registrarme'}
+                </Button>
+              )}
             </form>
 
             <div className="relative my-6 text-center">
@@ -223,10 +262,18 @@ export const AuthScreen = () => {
 
             <div className="mt-6 text-center">
               <button 
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => {
+                  if (showForgot) {
+                    setShowForgot(false);
+                    setError(null);
+                    setForgotSent(false);
+                  } else {
+                    setIsLogin(!isLogin);
+                  }
+                }}
                 className="text-sm font-medium text-blue-600 hover:underline flex items-center justify-center mx-auto gap-1"
               >
-                {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+                {showForgot ? 'Volver al inicio de sesión' : isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
                 <ArrowRight size={14} />
               </button>
             </div>
