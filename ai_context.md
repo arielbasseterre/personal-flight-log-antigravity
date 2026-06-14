@@ -52,19 +52,10 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 
 ## 5. Features a Desarrollar
 
-### 🔴 Alta Prioridad — Mercado Pago (Suscripciones)
-Implementar sistema de pagos por suscripción anual con redirect checkout de MP.
+### ✅ Completado — Mercado Pago (Suscripciones)
+Sistema de pagos por suscripción anual implementado con redirect checkout de MP. Copiar referencia de implementación desde v1 (`D:\app Antigravity\personal-flight-log sin roster\server.ts`).
 
-**Tareas:**
-- [ ] Agregar paquete `mercadopago` a las dependencias
-- [ ] Server.ts: crear endpoints (create-subscription, callback, webhook, cancel-subscription, getOrCreateAnnualPlan)
-- [ ] AuthScreen.tsx: cambiar registro a flujo MP
-- [ ] App.tsx: agregar SubscriptionExpiredScreen + manejo de query params
-- [ ] LibroScreen/HomeScreen: mostrar info de suscripción
-- [ ] Supabase: agregar columnas subscription_* a profiles + tabla pending_registrations + tabla app_config
-- [ ] Configurar webhook en MP Dashboard (evento "Planes y suscripciones")
-- [ ] Agregar variables de entorno en Render (MP_ACCESS_TOKEN)
-- [ ] Probar flujo completo: registro → MP → pago → callback
+**Referencia de implementación en v1:** Ver sección "Lecciones Aprendidas" y "Decisiones Técnicas" más abajo para evitar errores conocidos.
 
 ### 🟡 Media Prioridad
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
@@ -160,3 +151,23 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 - `getOrCreateAnnualPlan()` cachea el plan en memoria con detección de cambio de monto
 - `express.json()` sin opciones especiales (no confiar en `curl.exe` para tests, usar `Invoke-WebRequest`)
 - Webhook en MP Dashboard configurado con evento "Planes y suscripciones"
+
+### Lecciones Críticas (no repetir errores de v1)
+1. **NO usar `payer_email`** en `PreApproval.create` — MP forza login con ese email exacto
+2. **NO confiar en `&external_reference=` en plan.initPoint** — MP lo ignora. Usar `back_url` + `PreApproval.update`
+3. **NO usar CardPayment Brick** — sandbox rechaza tokens. Usar redirect checkout siempre
+4. **NO usar `req.query` en callback** — MP concatena con `?` en vez de `&`. Usar regex sobre `req.url`
+5. **Siempre responder 200 en webhooks** — MP reintenta si ve error
+6. **Usar `express.json()` sin opciones** — funciona bien, ignorar falsos 400 de curl.exe
+
+### Checklist de Implementación (pasos de v1)
+1. Agregar `mercadopago` a package.json
+2. En server.ts: importar SDK, inicializar mpClient, crear endpoints (create-subscription, callback, webhook, cancel-subscription) + función getOrCreateAnnualPlan
+3. En AuthScreen.tsx: cambiar registro a POST create-subscription → redirect a init_point
+4. En App.tsx: SubscriptionExpiredScreen + manejo `?payment=success|error` + reset password overlay
+5. En HomeScreen/LibroScreen: cards de estado de suscripción
+6. En Supabase: agregar columnas a profiles, crear pending_registrations, crear app_config
+7. En Render: agregar MP_ACCESS_TOKEN, VITE_API_URL, SUPABASE_SERVICE_ROLE_KEY
+8. Configurar webhook en MP Dashboard → "Planes y suscripciones" → URL: `https://.../api/mercadopago/webhook`
+9. Probar flujo completo: registro → MP → pago real → callback → Supabase actualizado
+10. Agregar columna `mp_payer_email TEXT` a `profiles` y poblar en cada callback/webhook para vincular pagos de MP con usuarios de la app

@@ -43,6 +43,7 @@ export const AuthScreen = () => {
       }
 
       if (isLogin) {
+        await supabase.auth.signOut({ scope: 'local' });
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
