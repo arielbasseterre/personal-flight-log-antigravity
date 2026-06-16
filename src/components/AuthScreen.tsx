@@ -235,36 +235,6 @@ export const AuthScreen = () => {
               )}
             </form>
 
-            <div className="relative my-6 text-center">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
-              <span className="relative px-2 bg-white dark:bg-[#1a2233] text-[10px] text-slate-400 uppercase tracking-widest">DEBUG / TEST</span>
-            </div>
-
-            <Button 
-              variant="outline" 
-              className="w-full border-dashed border-blue-400/50 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10"
-              onClick={async () => {
-                setLoading(true);
-                const email = import.meta.env.VITE_DEMO_EMAIL || 'gomez@oasis.com';
-                const pass = import.meta.env.VITE_DEMO_PASS || 'gomez123';
-                try {
-                  const { error: signInError } = await supabase!.auth.signInWithPassword({ email, password: pass });
-                  
-                  if (signInError) {
-                    const { error: signUpError } = await supabase!.auth.signUp({ email, password: pass });
-                    if (signUpError) throw signUpError;
-                    alert("Usuario 'Gómez' creado. Por favor haz click otra vez para Iniciar Sesión.");
-                  }
-                } catch (e: any) {
-                  setError(e.message);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-            >
-              🚀 Probar como "Gómez"
-            </Button>
-
             <div className="mt-6 text-center">
               <button 
                 onClick={() => {
