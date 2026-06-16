@@ -82,7 +82,7 @@ export const AuthScreen = () => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full space-y-8"
+        className="w-full space-y-8 -mt-8"
       >
         <div className="text-center space-y-2">
           <div className="mx-auto w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
