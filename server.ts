@@ -756,6 +756,7 @@ app.use("/api/arms/sync-roster", authLimiter);
 
   // Reporte de errores
   app.post("/api/report", async (req, res) => {
+    console.log("[REPORT] Recibido reporte de error");
     const { title, description, userEmail } = req.body;
     if (!title || typeof title !== 'string' || title.trim().length < 5 || title.trim().length > 100) {
       return res.status(400).json({ error: "El título debe tener entre 5 y 100 caracteres" });
@@ -764,10 +765,15 @@ app.use("/api/arms/sync-roster", authLimiter);
       return res.status(400).json({ error: "La descripción debe tener entre 10 y 1000 caracteres" });
     }
     try {
+      console.log("[REPORT] Insertando en bug_reports...");
       const { error: insertError } = await supabase
         .from('bug_reports')
         .insert({ title: title.trim(), description: description.trim(), user_email: userEmail || '' });
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("[REPORT_ERR]", insertError.message);
+        throw insertError;
+      }
+      console.log("[REPORT] Reporte insertado correctamente");
       res.json({ success: true });
     } catch (error: any) {
       console.error("[REPORT_ERR]", error.message);

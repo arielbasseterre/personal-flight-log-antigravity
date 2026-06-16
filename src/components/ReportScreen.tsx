@@ -29,11 +29,15 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
     if (!isValid || loading) return;
     setLoading(true);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const res = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), description: description.trim(), userEmail })
+        body: JSON.stringify({ title: title.trim(), description: description.trim(), userEmail }),
+        signal: controller.signal
       });
+      clearTimeout(timeout);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al enviar el reporte');
       setModal({ show: true, title: 'Reporte enviado', message: 'Reporte enviado correctamente. ¡Gracias por tu ayuda!', type: 'info' });
