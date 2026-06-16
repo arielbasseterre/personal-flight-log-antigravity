@@ -42,6 +42,7 @@ import {
 import { Screen, CalculationResult, FlightLog, Profile } from './types';
 import { LibroScreen } from './components/LibroScreen';
 import { AuthScreen } from './components/AuthScreen';
+import { ReportScreen } from './components/ReportScreen';
 import { AnacAuth } from './components/AnacAuth';
 import { ArmsRosterScreen } from './components/ArmsRosterScreen';
 import { PdfViewer } from './components/PdfViewer';
@@ -308,8 +309,9 @@ const APP_VERSION = CHANGELOG_DATA[0].version;
 
 // --- Screens ---
 
-const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, darkMode, toggleDarkMode }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, darkMode: boolean, toggleDarkMode: () => void }) => (
-  <div className="flex flex-col h-full bg-white dark:bg-[#101622] text-slate-900 dark:text-white transition-colors">
+const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, userEmail, darkMode, toggleDarkMode }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void }) => {
+  return (
+    <div className="flex flex-col h-full bg-white dark:bg-[#101622] text-slate-900 dark:text-white transition-colors">
     <div className="flex items-center p-4 justify-between border-b border-slate-200 dark:border-[#2d3748]">
       <div className="flex items-center gap-2">
         <div className="text-[#1152d4] flex size-10 items-center justify-center">
@@ -429,10 +431,20 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
         >
           Versión {APP_VERSION} • Desarrollado por GRINGOSOFT
         </button>
+
+        {userEmail && (
+          <button
+            onClick={onGoToReport}
+            className="text-slate-400 text-[10px] mb-10 hover:text-amber-500 transition-colors font-medium p-2"
+          >
+            Reportar un problema
+          </button>
+        )}
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const PilotCalculator = () => {
   const [horaPresentacion, setHoraPresentacion] = useState(() => {
@@ -1262,7 +1274,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'home':
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
@@ -1329,8 +1341,10 @@ export default function App() {
         );
       case 'changelog':
         return <ChangelogScreen onBack={() => setScreen('home')} />;
+      case 'report':
+        return <ReportScreen onBack={() => setScreen('home')} />;
       default:
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
     }
   };
 

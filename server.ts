@@ -754,6 +754,27 @@ app.use("/api/arms/sync-roster", authLimiter);
     });
   }
 
+  // Reporte de errores
+  app.post("/api/report", async (req, res) => {
+    const { title, description, userEmail } = req.body;
+    if (!title || typeof title !== 'string' || title.trim().length < 5 || title.trim().length > 100) {
+      return res.status(400).json({ error: "El título debe tener entre 5 y 100 caracteres" });
+    }
+    if (!description || typeof description !== 'string' || description.trim().length < 10 || description.trim().length > 1000) {
+      return res.status(400).json({ error: "La descripción debe tener entre 10 y 1000 caracteres" });
+    }
+    try {
+      const { error: insertError } = await supabase
+        .from('bug_reports')
+        .insert({ title: title.trim(), description: description.trim(), user_email: userEmail || '' });
+      if (insertError) throw insertError;
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[REPORT_ERR]", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
 // Start the server if not in a serverless environment like Vercel
 if (!process.env.VERCEL) {
   const PORT = Number(process.env.PORT) || 3000;
