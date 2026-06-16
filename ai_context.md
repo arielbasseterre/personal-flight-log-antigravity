@@ -77,12 +77,13 @@ Sistema de pagos por suscripción anual implementado con redirect checkout de MP
 
 ### 🟡 Pendiente — Centrado vertical del login (implementado en v1)
 - [ ] AuthScreen: cambiar `h-full` → `flex-1` en el root div
+- [ ] AuthScreen: agregar `-mt-8` al `motion.div` del contenido para desplazar el formulario 32px arriba del centro
 - [ ] App.tsx (`case 'libro'`): cambiar `flex-1 overflow-y-auto` → `flex flex-col flex-1 overflow-y-auto` en el contenedor padre de AuthScreen
 
 ### 🟡 Pendiente — Navegación card suscripción → perfil (implementado en v1)
-- [ ] HomeScreen: la card de suscripción debe ser clickable, seteando `localStorage.setItem('draft_flight_log_active_tab', 'perfil')` y navegando a `'libro'`
+- [ ] HomeScreen: la card de suscripción debe ser clickable, seteando `localStorage.setItem('draft_flight_log_active_tab', 'perfil')` + `localStorage.setItem('draft_flight_log_scroll_to_subscription', 'true')` y navegando a `'libro'`
 - [ ] LibroScreen: agregar `id="subscription-card"` al Card de suscripción
-- [ ] LibroScreen: en el `useEffect` de `activeTab === 'perfil'`, hacer `scrollIntoView` a `#subscription-card` con 300ms de delay
+- [ ] LibroScreen: en el `useEffect` de `activeTab === 'perfil'`, hacer `scrollIntoView` a `#subscription-card` solo si la flag `draft_flight_log_scroll_to_subscription` existe, limpiarla después (evita scroll al entrar al perfil por otros medios)
 
 ### 🟡 Media Prioridad
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
