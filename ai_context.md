@@ -75,6 +75,15 @@ Sistema de pagos por suscripción anual implementado con redirect checkout de MP
 - [ ] Callback y webhook: detectar si el usuario ya tiene `subscription_end_date` futura y sumarle 12 meses (stack) en vez de usar hoy + 365
 - [ ] El botón de cancelar se elimina completamente (ya no existe en v1)
 
+### 🟡 Pendiente — Centrado vertical del login (implementado en v1)
+- [ ] AuthScreen: cambiar `h-full` → `flex-1` en el root div
+- [ ] App.tsx (`case 'libro'`): cambiar `flex-1 overflow-y-auto` → `flex flex-col flex-1 overflow-y-auto` en el contenedor padre de AuthScreen
+
+### 🟡 Pendiente — Navegación card suscripción → perfil (implementado en v1)
+- [ ] HomeScreen: la card de suscripción debe ser clickable, seteando `localStorage.setItem('draft_flight_log_active_tab', 'perfil')` y navegando a `'libro'`
+- [ ] LibroScreen: agregar `id="subscription-card"` al Card de suscripción
+- [ ] LibroScreen: en el `useEffect` de `activeTab === 'perfil'`, hacer `scrollIntoView` a `#subscription-card` con 300ms de delay
+
 ### 🟡 Media Prioridad
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
 - [ ] Probar la persistencia y refresco de sesiones de autenticación para ARMS y ANAC almacenadas en Supabase (`arms_sessions` y `user_remote_sessions`).

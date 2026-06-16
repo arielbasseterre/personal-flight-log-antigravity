@@ -1297,7 +1297,7 @@ export default function App() {
               darkMode={darkMode} 
               toggleDarkMode={toggleDarkMode} 
             />
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col flex-1 overflow-y-auto">
               {!user ? (
                 <AuthScreen />
               ) : (

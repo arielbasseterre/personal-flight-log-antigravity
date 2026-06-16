@@ -78,7 +78,7 @@ export const AuthScreen = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 h-full max-w-sm mx-auto">
+    <div className="flex flex-col items-center justify-center p-6 flex-1 max-w-sm mx-auto">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
