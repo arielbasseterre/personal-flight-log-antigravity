@@ -427,7 +427,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
           onClick={onChangelog}
           className="text-slate-500 text-[10px] mt-12 mb-10 hover:text-[#1152d4] transition-colors font-medium tracking-widest uppercase p-4"
         >
-          Versión {APP_VERSION} • Desarrollado por Ariel Basseterre
+          Versión {APP_VERSION} • Desarrollado por GRINGOSOFT
         </button>
       </div>
     </div>
