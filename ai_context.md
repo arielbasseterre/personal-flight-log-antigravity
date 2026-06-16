@@ -59,6 +59,22 @@ Sistema de pagos por suscripción anual implementado con redirect checkout de MP
 
 **Referencia de implementación en v1:** Ver sección "Lecciones Aprendidas" y "Decisiones Técnicas" más abajo para evitar errores conocidos.
 
+- [x] Fix login intermitente (15-Jun-2026): `signOut({ scope: 'local' })` antes de `signInWithPassword` en AuthScreen
+
+### 🟡 Pendiente — Trial 30 días (implementado en v1)
+- [ ] Endpoint `POST /api/mercadopago/register-with-trial` — crea usuario con `admin.createUser()` + perfil con trial 30d, devuelve `access_token` + `refresh_token` para auto-login directo
+- [ ] En AuthScreen: llamar a `register-with-trial`, usar `setSession()` con tokens del server (no `signInWithPassword`)
+- [ ] HomeScreen: mostrar "Período de prueba gratuito" en card verde cuando `!subscription_id && subscription_end_date`
+- [ ] SubscriptionExpiredScreen: mensaje diferenciado "Período de prueba vencido" para trial vs "Suscripción Expirada" para pago
+- [ ] Columna `mp_payer_email TEXT` en `profiles` (ejecutar `scripts/add_mp_payer_email.sql`)
+- [ ] Los 8 puntos de callback/webhook guardan `mp_payer_email` en el perfil
+
+### 🟡 Pendiente — Renovación anticipada (implementado en v1)
+- [ ] LibroScreen: botón "Renovar Suscripción" azul cuando falten ≤ 30 días (reemplaza "Cancelar Suscripción" que se elimina)
+- [ ] `handleRenewSubscription()`: llama a `POST /api/mercadopago/create-subscription` y redirige a `init_point`
+- [ ] Callback y webhook: detectar si el usuario ya tiene `subscription_end_date` futura y sumarle 12 meses (stack) en vez de usar hoy + 365
+- [ ] El botón de cancelar se elimina completamente (ya no existe en v1)
+
 ### 🟡 Media Prioridad
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
 - [ ] Probar la persistencia y refresco de sesiones de autenticación para ARMS y ANAC almacenadas en Supabase (`arms_sessions` y `user_remote_sessions`).
