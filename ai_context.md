@@ -48,6 +48,9 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
   ```
 - **Limpieza de Recursos Temporales**: Se removieron los scripts de diagnóstico local (`scripts/analyze-anac-bundle.ts`) y la configuración e instancias locales de Supabase Edge Functions (`supabase/`) que no eran requeridas por la aplicación de producción.
 - **Fix login intermitente (15-Jun-2026)**: Se agregó `await supabase.auth.signOut({ scope: 'local' })` antes de `signInWithPassword` en `AuthScreen.tsx` para limpiar sesión stale de localStorage que causaba falsos "Invalid login credentials" en usuarios existentes.
+- **Bug report system (16-Jun-2026)**: `ReportScreen.tsx` con formulario (título 5-100 chars, descripción 10-1000 chars, contadores), `POST /api/report` endpoint con validación e insert en `bug_reports` de Supabase, botón "Reportar un problema" en HomeScreen para usuarios logueados.
+- **Fix Vite middleware local (16-Jun-2026)**: `POST /api/report` movido antes del bloque `app.use(vite.middlewares)` para que Express lo maneje primero en dev. En producción no ocurría porque usa `express.static`.
+- **Email notification via Edge Function (16-Jun-2026)**: Función `send-bug-report-notification` deployada en Supabase. Database Webhook en `bug_reports` (INSERT) envía correo via Resend a `gringo.soft.ar@gmail.com`. Stack: Deno + Resend API.
 - **Pendiente**: Probar y verificar el funcionamiento del fix de login en v2 (confirmar que no rompe registro existente con `signUp`).
 
 ---
