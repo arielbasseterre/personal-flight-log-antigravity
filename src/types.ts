@@ -161,6 +161,7 @@ export type ArmsDayEventType =
   | 'NDA'              // NDA — No Duty Assigned / Actividad sin servicio
   | 'LAYOVER'          // NDA/Layover — Pernocte fuera de base (destino remoto)
   | 'GTR'              // GTR — Ground Training Recurrent
+  | 'LEAVE'            // Licencias / Suspensiones
   | 'UNKNOWN';         // Tipo no reconocido — fallback
 
 

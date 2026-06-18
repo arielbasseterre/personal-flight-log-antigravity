@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
   Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff, HelpCircle,
-  Calendar, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2
+  Calendar, CalendarMinus, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2
 } from 'lucide-react';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
@@ -60,6 +60,11 @@ const SPRING_CONFIG = { type: 'spring' as const, stiffness: 200, damping: 24 };
 // SECCIÓN A: VISTA MENSUAL — Grid de calendario con marcadores
 // ═══════════════════════════════════════════════════════════════════════════
 
+const isLeaveEntry = (entry: ArmsDayEntry | null | undefined): boolean => {
+  if (!entry) return false;
+  return entry.eventType === 'LEAVE' || entry.rawTask?.toUpperCase().startsWith('LEAVE');
+};
+
 /**
  * Marcador visual que aparece debajo del número de día.
  * Cada tipo de evento tiene su propio ícono y color:
@@ -71,6 +76,10 @@ const SPRING_CONFIG = { type: 'spring' as const, stiffness: 200, damping: 24 };
 function DayMarker({ entry }: { entry: ArmsDayEntry }) {
   if (entry.rawTask?.toUpperCase().startsWith('OTH')) {
     return <HelpCircle size={22} className="text-cyan-400" />;
+  }
+
+  if (isLeaveEntry(entry)) {
+    return <CalendarMinus size={22} className="text-red-400" />;
   }
 
   switch (entry.eventType) {
@@ -620,6 +629,12 @@ interface RosterChange {
 
 const getActivitySummary = (entry: ArmsDayEntry | null | undefined): string => {
   if (!entry) return 'Libre / Sin programar';
+  if (isLeaveEntry(entry)) {
+    const rawTask = entry.rawTask || '';
+    const leaveMatch = rawTask.match(/leave\s*-\s*(.*)/i);
+    const leaveText = leaveMatch ? leaveMatch[1].trim() : rawTask;
+    return `Licencia: ${leaveText}`;
+  }
   if (entry.eventType === 'OFF') return 'Libre';
   if (entry.eventType === 'LAYOVER') return `Layover (${entry.layoverAirport || '—'})`;
   if (entry.eventType === 'STANDBY') return `Guardia (${entry.rawTask || ''})`;
@@ -1141,6 +1156,10 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             <HelpCircle size={10} className="text-cyan-400" />
             <span className="text-[9px] text-slate-500 dark:text-slate-400">OTH</span>
           </div>
+          <div className="flex items-center gap-1.5">
+            <CalendarMinus size={10} className="text-red-400" />
+            <span className="text-[9px] text-slate-500 dark:text-slate-400">Licencia</span>
+          </div>
         </div>
 
         {/* ── Última sincronización ───────────────────────────────────── */}
@@ -1203,8 +1222,53 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                 )}
               </div>
 
+              {/* ── CASO: LICENCIA / LEAVE ───────────────────────────── */}
+              {isLeaveEntry(selectedEntry) && (
+                <div className="flex flex-col gap-4 p-5 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center shrink-0">
+                      <CalendarMinus size={18} className="text-red-400" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                        Licencia / Inactividad
+                      </p>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight mt-0.5">
+                        {(() => {
+                          const rawTask = selectedEntry.rawTask || '';
+                          const leaveMatch = rawTask.match(/leave\s*-\s*(.*)/i);
+                          return leaveMatch ? leaveMatch[1].trim() : rawTask;
+                        })()}
+                      </h3>
+                    </div>
+                  </div>
+                  
+                  {(() => {
+                    const rawTask = selectedEntry.rawTask || '';
+                    const leaveMatch = rawTask.match(/leave\s*-\s*(.*)/i);
+                    const leaveText = leaveMatch ? leaveMatch[1].trim() : rawTask;
+                    
+                    const originalRemarks = selectedEntry.remarks?.replace(/&nbsp;/gi, ' ').trim() || '';
+                    const finalRemarksText = originalRemarks 
+                      ? `${leaveText} - ${originalRemarks}` 
+                      : leaveText;
+
+                    return finalRemarksText ? (
+                      <div className="mt-2 p-3 bg-slate-50 dark:bg-[#101622]/50 border border-red-500/10 rounded-xl">
+                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
+                          Trg / Remarks
+                        </p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                          {finalRemarksText}
+                        </p>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+
               {/* ── CASO: LAYOVER ────────────────────────────────────── */}
-              {selectedEntry.eventType === 'LAYOVER' && (
+              {selectedEntry.eventType === 'LAYOVER' && !isLeaveEntry(selectedEntry) && (
                 <motion.div
                   className="flex items-center gap-4 p-5 bg-amber-500/10 border border-amber-500/20 rounded-2xl"
                   initial={{ scale: 0.97 }}
@@ -1228,7 +1292,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               )}
 
               {/* ── CASO: DÍA LIBRE (OFF) ────────────────────────────── */}
-              {selectedEntry.eventType === 'OFF' && (
+              {selectedEntry.eventType === 'OFF' && !isLeaveEntry(selectedEntry) && (
                 <div className="flex items-center gap-4 p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
                   <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
                     <Home size={18} className="text-emerald-400" />
@@ -1241,7 +1305,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               )}
 
               {/* ── CASO: NDA / OTH ── */}
-              {selectedEntry.eventType === 'NDA' && (
+              {selectedEntry.eventType === 'NDA' && !isLeaveEntry(selectedEntry) && (
                 <div className="flex flex-col gap-4 p-5 bg-purple-500/10 border border-purple-500/20 rounded-2xl">
                   <div className="flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center shrink-0">
@@ -1272,7 +1336,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               )}
 
               {/* ── CASO: GTR (Ground Training Recurrent) ── */}
-              {selectedEntry.eventType === 'GTR' && (
+              {selectedEntry.eventType === 'GTR' && !isLeaveEntry(selectedEntry) && (
                 <div className="flex flex-col gap-4 p-5 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
                   <div className="flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center shrink-0">
@@ -1323,7 +1387,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               )}
 
               {/* ── CASO: GUARDIA / STANDBY ──────────────────────────── */}
-              {selectedEntry.eventType === 'STANDBY' && (
+              {selectedEntry.eventType === 'STANDBY' && !isLeaveEntry(selectedEntry) && (
                 <div className="flex flex-col gap-3 p-5 bg-white dark:bg-[#1a2233] border border-slate-200 dark:border-[#2d3748] rounded-2xl">
                   <div className="flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-[#2d3748] flex items-center justify-center shrink-0">
@@ -1355,7 +1419,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               )}
 
               {/* ── CASO: VUELO — Timeline vertical de tramos ────────── */}
-              {selectedEntry.isFlight && selectedEntry.legs.length > 0 && (
+              {selectedEntry.isFlight && selectedEntry.legs.length > 0 && !isLeaveEntry(selectedEntry) && (
                 <div className="bg-white dark:bg-[#0d1520] rounded-3xl border border-slate-200 dark:border-[#2d3748]/50 overflow-hidden py-3 shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
                   {selectedEntry.legs.map((leg, i) => (
                     <FlightLegCard

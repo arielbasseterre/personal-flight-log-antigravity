@@ -392,8 +392,8 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
     if (!currentDateISO) continue;
 
     // ── 2.2: Identificar el tipo de tarea de esta fila ────────────
-    // Buscar la celda que contiene el código de tarea (OP, DH, OFF, STB, NDA, OTH, GTR)
-    const taskCell = findCellContaining(cells, /\b(OP|DH|OFF|STB|STBY|NDA|OTH|GTR)\b/i);
+    // Buscar la celda que contiene el código de tarea (OP, DH, OFF, STB, NDA, OTH, GTR, LEAVE)
+    const taskCell = findCellContaining(cells, /\b(OP|DH|OFF|STB|STBY|NDA|OTH|GTR|LEAVE)\b/i);
     const rawTask  = taskCell?.innerText.trim() || '';
 
     // Si no hay task reconocible, es una fila de cabecera/separador — saltar
@@ -564,6 +564,7 @@ function classifyArmsTask(task: string): ArmsDayEntry['eventType'] {
   if (t.includes('GTR'))                             return 'GTR';
   if (t.includes('NDA') && !t.includes('LAYOVER'))   return 'NDA';
   if (t.includes('OTH'))                             return 'NDA';
+  if (t.includes('LEAVE'))                           return 'LEAVE';
 
   return 'UNKNOWN';
 }
