@@ -199,6 +199,7 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 5. En HomeScreen/LibroScreen: cards de estado de suscripción
 6. En Supabase: agregar columnas a profiles, crear pending_registrations, crear app_config
 7. En Render: agregar MP_ACCESS_TOKEN, VITE_API_URL, SUPABASE_SERVICE_ROLE_KEY
-8. Configurar webhook en MP Dashboard → "Planes y suscripciones" → URL: `https://.../api/mercadopago/webhook`
-9. Probar flujo completo: registro → MP → pago real → callback → Supabase actualizado
-10. Agregar columna `mp_payer_email TEXT` a `profiles` y poblar en cada callback/webhook para vincular pagos de MP con usuarios de la app
+8. - [ ] Configurar webhook en MP Dashboard → "Planes y suscripciones" → URL: `https://.../api/mercadopago/webhook`
+- [ ] Probar flujo completo: registro → MP → pago real → callback → Supabase actualizado
+- [ ] Agregar columna `mp_payer_email TEXT` a `profiles` y poblar en cada callback/webhook para vincular pagos de MP con usuarios de la app
+- [ ] Cartel de pago exitoso/fallido premium: Reemplazar los `alert` nativos del navegador por un modal overlay animado estilizado con la estética de la app (azul `#1152d4`, soporte oscuro/claro y animaciones fluidas vía `framer-motion`).
