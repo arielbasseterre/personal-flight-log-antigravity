@@ -199,6 +199,13 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "21 de Junio, 2026",
+    version: "1.4.3",
+    items: [
+      "Actualización automática: cada 24 horas la app verifica si hay una nueva versión disponible y la descarga automáticamente con un aviso en pantalla."
+    ]
+  },
+  {
     date: "10 de Junio, 2026",
     version: "1.4.2",
     items: [
