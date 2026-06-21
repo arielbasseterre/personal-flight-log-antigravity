@@ -755,15 +755,34 @@ app.use("/api/arms/sync-roster", authLimiter);
         to: [{ email: email, name: firstName }],
         subject: "¡Bienvenido a Personal Flight Log! ✈️",
         htmlContent: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <h2 style="color: #2563eb; margin-bottom: 20px;">¡Hola, ${firstName}!</h2>
-            <p>Te damos una cálida bienvenida a <strong>Personal Flight Log</strong>, tu plataforma profesional para el registro y control de horas de vuelo.</p>
-            <p>A partir de ahora podrás llevar un control detallado de tus actividades, sincronizar datos y mucho más.</p>
-            <p>Adjunto a este correo encontrarás la <strong>Guía del Usuario</strong> en formato PDF, la cual te ayudará a dar tus primeros pasos y sacarle el máximo provecho a la aplicación.</p>
-            <p>Si tienes alguna consulta o necesitas soporte, no dudes en escribirnos a <a href="mailto:gringo.soft.ar@gmail.com">gringo.soft.ar@gmail.com</a>.</p>
-            <br/>
-            <p>¡Buenos vuelos!</p>
-            <p style="font-size: 0.9em; color: #64748b;">El equipo de Personal Flight Log</p>
+          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+            
+            <div style="background-color: #2563eb; padding: 40px 20px; text-align: center;">
+              <img src="https://flightlog-sin-roster.onrender.com/icons/icon-512.png" alt="Personal Flight Log Logo" style="width: 80px; height: 80px; margin-bottom: 15px; border-radius: 20%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); background-color: white; padding: 10px;" />
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.5px;">Personal Flight Log</h1>
+            </div>
+
+            <div style="padding: 40px 30px; background-color: #ffffff;">
+              <h2 style="color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 20px;">¡Hola, \${firstName}! 👋</h2>
+              <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">Te damos una cálida bienvenida a <strong>Personal Flight Log</strong>, tu plataforma profesional para el registro y control de horas de vuelo.</p>
+              
+              <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; color: #334155; font-size: 15px;">A partir de ahora podrás llevar un control detallado de tus actividades, consultar estadísticas y sincronizar todos tus datos en la nube.</p>
+              </div>
+
+              <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">Adjunto a este correo encontrarás la <strong>Guía del Usuario</strong> en formato PDF, la cual te ayudará a dar tus primeros pasos y sacarle el máximo provecho a la aplicación.</p>
+
+              <div style="text-align: center; margin: 35px 0;">
+                <a href="https://flightlog-sin-roster.onrender.com" style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; display: inline-block;">Ingresar a la plataforma</a>
+              </div>
+
+              <p style="color: #475569; font-size: 15px; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">Si tienes alguna consulta o necesitas soporte, no dudes en responder este correo o escribirnos a <a href="mailto:gringo.soft.ar@gmail.com" style="color: #2563eb; text-decoration: none;">gringo.soft.ar@gmail.com</a>.</p>
+            </div>
+
+            <div style="background-color: #f1f5f9; padding: 20px; text-align: center; color: #64748b; font-size: 14px;">
+              <p style="margin: 0;">¡Buenos vuelos! ✈️</p>
+              <p style="margin: 5px 0 0 0;">El equipo de Personal Flight Log</p>
+            </div>
           </div>
         `,
         attachment: [{ name: "FlightLog_Guia_Usuario.pdf", content: pdfBase64 }]
