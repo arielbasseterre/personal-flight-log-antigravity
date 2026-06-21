@@ -113,7 +113,7 @@ export const AuthScreen = () => {
                     <Label htmlFor="firstName">Nombre</Label>
                     <Input 
                       id="firstName" 
-                      placeholder="Ariel" 
+                      placeholder="Juan" 
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       required
@@ -123,7 +123,7 @@ export const AuthScreen = () => {
                     <Label htmlFor="lastName">Apellido</Label>
                     <Input 
                       id="lastName" 
-                      placeholder="Basseterre" 
+                      placeholder="Pérez" 
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
@@ -138,7 +138,7 @@ export const AuthScreen = () => {
                     <Label htmlFor="license">Licencia (Sigla)</Label>
                     <Input 
                       id="license" 
-                      placeholder="TLA" 
+                      placeholder="PTLA" 
                       value={license}
                       onChange={(e) => setLicense(e.target.value)}
                       required
@@ -148,7 +148,7 @@ export const AuthScreen = () => {
                     <Label htmlFor="legajo">Legajo Nº</Label>
                     <Input 
                       id="legajo" 
-                      placeholder="82468" 
+                      placeholder="12345" 
                       value={legajo}
                       onChange={(e) => setLegajo(e.target.value)}
                       required
@@ -162,7 +162,7 @@ export const AuthScreen = () => {
                   <Label htmlFor="dni">DNI / Pasaporte</Label>
                   <Input 
                     id="dni" 
-                    placeholder="29327413" 
+                    placeholder="12345678" 
                     value={dni}
                     onChange={(e) => setDni(e.target.value)}
                     required
