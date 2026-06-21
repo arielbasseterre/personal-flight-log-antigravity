@@ -1045,6 +1045,7 @@ export default function App() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const fetchData = async (userId: string) => {
     if (!supabase) return null;
@@ -1242,6 +1243,38 @@ export default function App() {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    let mounted = true;
+    navigator.serviceWorker.ready.then((reg) => {
+      if (!mounted) return;
+      const checkUpdate = () => reg.update();
+      const interval = setInterval(checkUpdate, 24 * 60 * 60 * 1000);
+      const onVisibility = () => { if (!document.hidden && mounted) checkUpdate(); };
+      document.addEventListener('visibilitychange', onVisibility);
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        if (!newSW) return;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            if (!mounted) return;
+            setIsUpdating(true);
+            setTimeout(() => { newSW.postMessage('SKIP_WAITING'); }, 300);
+          }
+        });
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!mounted) return;
+        window.location.reload();
+      });
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', onVisibility);
+      };
+    });
+    return () => { mounted = false; };
+  }, []);
+
   const toggleDarkMode = () => setDarkMode(!darkMode);
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -1348,95 +1381,111 @@ export default function App() {
     }
   };
 
-  if (showResetPassword) {
+  const content = (() => {
+    if (showResetPassword) {
+      return (
+        <div className={`h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative overflow-hidden font-sans transition-colors duration-300 flex items-center justify-center p-6 ${darkMode ? 'dark' : ''}`}>
+          <Card className="w-full border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-xl">
+                {resetSuccess ? 'Contraseña actualizada' : 'Restablecer contraseña'}
+              </CardTitle>
+              <CardDescription>
+                {resetSuccess
+                  ? 'Tu contraseña se actualizó correctamente. Serás redirigido al inicio de sesión.'
+                  : 'Ingresá tu nueva contraseña'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resetSuccess ? (
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900/30 flex items-start gap-3">
+                  <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={20} />
+                  <div>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300">¡Listo!</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Redirigiendo al inicio de sesión...</p>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  {resetError && (
+                    <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">
+                      {resetError}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-900 dark:text-white">Nueva contraseña</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-900 dark:text-white">Confirmar contraseña</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700" disabled={resetLoading}>
+                    {resetLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                    {resetLoading ? 'Actualizando...' : 'Actualizar contraseña'}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     return (
-      <div className={`h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative overflow-hidden font-sans transition-colors duration-300 flex items-center justify-center p-6 ${darkMode ? 'dark' : ''}`}>
-        <Card className="w-full border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">
-              {resetSuccess ? 'Contraseña actualizada' : 'Restablecer contraseña'}
-            </CardTitle>
-            <CardDescription>
-              {resetSuccess
-                ? 'Tu contraseña se actualizó correctamente. Serás redirigido al inicio de sesión.'
-                : 'Ingresá tu nueva contraseña'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {resetSuccess ? (
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900/30 flex items-start gap-3">
-                <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={20} />
-                <div>
-                  <p className="text-sm font-medium text-green-700 dark:text-green-300">¡Listo!</p>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">Redirigiendo al inicio de sesión...</p>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                {resetError && (
-                  <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">
-                    {resetError}
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-900 dark:text-white">Nueva contraseña</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      className="pl-10"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-900 dark:text-white">Confirmar contraseña</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      className="pl-10"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700" disabled={resetLoading}>
-                  {resetLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-                  {resetLoading ? 'Actualizando...' : 'Actualizar contraseña'}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+      <div className={`h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative overflow-hidden font-sans transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={screen}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="h-full"
+          >
+            {renderScreen()}
+          </motion.div>
+        </AnimatePresence>
+
+        {screen !== 'changelog' && <BottomNav currentScreen={screen} setScreen={setScreen} />}
       </div>
     );
-  }
+  })();
 
   return (
-    <div className={`h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative overflow-hidden font-sans transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={screen}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
-          className="h-full"
-        >
-          {renderScreen()}
-        </motion.div>
-      </AnimatePresence>
-
-      {screen !== 'changelog' && <BottomNav currentScreen={screen} setScreen={setScreen} />}
-    </div>
+    <>
+      {content}
+      {isUpdating && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="text-white text-center space-y-4">
+            <Loader2 className="animate-spin mx-auto" size={40} />
+            <p className="text-lg font-semibold">Descargando nueva versión, por favor espere...</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
