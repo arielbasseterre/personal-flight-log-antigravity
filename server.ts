@@ -98,6 +98,7 @@ app.use("/api/arms/sync-roster", authLimiter);
   const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const brevoApiKey = process.env.BREVO_API_KEY || "";
 
   // --- Connectivity Test API ---
   app.get("/ping", (req, res) => res.send("pong"));
@@ -729,7 +730,6 @@ app.use("/api/arms/sync-roster", authLimiter);
     try {
       const { type, record } = req.body;
       
-      // Solo actuar ante eventos INSERT
       if (type !== "INSERT") {
         return res.json({ success: true, message: "Ignorado (no es INSERT)" });
       }
@@ -744,23 +744,17 @@ app.use("/api/arms/sync-roster", authLimiter);
       console.log(`[WELCOME-EMAIL] Descargando la guía del usuario en PDF para ${email}...`);
       const pdfUrl = "https://mexnmpbpqtccaulekupo.supabase.co/storage/v1/object/sign/guia/FlightLog_Guia_Usuario.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jMWFlYjExMS03NDk0LTQzOGItYWJhNy0wMDQ4NWRlMTJhNDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJndWlhL0ZsaWdodExvZ19HdWlhX1VzdWFyaW8ucGRmIiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4MjAyMzM2NCwiZXhwIjoxMTI0MjgyMzM2NH0.zvjW8ktswkOPuNOgZkezC-o-Ce_Q3URBziE-U5VCt-I";
       const pdfResponse = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
-      const pdfBuffer = Buffer.from(pdfResponse.data);
+      const pdfBase64 = Buffer.from(pdfResponse.data).toString('base64');
 
-      console.log(`[WELCOME-EMAIL] Configurando transporte SMTP para gringo.soft.ar@gmail.com...`);
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: 'gringo.soft.ar@gmail.com',
-          pass: 'wllr irlv josp ozlq'
-        }
-      });
-
-      console.log(`[WELCOME-EMAIL] Enviando correo a ${email}...`);
-      const mailOptions = {
-        from: '"Personal Flight Log" <gringo.soft.ar@gmail.com>',
-        to: email,
-        subject: '¡Bienvenido a Personal Flight Log! ✈️',
-        html: `
+      console.log(`[WELCOME-EMAIL] Enviando correo de bienvenida a ${email} vía Brevo...`);
+      await axios.post("https://api.brevo.com/v3/smtp/email", {
+        sender: {
+          name: "Personal Flight Log",
+          email: "gringo.soft.ar@gmail.com"
+        },
+        to: [{ email: email, name: firstName }],
+        subject: "¡Bienvenido a Personal Flight Log! ✈️",
+        htmlContent: `
           <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #2563eb; margin-bottom: 20px;">¡Hola, ${firstName}!</h2>
             <p>Te damos una cálida bienvenida a <strong>Personal Flight Log</strong>, tu plataforma profesional para el registro y control de horas de vuelo.</p>
@@ -772,21 +766,20 @@ app.use("/api/arms/sync-roster", authLimiter);
             <p style="font-size: 0.9em; color: #64748b;">El equipo de Personal Flight Log</p>
           </div>
         `,
-        attachments: [
-          {
-            filename: 'FlightLog_Guia_Usuario.pdf',
-            content: pdfBuffer
-          }
-        ]
-      };
+        attachment: [{ name: "FlightLog_Guia_Usuario.pdf", content: pdfBase64 }]
+      }, {
+        headers: {
+          "api-key": brevoApiKey,
+          "Content-Type": "application/json"
+        }
+      });
 
-      await transporter.sendMail(mailOptions);
-      console.log(`[WELCOME-EMAIL] Correo de bienvenida enviado con éxito a ${email}.`);
+      console.log(`[WELCOME-EMAIL] Correo enviado con éxito a ${email} vía Brevo.`);
       return res.json({ success: true, message: "Correo enviado con éxito" });
 
     } catch (error: any) {
-      console.error("[WELCOME-EMAIL] Error:", error.message);
-      return res.status(500).json({ error: error.message });
+      console.error("[WELCOME-EMAIL] Error:", error.response?.data || error.message);
+      return res.status(500).json({ error: error.response?.data || error.message });
     }
   });
 
