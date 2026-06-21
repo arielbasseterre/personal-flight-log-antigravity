@@ -51,6 +51,9 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **Bug report system (16-Jun-2026)**: `ReportScreen.tsx` con formulario (título 5-100 chars, descripción 10-1000 chars, contadores), `POST /api/report` endpoint con validación e insert en `bug_reports` de Supabase, botón "Reportar un problema" en HomeScreen para usuarios logueados.
 - **Fix Vite middleware local (16-Jun-2026)**: `POST /api/report` movido antes del bloque `app.use(vite.middlewares)` para que Express lo maneje primero en dev. En producción no ocurría porque usa `express.static`.
 - **Email notification via Edge Function (16-Jun-2026)**: Función `send-bug-report-notification` deployada en Supabase. Database Webhook en `bug_reports` (INSERT) envía correo via Resend a `gringo.soft.ar@gmail.com`. Stack: Deno + Resend API.
+- **Auto-update checker (21-Jun-2026)**: Service Worker modificado (sacado `skipWaiting` del install, agregado listener `SKIP_WAITING` por mensaje). App.tsx: `useEffect` que cada 24h llama a `reg.update()`, también al reabrir la app. Cuando detecta nuevo SW instalado, muestra overlay "Descargando nueva versión, por favor espere..." y activa el update automáticamente.
+- **Payment confirmation modal (21-Jun-2026)**: Antes de redirigir a MP, se muestra un modal de confirmación con texto aclaratorio: "Este es un pago único anual. Al finalizar el período de 12 meses deberás renovar manualmente la suscripción. No se realizarán cobros automáticos." Botones "Ir a Pagar" / "Cancelar".
+- **Fix callback redirect MP (21-Jun-2026)**: Se agregó `resolveFrontendUrl()` en el callback `subscription-callback` para que resuelva la URL de redirect usando `req.headers.origin/referer` en vez de depender exclusivamente de `VITE_API_URL`, evitando pantalla blanca post-pago si la env var no está configurada en Render.
 - **Pendiente**: Probar y verificar el funcionamiento del fix de login en v2 (confirmar que no rompe registro existente con `signUp`).
 
 ---
@@ -87,6 +90,13 @@ Sistema de pagos por suscripción anual implementado con redirect checkout de MP
 - [ ] HomeScreen: la card de suscripción debe ser clickable, seteando `localStorage.setItem('draft_flight_log_active_tab', 'perfil')` + `localStorage.setItem('draft_flight_log_scroll_to_subscription', 'true')` y navegando a `'libro'`
 - [ ] LibroScreen: agregar `id="subscription-card"` al Card de suscripción
 - [ ] LibroScreen: en el `useEffect` de `activeTab === 'perfil'`, hacer `scrollIntoView` a `#subscription-card` solo si la flag `draft_flight_log_scroll_to_subscription` existe, limpiarla después (evita scroll al entrar al perfil por otros medios)
+
+### 🟡 Pendiente — MP callback redirect fix (implementado en v1)
+- [ ] En `server.ts`, callback `GET /api/mercadopago/subscription-callback`: agregar función `resolveFrontendUrl()` que use `req.headers.origin || req.headers.referer` como primera opción, luego `VITE_API_URL`, y fallback a la URL hardcodeada de Render. Reemplazar las 8 ocurrencias de `(process.env.VITE_API_URL || "http://localhost:5173")` por `resolveFrontendUrl()`.
+
+### 🟡 Pendiente — Payment confirmation modal (implementado en v1)
+- [ ] App.tsx (SubscriptionExpiredScreen): al recibir `init_point` de MP, no redirigir directo. Mostrar modal de confirmación con texto: "Este es un pago único anual. Al finalizar el período de 12 meses deberás renovar manualmente la suscripción. No se realizarán cobros automáticos." Botones "Ir a Pagar" → redirige a MP, "Cancelar" → vuelve atrás.
+- [ ] LibroScreen.tsx: mismo modal de confirmación antes de redirigir a MP desde `handleRenewSubscription`.
 
 ### 🟡 Media Prioridad
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
