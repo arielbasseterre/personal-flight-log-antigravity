@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import axios from "axios";
 import dns from "dns";
 import { chromium } from "playwright";
+import nodemailer from "nodemailer";
 
 import crypto from "crypto";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "./api/arms-scraper";
@@ -723,6 +724,71 @@ app.use("/api/arms/sync-roster", authLimiter);
   // Para reactivar: descomentar la función runBackgroundRosterSync,
   // el setInterval y el setTimeout al final de esta sección.
   // ═══════════════════════════════════════════════════════════════════════════
+
+  app.post("/api/send-welcome-email", async (req, res) => {
+    try {
+      const { type, record } = req.body;
+      
+      // Solo actuar ante eventos INSERT
+      if (type !== "INSERT") {
+        return res.json({ success: true, message: "Ignorado (no es INSERT)" });
+      }
+
+      const email = record?.email;
+      const firstName = record?.first_name || "Piloto";
+
+      if (!email) {
+        return res.status(400).json({ error: "No email found in record" });
+      }
+
+      console.log(`[WELCOME-EMAIL] Descargando la guía del usuario en PDF para ${email}...`);
+      const pdfUrl = "https://mexnmpbpqtccaulekupo.supabase.co/storage/v1/object/sign/guia/FlightLog_Guia_Usuario.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jMWFlYjExMS03NDk0LTQzOGItYWJhNy0wMDQ4NWRlMTJhNDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJndWlhL0ZsaWdodExvZ19HdWlhX1VzdWFyaW8ucGRmIiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4MjAyMzM2NCwiZXhwIjoxMTI0MjgyMzM2NH0.zvjW8ktswkOPuNOgZkezC-o-Ce_Q3URBziE-U5VCt-I";
+      const pdfResponse = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+      const pdfBuffer = Buffer.from(pdfResponse.data);
+
+      console.log(`[WELCOME-EMAIL] Configurando transporte SMTP para gringo.soft.ar@gmail.com...`);
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: 'gringo.soft.ar@gmail.com',
+          pass: 'wllr irlv josp ozlq'
+        }
+      });
+
+      console.log(`[WELCOME-EMAIL] Enviando correo a ${email}...`);
+      const mailOptions = {
+        from: '"Personal Flight Log" <gringo.soft.ar@gmail.com>',
+        to: email,
+        subject: '¡Bienvenido a Personal Flight Log! ✈️',
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #2563eb; margin-bottom: 20px;">¡Hola, ${firstName}!</h2>
+            <p>Te damos una cálida bienvenida a <strong>Personal Flight Log</strong>, tu plataforma profesional para el registro y control de horas de vuelo.</p>
+            <p>A partir de ahora podrás llevar un control detallado de tus actividades, sincronizar datos y mucho más.</p>
+            <p>Adjunto a este correo encontrarás la <strong>Guía del Usuario</strong> en formato PDF, la cual te ayudará a dar tus primeros pasos y sacarle el máximo provecho a la aplicación.</p>
+            <p>Si tienes alguna consulta o necesitas soporte, no dudes en escribirnos a <a href="mailto:gringo.soft.ar@gmail.com">gringo.soft.ar@gmail.com</a>.</p>
+            <br/>
+            <p>¡Buenos vuelos!</p>
+            <p style="font-size: 0.9em; color: #64748b;">El equipo de Personal Flight Log</p>
+          </div>
+        `,
+        attachments: [
+          {
+            filename: 'FlightLog_Guia_Usuario.pdf',
+            content: pdfBuffer
+          }
+        ]
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`[WELCOME-EMAIL] Correo de bienvenida enviado con éxito a ${email}.`);
+      return res.json({ success: true, message: "Correo enviado con éxito" });
+
+    } catch (error: any) {
+      console.error("[WELCOME-EMAIL] Error:", error.message);
+      return res.status(500).json({ error: error.message });
+    }
+  });
 
   // Reporte de errores
   app.post("/api/report", async (req, res) => {
