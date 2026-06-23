@@ -30,7 +30,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
-      workerSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+      workerSrc: ["'self'", "https://cdnjs.cloudflare.com", "blob:"],
       connectSrc: ["'self'", "https://mexnmpbpqtccaulekupo.supabase.co"],
       imgSrc: ["'self'", "data:"],
       fontSrc: ["'self'"],
