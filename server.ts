@@ -11,6 +11,7 @@ import { chromium } from "playwright";
 import nodemailer from "nodemailer";
 
 import crypto from "crypto";
+import helmet from "helmet";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "./api/arms-scraper";
 
 // Fix for ENOTFOUND errors in some environments
@@ -23,17 +24,39 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// --- CORS Middleware para permitir peticiones desde Capacitor (Móvil) ---
+// --- Helmet: seguridad HTTP headers (producción con CSP, dev sin CSP para Vite HMR) ---
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
+      workerSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+      connectSrc: ["'self'", "https://mexnmpbpqtccaulekupo.supabase.co"],
+      imgSrc: ["'self'", "data:"],
+      fontSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      manifestSrc: ["'self'"],
+      formAction: ["'self'"],
+    },
+  } : false,
+}));
+
+// --- CORS Middleware restringido a orígenes conocidos ---
 app.use((req, res, next) => {
+  const allowedOrigins = [
+    'https://personal-flight-log-antigravity-render.onrender.com',
+    'https://personal-flight-log-backend.onrender.com',
+    'capacitor://localhost',
+    'http://localhost',
+    'http://localhost:5173',
+  ];
   const origin = req.headers.origin;
-  // Solo aplicamos cabeceras CORS si la petición proviene de un origen diferente (ej. Móvil o Cross-Origin)
-  if (origin) {
+  if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
-
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }

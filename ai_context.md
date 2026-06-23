@@ -58,6 +58,10 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **ICS export fix**: Se agregó `DTSTAMP` (RFC 5545), UIDs determinísticos (`arms-{date}-{flight}-{i}@flightlog`), se removió `METHOD:PUBLISH`, y se reemplazó `→` por `-` para compatibilidad con Google Calendar.
 - **Almanaque PDF (nuevo componente @react-pdf/renderer)**: `AlmanaquePDF.tsx` renderiza calendario mensual A4 landscape en una sola página. Muestra rutas en bold, horarios de presentación en línea separada, tiempos de vuelo, flight numbers, guardias con rango horario, escalas, OFF/NDA. Siempre cabe en 1 página ajustando altura de celdas según semanas.
 - **Version bump**: 1.4.3 → 1.4.4
+- **Resumen Mensual de Roster (23-Jun-2026)**: Nuevo panel de estadísticas mensuales debajo del detalle de actividad en `ArmsRosterScreen.tsx`. Calcula dinámicamente via `React.useMemo` desde los entries existentes: Flight Time (FT), Duty Period (DP), cantidad de Flight Duties, días OFF, Licencias, Standby, Enfermedad, Entrenamiento y Simulador. Compatible retroactivamente con rosters previamente sincronizados.
+- **Almanaque PDF fix superposición (23-Jun-2026)**: Mejora del diseño del componente `AlmanaquePDF.tsx` para evitar superposición de texto en celdas con múltiples actividades. Rediseño estético general manteniendo toda la información existente.
+- **RLS en pending_registrations (23-Jun-2026)**: Análisis confirmó que habilitar RLS en `pending_registrations` no tiene impacto en ninguna de las dos apps (v1 y v2) porque `server.ts` usa `SUPABASE_SERVICE_ROLE_KEY` que bypasea RLS. Verificado en variables de entorno de Render.
+- **Version bump**: 1.4.4 → 1.4.5
 
 ---
 
@@ -80,6 +84,17 @@ Sistema de exportación de roster en dos formatos desde ArmsRosterScreen.
 - [x] Texto legible: rutas en bold, detalles en 7pt, sin truncar
 - [x] Export mobile: Capacitor Filesystem + Share (mismo patrón que LibroScreen)
 - [x] Export web: file-saver (descarga directa)
+- [x] Fix superposición de texto en celdas con múltiples actividades (23-Jun-2026)
+
+### ✅ Completado — Resumen Mensual de Estadísticas del Roster
+Panel de estadísticas mensuales en `ArmsRosterScreen.tsx`, calculado dinámicamente con `React.useMemo`.
+
+- [x] Flight Time (FT): suma de horas de vuelo del mes, parseadas desde `flightTime` de cada entry
+- [x] Duty Period (DP): calculado desde `reportTime` hasta `arrivalTime` + 30min debrief para vuelos, o duración completa para Standby/GTR
+- [x] Conteo de Flight Duties, OFF, Licencias, Standby, Enfermedad, Entrenamiento, Simulador
+- [x] Clasificación por `activityType` del entry (FLIGHT, OFF, LEAVE, STANDBY, SICK, TRAINING, SIMULATOR)
+- [x] UI premium con tarjeta animada (framer-motion), dos columnas (tiempos + días), contadores en cero atenuados
+- [x] Compatible retroactivamente con todos los rosters previamente sincronizados
 
 ### 🟡 Pendiente — Trial 30 días (implementado en v1)
 - [ ] Endpoint `POST /api/mercadopago/register-with-trial` — crea usuario con `admin.createUser()` + perfil con trial 30d, devuelve `access_token` + `refresh_token` para auto-login directo
@@ -240,8 +255,8 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 - [ ] Cifrar o eliminar el cacheo de PII en `localStorage` (`App.tsx:1072-1108`): DNI, licencia, nombre, email, registros de vuelo en texto plano.
 
 ### 🟡 Medio
-- [ ] Agregar middleware `helmet` en `server.ts` (CSP, X-Frame-Options, etc.)
-- [ ] Restringir CORS a lista blanca explicita (`server.ts:27-41`)
+- [x] Agregar middleware `helmet` en `server.ts` (CSP, X-Frame-Options, etc.) — solo en producción, CSP condicional
+- [x] Restringir CORS a lista blanca explicita (`server.ts:44-64`) — 5 orígenes conocidos
 - [ ] Agregar `arms_debug_*.html` a `.gitignore` y eliminar del repo
 - [ ] Auditar y aplicar middleware de auth a endpoints sensibles de `/api/*`
 - [ ] Agregar `scripts/` al `.gitignore` (contiene `add_mp_payer_email.sql`, `add_calendar_token.sql`)
