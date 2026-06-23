@@ -29,7 +29,6 @@ import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
 import { generateRosterICS } from '../utils/ics';
-import { syncRosterToCalendar } from '../utils/calendarSync';
 import { pdf } from '@react-pdf/renderer';
 import { AlmanaquePDF } from './AlmanaquePDF';
 import { saveAs } from 'file-saver';
@@ -938,12 +937,6 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   // ── Estado del menú de exportación ─────────────────────────────────────
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  // ── Resultado de exportación a calendario ──────────────────────────────
-  const [calendarSyncResult, setCalendarSyncResult] = useState<{
-    ok: boolean;
-    message: string;
-  } | null>(null);
-
   // ── Entrada seleccionada ──────────────────────────────────────────────
   const selectedEntry = entries.find(e => e.dateISO === selectedDate) || null;
 
@@ -1136,49 +1129,30 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const handleExportCalendar = async () => {
     if (entries.length === 0) return;
 
-    const result = await syncRosterToCalendar(entries, month, year);
-    if (result.ok) {
-      setCalendarSyncResult({
-        ok: true,
-        message: `${result.count} eventos sincronizados en "gringosoft roster"`,
-      });
-      setTimeout(() => setCalendarSyncResult(null), 4000);
-      return;
-    }
+    const icsContent = generateRosterICS(entries, month, year);
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const file = new File([blob], `Roster-ARMS-${month}-${year}.ics`, { type: 'text/calendar' });
 
-    if (result.error === 'native_only') {
-      const icsContent = generateRosterICS(entries, month, year);
-      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-      const file = new File([blob], `Roster-ARMS-${month}-${year}.ics`, { type: 'text/calendar' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: `Roster ARMS ${month}/${year}`,
-          });
-          return;
-        } catch {
-          // user cancelled or share failed — fall back to download
-        }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Roster ARMS ${month}/${year}`,
+        });
+        return;
+      } catch {
+        // user cancelled or share failed — fall back to download
       }
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Roster-ARMS-${month}-${year}.ics`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      return;
     }
 
-    setCalendarSyncResult({
-      ok: false,
-      message: result.error || 'Error al sincronizar con el calendario',
-    });
-    setTimeout(() => setCalendarSyncResult(null), 4000);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Roster-ARMS-${month}-${year}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // ╔═════════════════════════════════════════════════════════════════════╗
@@ -1711,25 +1685,6 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             onPDF={handleExportPDF}
             onClose={() => setShowExportMenu(false)}
           />
-        )}
-      </AnimatePresence>
-
-      {/* Feedback de sincronización con calendario nativo */}
-      <AnimatePresence>
-        {calendarSyncResult && (
-          <motion.div
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-bold max-w-xs text-center"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            transition={SPRING_CONFIG}
-            style={{
-              backgroundColor: calendarSyncResult.ok ? '#065f46' : '#991b1b',
-              color: '#fff',
-            }}
-          >
-            {calendarSyncResult.message}
-          </motion.div>
         )}
       </AnimatePresence>
     </div>

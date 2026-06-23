@@ -21,7 +21,6 @@
     "@capacitor/preferences": "^6.0.0",
     "@capacitor/share": "^6.0.0",
     "@capacitor/status-bar": "^6.0.0",
-    "@ebarooni/capacitor-calendar": "^6.7.2",
     "@fontsource-variable/geist": "^5.2.8",
     "@google/genai": "^1.29.0",
     "@radix-ui/react-slot": "^1.2.4",

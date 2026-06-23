@@ -49,7 +49,7 @@ export function generateRosterICS(
     'VERSION:2.0',
     'PRODID:-//Personal Flight Log//ARMS Roster//ES',
     'CALSCALE:GREGORIAN',
-    `X-WR-CALNAME:gringosoft roster`,
+    `X-WR-CALNAME:Roster ARMS ${month}/${year}`,
   ];
 
   for (const entry of entries) {
