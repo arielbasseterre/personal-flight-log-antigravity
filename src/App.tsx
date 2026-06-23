@@ -199,6 +199,15 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "23 de Junio, 2026",
+    version: "1.4.4",
+    items: [
+      "Roster ARMS: ahora podés exportar tu roster en dos formatos — archivo .ICS para importar en Google Calendar o Apple Calendar, y Almanaque PDF con calendario mensual imprimible.",
+      "Almanaque PDF: calendario mensual en hoja A4 apaisada, con rutas, horarios de presentación, números de vuelo y tipo de actividad. Los días de guardia muestran el rango horario.",
+      "Corrección: Los eventos exportados a Google Calendar ahora se importan correctamente (se agregó DTSTAMP requerido por RFC 5545)."
+    ]
+  },
+  {
     date: "21 de Junio, 2026",
     version: "1.4.3",
     items: [

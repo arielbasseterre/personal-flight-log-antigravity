@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.4] — 23 de Junio, 2026
+- **Roster ARMS**: ahora podés exportar tu roster en dos formatos — archivo .ICS para importar en Google Calendar o Apple Calendar, y Almanaque PDF con calendario mensual imprimible.
+- **Almanaque PDF**: calendario mensual en hoja A4 apaisada con rutas, horarios de presentación, números de vuelo y tipo de actividad. Los días de guardia muestran el rango horario. Todo en una sola página.
+- **Corrección ICS**: los eventos exportados a Google Calendar ahora se importan correctamente (DTSTAMP requerido por RFC 5545, UIDs determinísticos).
+
 ## [1.4.2] — 10 de Junio, 2026
 - **Libro de Vuelo**: ahora podés guardar vuelos sin conexión a internet. Se sincronizan automáticamente cuando recuperes la conexión. Los vuelos pendientes se ven con un ícono de reloj en el historial.
 - **Roster ARMS**: la sincronización ahora detecta si estás desconectado y muestra un aviso claro sin borrar tus credenciales guardadas. Si no hay cambios en el roster, te lo notificamos. Todos los carteles tienen cuenta regresiva y se cierran solos.
