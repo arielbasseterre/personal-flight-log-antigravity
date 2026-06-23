@@ -54,7 +54,10 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **Auto-update checker (21-Jun-2026)**: Service Worker modificado (sacado `skipWaiting` del install, agregado listener `SKIP_WAITING` por mensaje). App.tsx: `useEffect` que cada 24h llama a `reg.update()`, también al reabrir la app. Cuando detecta nuevo SW instalado, muestra overlay "Descargando nueva versión, por favor espere..." y activa el update automáticamente.
 - **Payment confirmation modal (21-Jun-2026)**: Antes de redirigir a MP, se muestra un modal de confirmación con texto aclaratorio: "Este es un pago único anual. Al finalizar el período de 12 meses deberás renovar manualmente la suscripción. No se realizarán cobros automáticos." Botones "Ir a Pagar" / "Cancelar".
 - **Fix callback redirect MP (21-Jun-2026)**: Se agregó `resolveFrontendUrl()` en el callback `subscription-callback` para que resuelva la URL de redirect usando `req.headers.origin/referer` en vez de depender exclusivamente de `VITE_API_URL`, evitando pantalla blanca post-pago si la env var no está configurada en Render.
-- **Pendiente**: Probar y verificar el funcionamiento del fix de login en v2 (confirmar que no rompe registro existente con `signUp`).
+- **Exportar roster a calendario (22-Jun-2026)**: Botón "Exportar" en ArmsRosterScreen que abre menú con dos opciones: "Exportar a Calendario" (archivo .ICS) y "Almanaque PDF".
+- **ICS export fix**: Se agregó `DTSTAMP` (RFC 5545), UIDs determinísticos (`arms-{date}-{flight}-{i}@flightlog`), se removió `METHOD:PUBLISH`, y se reemplazó `→` por `-` para compatibilidad con Google Calendar.
+- **Almanaque PDF (nuevo componente @react-pdf/renderer)**: `AlmanaquePDF.tsx` renderiza calendario mensual A4 landscape en una sola página. Muestra rutas en bold, horarios de presentación en línea separada, tiempos de vuelo, flight numbers, guardias con rango horario, escalas, OFF/NDA. Siempre cabe en 1 página ajustando altura de celdas según semanas.
+- **Version bump**: 1.4.3 → 1.4.4
 
 ---
 
@@ -66,6 +69,17 @@ Sistema de pagos por suscripción anual implementado con redirect checkout de MP
 **Referencia de implementación en v1:** Ver sección "Lecciones Aprendidas" y "Decisiones Técnicas" más abajo para evitar errores conocidos.
 
 - [x] Fix login intermitente (15-Jun-2026): `signOut({ scope: 'local' })` antes de `signInWithPassword` en AuthScreen
+
+### ✅ Completado — Roster Export (Calendario ICS + Almanaque PDF)
+Sistema de exportación de roster en dos formatos desde ArmsRosterScreen.
+
+- [x] Botón "Exportar" con menú modal de dos opciones
+- [x] Exportar a Calendario: archivo .ICS con DTSTAMP, UIDs determinísticos, sin METHOD:PUBLISH
+- [x] Almanaque PDF: componente @react-pdf/renderer con calendario A4 landscape en 1 página
+- [x] Soporte: vuelos (rutas, presentación, horarios, flight numbers), guardias, GTR, escalas, OFF/NDA
+- [x] Texto legible: rutas en bold, detalles en 7pt, sin truncar
+- [x] Export mobile: Capacitor Filesystem + Share (mismo patrón que LibroScreen)
+- [x] Export web: file-saver (descarga directa)
 
 ### 🟡 Pendiente — Trial 30 días (implementado en v1)
 - [ ] Endpoint `POST /api/mercadopago/register-with-trial` — crea usuario con `admin.createUser()` + perfil con trial 30d, devuelve `access_token` + `refresh_token` para auto-login directo
