@@ -200,6 +200,14 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 const CHANGELOG_DATA = [
   {
     date: "23 de Junio, 2026",
+    version: "1.4.5",
+    items: [
+      "Estadísticas de Roster: visualización del resumen mensual de tiempos y desglose de actividades (FT, DP, Flight Duties, OFF, Licencias, Standby, etc.) debajo de los detalles diarios.",
+      "Cálculo en caliente: el resumen mensual se calcula dinámicamente en el cliente de forma retroactiva sin requerir volver a sincronizar datos de ARMS."
+    ]
+  },
+  {
+    date: "23 de Junio, 2026",
     version: "1.4.4",
     items: [
       "Roster ARMS: ahora podés exportar tu roster en dos formatos — archivo .ICS para importar en Google Calendar o Apple Calendar, y Almanaque PDF con calendario mensual imprimible.",

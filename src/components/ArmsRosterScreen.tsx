@@ -1071,6 +1071,94 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   // ── Entrada seleccionada ──────────────────────────────────────────────
   const selectedEntry = entries.find(e => e.dateISO === selectedDate) || null;
 
+  // ── Estadísticas mensuales calculadas ─────────────────────────────────
+  const stats = React.useMemo(() => {
+    const timeToMinutes = (t: string): number => {
+      const parts = (t || '').split(':').map(Number);
+      return (parts[0] || 0) * 60 + (parts[1] || 0);
+    };
+
+    const getDurationMinutes = (start: string, end: string): number => {
+      let diff = timeToMinutes(end) - timeToMinutes(start);
+      if (diff < 0) diff += 24 * 60;
+      return diff;
+    };
+
+    let flightTimeMins = 0;
+    let dutyPeriodMins = 0;
+    let flightDuties = 0;
+    let offDays = 0;
+    let leaves = 0;
+    let standby = 0;
+    let sicks = 0;
+    let training = 0;
+    let simulator = 0;
+
+    entries.forEach(e => {
+      const isLeave = isLeaveEntry(e);
+      if (isLeave) {
+        leaves++;
+      } else if (e.eventType === 'OFF') {
+        offDays++;
+      } else if (e.eventType === 'STANDBY') {
+        standby++;
+      } else if (e.eventType === 'FLIGHT_OP') {
+        flightDuties++;
+      } else if (e.eventType === 'GTR') {
+        training++;
+      }
+
+      const taskUpper = (e.rawTask || '').toUpperCase();
+      if (taskUpper.includes('SIC') || taskUpper.includes('SICK')) {
+        sicks++;
+      }
+      if (taskUpper.includes('SIM') || taskUpper.includes('SIMULATOR')) {
+        simulator++;
+      }
+
+      // FT calculation
+      if (e.isFlight && e.legs) {
+        e.legs.forEach(leg => {
+          if (leg.blockTime) {
+            flightTimeMins += timeToMinutes(leg.blockTime);
+          }
+        });
+      }
+
+      // DP calculation
+      if (e.isFlight && e.legs && e.legs.length > 0) {
+        const firstLeg = e.legs[0];
+        const lastLeg = e.legs[e.legs.length - 1];
+        if (firstLeg.reportTimeLoc && lastLeg.arrivalTimeLoc) {
+          dutyPeriodMins += getDurationMinutes(firstLeg.reportTimeLoc, lastLeg.arrivalTimeLoc) + 30;
+        }
+      } else if (e.eventType === 'STANDBY' || e.eventType === 'GTR') {
+        if (e.startTimeLoc && e.endTimeLoc) {
+          dutyPeriodMins += getDurationMinutes(e.startTimeLoc, e.endTimeLoc);
+        }
+      }
+    });
+
+    const formatMinsToHHMM = (totalMins: number): string => {
+      const hours = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    };
+
+    return {
+      flightTime: formatMinsToHHMM(flightTimeMins),
+      dutyPeriod: formatMinsToHHMM(dutyPeriodMins),
+      flightDuties,
+      offDays,
+      leaves,
+      standby,
+      sicks,
+      training,
+      simulator,
+    };
+  }, [entries]);
+
+
   // ╔═════════════════════════════════════════════════════════════════════╗
   // ║  CARGA INICIAL: Roster cacheado desde Supabase (modo offline)     ║
   // ╚═════════════════════════════════════════════════════════════════════╝
@@ -1753,6 +1841,80 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ── Resumen Mensual de Estadísticas ─────────────────────────── */}
+        {!initialLoading && entries.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={SPRING_CONFIG}
+            className="bg-white dark:bg-[#0d1520] rounded-3xl p-5 border border-slate-200 dark:border-[#2d3748]/50 shadow-[0_4px_20px_rgba(0,0,0,0.15)] space-y-4 mt-6"
+          >
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-[#2d3748]/30 pb-3">
+              <Clock size={16} className="text-[#1152d4]" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Resumen Mensual
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Columna 1: Tiempos */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  Tiempos
+                </h4>
+                <div className="space-y-2">
+                  <div className="bg-slate-50 dark:bg-[#1a2233] p-3 rounded-2xl border border-slate-150 dark:border-[#2d3748]/30 flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">FT</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-600 leading-tight">Vuelo</p>
+                    </div>
+                    <span className="text-sm font-mono font-bold text-[#1152d4]">
+                      {stats.flightTime}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-[#1a2233] p-3 rounded-2xl border border-slate-150 dark:border-[#2d3748]/30 flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">DP</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-600 leading-tight">Servicio</p>
+                    </div>
+                    <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">
+                      {stats.dutyPeriod}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna 2: Días */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  Días
+                </h4>
+                <div className="bg-slate-50 dark:bg-[#1a2233] p-3 rounded-2xl border border-slate-150 dark:border-[#2d3748]/30 space-y-1.5 text-[11px]">
+                  {[
+                    { label: 'Flight Duties', count: stats.flightDuties },
+                    { label: 'OFF (Libres)', count: stats.offDays },
+                    { label: 'Leaves (Licencias)', count: stats.leaves },
+                    { label: 'Stand By', count: stats.standby },
+                    { label: 'Sicks (Enfermedad)', count: stats.sicks },
+                    { label: 'Training (Cursos)', count: stats.training },
+                    { label: 'Simulator (Simulador)', count: stats.simulator }
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center">
+                      <span className={item.count > 0 ? 'text-slate-700 dark:text-slate-300 font-medium' : 'text-slate-400 dark:text-slate-600'}>
+                        {item.label}
+                      </span>
+                      <span className={`font-mono font-bold ${item.count > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-600'}`}>
+                        {item.count || '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
 
         {/* ── Estado vacío: sin datos del mes ─────────────────────────── */}
         {!initialLoading && entries.length === 0 && !selectedEntry && (
