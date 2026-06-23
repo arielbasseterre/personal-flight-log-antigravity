@@ -818,10 +818,12 @@ function NoChangesAlert({ onClose }: { onClose: () => void }) {
 function ExportMenuModal({
   onCalendar,
   onPDF,
+  onSubscribe,
   onClose,
 }: {
   onCalendar: () => void;
   onPDF: () => void;
+  onSubscribe: () => void;
   onClose: () => void;
 }) {
   return (
@@ -876,12 +878,134 @@ function ExportMenuModal({
           </div>
         </button>
 
+        <div className="border-t border-slate-200 dark:border-[#2d3748] pt-3">
+          <button
+            onClick={() => { onSubscribe(); onClose(); }}
+            className="w-full flex items-center gap-3 p-4 rounded-xl bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 active:scale-[0.98] transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center shrink-0">
+              <Download size={20} className="text-purple-600 dark:text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-900 dark:text-white">Suscribir Calendario</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                Sincronización automática — se actualiza solo al sincronizar el roster
+              </p>
+            </div>
+          </button>
+        </div>
+
         <button
           onClick={onClose}
           className="w-full py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
         >
           Cancelar
         </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function SubscriptionModal({
+  data,
+  onClose,
+}: {
+  data: { url: string; loading: boolean; error?: string };
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(data.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // fallback: select the text manually
+    }
+  };
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-sm bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        {data.loading ? (
+          <>
+            <div className="flex justify-center py-4">
+              <Loader2 size={32} className="text-[#1152d4] animate-spin" />
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+              Generando enlace de suscripción...
+            </p>
+          </>
+        ) : data.error ? (
+          <>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">
+              Error
+            </h3>
+            <p className="text-sm text-red-500 text-center">{data.error}</p>
+            <button
+              onClick={onClose}
+              className="w-full py-3 text-sm font-semibold text-[#1152d4] hover:opacity-70 transition-opacity"
+            >
+              Cerrar
+            </button>
+          </>
+        ) : (
+          <>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">
+              Suscribir Calendario
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+              Copiá este enlace y agregalo como calendario por suscripción en tu app de calendario.
+              Los eventos se actualizarán automáticamente.
+            </p>
+
+            <div className="flex items-center gap-2 bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-xl p-3">
+              <input
+                readOnly
+                value={data.url}
+                className="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-300 outline-none select-all"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <button
+                onClick={handleCopy}
+                className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#1152d4] text-white active:scale-95 hover:opacity-90 transition-all"
+              >
+                {copied ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-[#1152d4]/5 border border-blue-200 dark:border-[#1152d4]/20 rounded-xl p-3 space-y-1">
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">📱 iOS</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Configuración → Calendario → Cuentas → Agregar cuenta → Otra → Agregar calendario por suscripción
+              </p>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">💻 Google Calendar</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Otros calendarios → Agregar por URL → pegar el enlace
+              </p>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-full py-3 text-sm font-semibold text-[#1152d4] hover:opacity-70 transition-opacity"
+            >
+              Listo
+            </button>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -936,6 +1060,13 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
 
   // ── Estado del menú de exportación ─────────────────────────────────────
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // ── Estado de suscripción de calendario ────────────────────────────────
+  const [subscriptionData, setSubscriptionData] = useState<{
+    url: string;
+    loading: boolean;
+    error?: string;
+  } | null>(null);
 
   // ── Entrada seleccionada ──────────────────────────────────────────────
   const selectedEntry = entries.find(e => e.dateISO === selectedDate) || null;
@@ -1189,6 +1320,28 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       };
     } else {
       saveAs(pdfBlob, fileName);
+    }
+  };
+
+  // ╔═════════════════════════════════════════════════════════════════════╗
+  // ║  SUSCRIPCIÓN DE CALENDARIO — WebCal                                ║
+  // ╚═════════════════════════════════════════════════════════════════════╝
+  const handleSubscription = async () => {
+    setSubscriptionData({ url: '', loading: true });
+    try {
+      const res = await fetch(getApiUrl('/api/roster/generate-token'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setSubscriptionData({ url: '', loading: false, error: data.error || 'Error al generar token' });
+        return;
+      }
+      setSubscriptionData({ url: data.subscriptionUrl, loading: false });
+    } catch {
+      setSubscriptionData({ url: '', loading: false, error: 'Error de conexión con el servidor' });
     }
   };
 
@@ -1677,13 +1830,24 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         )}
       </AnimatePresence>
 
-      {/* Modal de Exportación (Calendario / PDF) */}
+      {/* Modal de Exportación (Calendario / PDF / Suscripción) */}
       <AnimatePresence>
         {showExportMenu && (
           <ExportMenuModal
             onCalendar={handleExportCalendar}
             onPDF={handleExportPDF}
+            onSubscribe={handleSubscription}
             onClose={() => setShowExportMenu(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Suscripción de Calendario */}
+      <AnimatePresence>
+        {subscriptionData && (
+          <SubscriptionModal
+            data={subscriptionData}
+            onClose={() => setSubscriptionData(null)}
           />
         )}
       </AnimatePresence>

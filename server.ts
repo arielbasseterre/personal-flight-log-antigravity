@@ -829,6 +829,155 @@ app.use("/api/arms/sync-roster", authLimiter);
     }
   });
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CALENDAR SUBSCRIPTION — WebCal endpoint para suscripción de roster
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function toICSDatetime(dateISO: string, timeUTC: string | undefined): string {
+    if (!timeUTC) return '';
+    const [h, m] = timeUTC.split(':');
+    return `${dateISO.replace(/-/g, '')}T${h}${m}00Z`;
+  }
+
+  function escapeICS(text: string): string {
+    return text
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n');
+  }
+
+  function generateRosterICSForUser(monthsData: { entries: any[]; month: number; year: number }[]): string {
+    const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const lines: string[] = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Personal Flight Log//ARMS Roster//ES',
+      'CALSCALE:GREGORIAN',
+      'X-WR-CALNAME:flightlog Roster',
+    ];
+
+    for (const md of monthsData) {
+      for (const entry of md.entries) {
+        if (entry.eventType !== 'FLIGHT_OP' && entry.eventType !== 'FLIGHT_DH') continue;
+        const isDH = entry.eventType === 'FLIGHT_DH';
+        const suffix = isDH ? ' (DH)' : '';
+        for (let i = 0; i < (entry.legs || []).length; i++) {
+          const leg = entry.legs[i];
+          if (!leg.departureTimeUtc || !leg.arrivalTimeUtc) continue;
+
+          const descParts: string[] = [
+            `Vuelo: ${leg.flightNumber}${suffix}`,
+            `Ruta: ${leg.origin} - ${leg.destination}`,
+          ];
+          if (i === 0 && leg.reportTimeLoc) {
+            descParts.push(`Presentación: ${leg.reportTimeLoc} local`);
+          }
+          descParts.push(
+            `Salida: ${leg.departureTimeLoc} local`,
+            `Llegada: ${leg.arrivalTimeLoc} local`,
+            `Block: ${leg.blockTime}`,
+          );
+          if (leg.remarks?.trim()) descParts.push(`Remarks: ${leg.remarks.trim()}`);
+
+          lines.push('BEGIN:VEVENT');
+          lines.push(`UID:arms-${entry.dateISO}-${leg.flightNumber}-${i}@flightlog`);
+          lines.push(`DTSTAMP:${now}`);
+          lines.push(`DTSTART:${toICSDatetime(entry.dateISO, leg.departureTimeUtc)}`);
+          lines.push(`DTEND:${toICSDatetime(entry.dateISO, leg.arrivalTimeUtc)}`);
+          lines.push(`SUMMARY:${escapeICS(`${leg.origin} - ${leg.destination} / ${leg.flightNumber}${suffix}`)}`);
+          lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
+          lines.push(`LOCATION:${escapeICS(`${leg.origin} - ${leg.destination}`)}`);
+          lines.push('END:VEVENT');
+        }
+      }
+    }
+
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+
+  // POST /api/roster/generate-token — create or retrieve the calendar subscription token
+  app.post("/api/roster/generate-token", async (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ error: "user_id es requerido" });
+    }
+
+    try {
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('calendar_token')
+        .eq('id', user_id)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+
+      let token = profile?.calendar_token;
+      if (!token) {
+        token = crypto.randomBytes(24).toString('hex');
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ calendar_token: token })
+          .eq('id', user_id);
+
+        if (updateError) throw updateError;
+      }
+
+      const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.headers.host || 'localhost:5173'}`;
+      const subUrl = `${baseUrl}/api/roster/calendar/${token}`;
+
+      res.json({ success: true, token, subscriptionUrl: subUrl });
+    } catch (error: any) {
+      console.error("[ROSTER_TOKEN_ERR]", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // GET /api/roster/calendar/:token — serve the ICS file for subscription
+  app.get("/api/roster/calendar/:token", async (req, res) => {
+    const { token } = req.params;
+
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('calendar_token', token)
+        .single();
+
+      if (profileError || !profile) {
+        return res.status(404).json({ error: "Token inválido o expirado" });
+      }
+
+      const { data: rosterData, error: rosterError } = await supabase
+        .from('arms_roster')
+        .select('month, year, roster_json')
+        .eq('user_id', profile.id);
+
+      if (rosterError) throw rosterError;
+
+      if (!rosterData || rosterData.length === 0) {
+        return res.status(200)
+          .set('Content-Type', 'text/calendar; charset=utf-8')
+          .set('Content-Disposition', 'inline; filename="flightlog-roster.ics"')
+          .send('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Personal Flight Log//ARMS Roster//ES\r\nX-WR-CALNAME:flightlog Roster\r\nEND:VCALENDAR\r\n');
+      }
+
+      const icsContent = generateRosterICSForUser(
+        rosterData.map(r => ({ entries: r.roster_json, month: r.month, year: r.year }))
+      );
+
+      res
+        .set('Content-Type', 'text/calendar; charset=utf-8')
+        .set('Content-Disposition', 'inline; filename="flightlog-roster.ics"')
+        .set('Cache-Control', 'no-cache, no-store, must-revalidate')
+        .send(icsContent);
+    } catch (error: any) {
+      console.error("[ROSTER_CALENDAR_ERR]", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
