@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
 
   // Evitar cachear llamadas a la API de ANAC o Supabase (queremos datos frescos)
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase.co')) {
+  if (url.pathname.startsWith('/api/') || url.hostname === 'mexnmpbpqtccaulekupo.supabase.co') {
     return;
   }
 
