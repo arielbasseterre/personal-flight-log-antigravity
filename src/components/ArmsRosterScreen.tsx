@@ -994,7 +994,7 @@ function SubscriptionModal({
               </p>
               <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">💻 Google Calendar</p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Otros calendarios → Agregar por URL → pegar el enlace
+                Otros calendarios → Agregar por URL → pegar el enlace (solo desde PC escritorio o notebook)
               </p>
             </div>
 

@@ -227,3 +227,25 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 - [ ] Probar flujo completo: registro → MP → pago real → callback → Supabase actualizado
 - [ ] Agregar columna `mp_payer_email TEXT` a `profiles` y poblar en cada callback/webhook para vincular pagos de MP con usuarios de la app
 - [ ] Cartel de pago exitoso/fallido premium: Reemplazar los `alert` nativos del navegador por un modal overlay animado estilizado con la estética de la app (azul `#1152d4`, soporte oscuro/claro y animaciones fluidas vía `framer-motion`).
+
+---
+
+## 7. Plan de Seguridad (Auditoria 23-Jun-2026)
+
+### 🔴 Critico
+- [ ] Rotar `SUPABASE_SERVICE_ROLE_KEY` en Supabase dashboard y actualizar en Render. Agregar `.env` a `.gitignore`.
+- [ ] Dejar de persistir credenciales ARMS en `localStorage` (`ArmsRosterScreen.tsx:1198-1199`). Usar solo estado en memoria. Evaluar `navigator.credentials.store()` si se necesita "recordar".
+
+### 🟠 Alto
+- [ ] Cifrar o eliminar el cacheo de PII en `localStorage` (`App.tsx:1072-1108`): DNI, licencia, nombre, email, registros de vuelo en texto plano.
+
+### 🟡 Medio
+- [ ] Agregar middleware `helmet` en `server.ts` (CSP, X-Frame-Options, etc.)
+- [ ] Restringir CORS a lista blanca explicita (`server.ts:27-41`)
+- [ ] Agregar `arms_debug_*.html` a `.gitignore` y eliminar del repo
+- [ ] Auditar y aplicar middleware de auth a endpoints sensibles de `/api/*`
+- [ ] Agregar `scripts/` al `.gitignore` (contiene `add_mp_payer_email.sql`, `add_calendar_token.sql`)
+
+### 🔵 Bajo
+- [ ] Eliminar inyeccion de `window.VITE_SUPABASE_ANON_KEY` y `window.VITE_SUPABASE_URL` del servidor (`server.ts:999-1002`)
+- [ ] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
