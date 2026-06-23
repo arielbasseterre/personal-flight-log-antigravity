@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: COL_WIDTH,
-    height: CELL_HEIGHT,
+    minHeight: CELL_HEIGHT,
     padding: 4,
     borderWidth: 0.5,
     borderColor: BORDER_COLOR,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   },
   dayCellEmpty: {
     width: COL_WIDTH,
-    height: CELL_HEIGHT,
+    minHeight: CELL_HEIGHT,
     backgroundColor: '#f8fafc',
     borderWidth: 0.5,
     borderColor: '#e2e8f0',
@@ -100,9 +100,9 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   eventContent: {
-    flex: 1,
     flexDirection: 'column',
     justifyContent: 'flex-start',
+    marginTop: 2,
   },
   lineBold: {
     fontSize: 8,
@@ -199,15 +199,28 @@ function getEntryLines(entry: ArmsDayEntry): EventLine[] {
     case 'FLIGHT_DH': {
       const lines: EventLine[] = [];
       const isDH = entry.eventType === 'FLIGHT_DH';
+      const isCompact = entry.legs.length > 2;
+
+      if (isCompact && entry.legs[0]?.reportTimeLoc) {
+        lines.push({ text: `Pres: ${entry.legs[0].reportTimeLoc}`, styleType: 'small' });
+      }
+
       for (let i = 0; i < entry.legs.length; i++) {
         const leg = entry.legs[i];
-        if (i > 0) lines.push({ text: '' });
         const prefix = isDH ? '(DH) ' : '';
-        lines.push({ text: `${leg.origin}-${leg.destination}`, styleType: 'bold' });
-        if (i === 0 && leg.reportTimeLoc) {
-          lines.push({ text: `Pres: ${leg.reportTimeLoc}`, styleType: 'small' });
+        if (isCompact) {
+          lines.push({ 
+            text: `${leg.origin}-${leg.destination} ${leg.departureTimeLoc}-${leg.arrivalTimeLoc} ${prefix}${leg.flightNumber}`, 
+            styleType: 'small' 
+          });
+        } else {
+          if (i > 0) lines.push({ text: '' });
+          lines.push({ text: `${leg.origin}-${leg.destination}`, styleType: 'bold' });
+          if (i === 0 && leg.reportTimeLoc) {
+            lines.push({ text: `Pres: ${leg.reportTimeLoc}`, styleType: 'small' });
+          }
+          lines.push({ text: `${leg.departureTimeLoc}-${leg.arrivalTimeLoc} ${prefix}${leg.flightNumber}`, styleType: 'small' });
         }
-        lines.push({ text: `${leg.departureTimeLoc}-${leg.arrivalTimeLoc} ${prefix}${leg.flightNumber}`, styleType: 'small' });
       }
       return lines;
     }
