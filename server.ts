@@ -1015,16 +1015,7 @@ app.use("/api/arms/sync-roster", authLimiter);
     app.get("*", async (req, res) => {
       try {
         const html = await fs.readFile(path.join(distPath, "index.html"), 'utf-8');
-        // Inject environment variables into the <head>
-        const injectedHtml = html.replace(
-          '<head>',
-          `<head>
-            <script>
-              window.VITE_SUPABASE_URL = ${JSON.stringify(process.env.VITE_SUPABASE_URL || '')};
-              window.VITE_SUPABASE_ANON_KEY = ${JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || '')};
-            </script>`
-        );
-        res.send(injectedHtml);
+        res.send(html);
       } catch (e) {
         res.status(500).send("Error loading index.html");
       }
