@@ -66,11 +66,15 @@ export function generateRosterICS(
           const descParts: string[] = [
             `Vuelo: ${leg.flightNumber}${suffix}`,
             `Ruta: ${leg.origin} - ${leg.destination}`,
-            `Presentación: ${leg.reportTimeLoc} local`,
+          ];
+          if (i === 0 && leg.reportTimeLoc) {
+            descParts.push(`Presentación: ${leg.reportTimeLoc} local`);
+          }
+          descParts.push(
             `Salida: ${leg.departureTimeLoc} local`,
             `Llegada: ${leg.arrivalTimeLoc} local`,
             `Block: ${leg.blockTime}`,
-          ];
+          );
 
           const crew = formatCrewForLeg(leg);
           if (crew) descParts.push(`Tripulación:\n${crew}`);
