@@ -10,135 +10,142 @@ const MONTHS = [
 const DAYS_LABEL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const COL_WIDTH = '14.28%';
 
-const BLUE = '#1a5fb4';
-const WEEKEND_BG = '#f7f7f7';
-
-const DEFAULT_EVENT_H = 54;
+const ACCENT_BLUE = '#1152d4';
+const BORDER_COLOR = '#cbd5e1';
+const TEXT_DARK = '#0f172a';
+const TEXT_MUTED = '#64748b';
+const WEEKEND_BG = '#f8fafc';
+const CELL_HEIGHT = 65;
 
 const styles = StyleSheet.create({
   page: {
-    padding: 18,
+    padding: 24,
     backgroundColor: '#fff',
     fontFamily: 'Helvetica',
   },
   headerBar: {
-    backgroundColor: BLUE,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 3,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1.5,
+    borderBottomColor: ACCENT_BLUE,
+    paddingBottom: 8,
+    marginBottom: 12,
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 16,
+    color: TEXT_DARK,
+    fontSize: 18,
     fontWeight: 'bold',
+  },
+  headerSubtitle: {
+    color: TEXT_MUTED,
+    fontSize: 9,
   },
   dayHeaderRow: {
     flexDirection: 'row',
-    marginBottom: 1,
+    marginBottom: 4,
   },
   dayHeaderCell: {
     width: COL_WIDTH,
-    paddingVertical: 5,
-    paddingHorizontal: 3,
-    backgroundColor: '#f0f0f0',
-    borderWidth: 0.5,
-    borderColor: '#bbb',
+    paddingVertical: 6,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 4,
+    marginHorizontal: 1,
   },
   dayHeaderText: {
     fontSize: 8,
     fontWeight: 'bold',
-    color: '#222',
+    color: '#334155',
     textAlign: 'center',
+    textTransform: 'uppercase',
   },
   weekRow: {
     flexDirection: 'row',
+    marginBottom: 2,
   },
-  dayNumCell: {
+  dayCell: {
     width: COL_WIDTH,
-    paddingVertical: 2,
-    paddingHorizontal: 4,
+    height: CELL_HEIGHT,
+    padding: 4,
     borderWidth: 0.5,
-    borderColor: '#bbb',
-    borderBottomWidth: 0,
+    borderColor: BORDER_COLOR,
+    borderRadius: 4,
+    marginHorizontal: 1,
+    backgroundColor: '#ffffff',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
   },
-  dayNumCellEmpty: {
+  dayCellEmpty: {
     width: COL_WIDTH,
-    paddingVertical: 2,
-    paddingHorizontal: 4,
+    height: CELL_HEIGHT,
+    backgroundColor: '#f8fafc',
     borderWidth: 0.5,
-    borderColor: '#ddd',
-    borderBottomWidth: 0,
-    backgroundColor: '#fafafa',
+    borderColor: '#e2e8f0',
+    borderRadius: 4,
+    marginHorizontal: 1,
+    opacity: 0.4,
+  },
+  dayCellWeekend: {
+    backgroundColor: WEEKEND_BG,
+    borderColor: '#cbd5e1',
+  },
+  dayNumRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 2,
   },
   dayNumText: {
     fontSize: 9,
     fontWeight: 'bold',
+    color: '#475569',
   },
-  dayNumTextGray: {
-    fontSize: 9,
-    color: '#ccc',
-  },
-  eventCell: {
-    width: COL_WIDTH,
-    padding: 3,
-    borderWidth: 0.5,
-    borderColor: '#bbb',
-    minHeight: DEFAULT_EVENT_H,
-  },
-  eventCellEmpty: {
-    width: COL_WIDTH,
-    padding: 3,
-    borderWidth: 0.5,
-    borderColor: '#ddd',
-    minHeight: DEFAULT_EVENT_H,
-    backgroundColor: '#fafafa',
-  },
-  eventCellWeekend: {
-    width: COL_WIDTH,
-    padding: 3,
-    borderWidth: 0.5,
-    borderColor: '#ddd',
-    minHeight: DEFAULT_EVENT_H,
-    backgroundColor: WEEKEND_BG,
+  eventContent: {
+    flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'flex-start',
   },
   lineBold: {
     fontSize: 8,
     fontWeight: 'bold',
-    lineHeight: 1.5,
-    color: '#111',
+    lineHeight: 1.3,
+    color: TEXT_DARK,
   },
   lineNormal: {
-    fontSize: 8,
-    lineHeight: 1.5,
-    color: '#222',
+    fontSize: 7.5,
+    lineHeight: 1.3,
+    color: '#334155',
   },
   lineSmall: {
-    fontSize: 7,
-    lineHeight: 1.4,
-    color: '#555',
+    fontSize: 6.5,
+    lineHeight: 1.25,
+    color: TEXT_MUTED,
   },
   lineOff: {
     fontSize: 8,
     fontWeight: 'bold',
-    lineHeight: 1.5,
-    color: '#999',
+    lineHeight: 1.3,
+    color: '#10b981', // green for OFF
+  },
+  lineLeave: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    lineHeight: 1.3,
+    color: '#ef4444', // red for LEAVE
   },
   lineSpacer: {
-    fontSize: 5,
-    lineHeight: 1.2,
-    color: '#eee',
+    height: 2,
   },
   footer: {
-    marginTop: 10,
-    paddingTop: 5,
+    marginTop: 15,
+    paddingTop: 8,
     borderTopWidth: 0.5,
-    borderTopColor: '#bbb',
+    borderTopColor: '#e2e8f0',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   footerText: {
-    fontSize: 7,
-    color: '#888',
+    fontSize: 7.5,
+    color: TEXT_MUTED,
   },
 });
 
@@ -151,6 +158,7 @@ interface EventLine {
   text: string;
   bold?: boolean;
   small?: boolean;
+  styleType?: 'bold' | 'normal' | 'small' | 'off' | 'leave';
 }
 
 function buildMonthGrid(
@@ -195,11 +203,11 @@ function getEntryLines(entry: ArmsDayEntry): EventLine[] {
         const leg = entry.legs[i];
         if (i > 0) lines.push({ text: '' });
         const prefix = isDH ? '(DH) ' : '';
-        lines.push({ text: `${leg.origin}-${leg.destination}`, bold: true });
+        lines.push({ text: `${leg.origin}-${leg.destination}`, styleType: 'bold' });
         if (i === 0 && leg.reportTimeLoc) {
-          lines.push({ text: `Presentación: ${leg.reportTimeLoc}`, small: true });
+          lines.push({ text: `Pres: ${leg.reportTimeLoc}`, styleType: 'small' });
         }
-        lines.push({ text: `${leg.departureTimeLoc}-${leg.arrivalTimeLoc} ${prefix}${leg.flightNumber}`, small: true });
+        lines.push({ text: `${leg.departureTimeLoc}-${leg.arrivalTimeLoc} ${prefix}${leg.flightNumber}`, styleType: 'small' });
       }
       return lines;
     }
@@ -207,40 +215,40 @@ function getEntryLines(entry: ArmsDayEntry): EventLine[] {
       const raw = (entry.rawTask || '').trim();
       const from = (entry.startTimeLoc || '').trim();
       const to = (entry.endTimeLoc || '').trim();
-      const lines: EventLine[] = [{ text: 'Guardia', bold: true }];
-      if (from && to) lines.push({ text: `${from} - ${to}`, small: true });
-      else if (from) lines.push({ text: `Desde: ${from}`, small: true });
-      else if (to) lines.push({ text: `Hasta: ${to}`, small: true });
-      if (raw && from && to) lines.push({ text: raw, small: true });
-      else if (raw && !from && !to) lines.push({ text: raw, small: true });
+      const lines: EventLine[] = [{ text: 'Guardia', styleType: 'bold' }];
+      if (from && to) lines.push({ text: `${from} - ${to}`, styleType: 'small' });
+      else if (from) lines.push({ text: `Desde: ${from}`, styleType: 'small' });
+      else if (to) lines.push({ text: `Hasta: ${to}`, styleType: 'small' });
+      if (raw && from && to) lines.push({ text: raw, styleType: 'small' });
+      else if (raw && !from && !to) lines.push({ text: raw, styleType: 'small' });
       return lines;
     }
     case 'GTR': {
       const raw = (entry.rawTask || '').trim();
       const times = `${entry.startTimeLoc || ''} ${entry.endTimeLoc || ''}`.trim();
-      const lines: EventLine[] = [{ text: 'GTR', bold: true }];
-      if (raw && times) lines.push({ text: `${times} ${raw}`, small: true });
-      else if (raw) lines.push({ text: raw, small: true });
-      else if (times) lines.push({ text: times, small: true });
+      const lines: EventLine[] = [{ text: 'Curso / GTR', styleType: 'bold' }];
+      if (raw && times) lines.push({ text: `${times} ${raw}`, styleType: 'small' });
+      else if (raw) lines.push({ text: raw, styleType: 'small' });
+      else if (times) lines.push({ text: times, styleType: 'small' });
       return lines;
     }
     case 'LAYOVER': {
-      const lines: EventLine[] = [{ text: `Escala ${entry.layoverAirport || ''}`, bold: true }];
-      if (entry.layoverDuration) lines.push({ text: entry.layoverDuration, small: true });
+      const lines: EventLine[] = [{ text: `Layover ${entry.layoverAirport || ''}`, styleType: 'bold' }];
+      if (entry.layoverDuration) lines.push({ text: entry.layoverDuration, styleType: 'small' });
       return lines;
     }
     case 'OFF':
-      return [{ text: 'OFF', bold: true }];
+      return [{ text: 'DÍA LIBRE (OFF)', styleType: 'off' }];
     case 'LEAVE':
-      return [{ text: entry.rawTask || 'Licencia', bold: true }];
+      return [{ text: entry.rawTask || 'Licencia', styleType: 'leave' }];
     case 'NDA':
-      return [{ text: 'NDA', bold: true }];
+      return [{ text: 'NDA', styleType: 'bold' }];
     default:
-      return [{ text: entry.rawTask || '' }];
+      return [{ text: entry.rawTask || '', styleType: 'normal' }];
   }
 }
 
-function DayNumCell({
+function CalendarDay({
   cell,
   isWeekend,
   isEmpty,
@@ -250,51 +258,50 @@ function DayNumCell({
   isEmpty: boolean;
 }) {
   if (isEmpty || cell.dayNumber === null) {
-    return <View style={styles.dayNumCellEmpty}><Text style={styles.dayNumTextGray}>{' '}</Text></View>;
-  }
-  return (
-    <View style={[styles.dayNumCell, isWeekend && { backgroundColor: WEEKEND_BG }]}>
-      <Text style={styles.dayNumText}>{cell.dayNumber}</Text>
-    </View>
-  );
-}
-
-function EventCell({
-  cell,
-  isEmpty,
-  isWeekend,
-}: {
-  cell: CalendarCell;
-  isEmpty: boolean;
-  isWeekend: boolean;
-}) {
-  if (isEmpty || cell.dayNumber === null) {
-    return <View style={styles.eventCellEmpty}><Text>{' '}</Text></View>;
+    return <View style={styles.dayCellEmpty} />;
   }
 
-  if (!cell.entry) {
-    const cellStyle = isWeekend ? styles.eventCellWeekend : { ...styles.eventCell, borderColor: '#ddd' };
-    return <View style={cellStyle}><Text>{' '}</Text></View>;
-  }
-
-  const lines = getEntryLines(cell.entry);
-  const isOff = cell.entry.eventType === 'OFF' || cell.entry.eventType === 'LEAVE';
+  const hasEntry = !!cell.entry;
+  const lines = cell.entry ? getEntryLines(cell.entry) : [];
 
   return (
-    <View style={[styles.eventCell, isWeekend && { backgroundColor: WEEKEND_BG }]}>
-      {lines.map((line, i) => {
-        if (!line.text) {
-          return <Text key={i} style={styles.lineSpacer}>{' '}</Text>;
-        }
-        const textStyle = isOff
-          ? styles.lineOff
-          : line.bold
-          ? styles.lineBold
-          : line.small
-          ? styles.lineSmall
-          : styles.lineNormal;
-        return <Text key={i} style={textStyle}>{line.text}</Text>;
-      })}
+    <View style={[
+      styles.dayCell,
+      isWeekend && styles.dayCellWeekend,
+      hasEntry && cell.entry?.eventType === 'OFF' && { backgroundColor: '#f0fdf4', borderColor: '#a7f3d0' },
+      hasEntry && cell.entry?.eventType === 'LEAVE' && { backgroundColor: '#fef2f2', borderColor: '#fca5a5' }
+    ]}>
+      {/* Nro del Día */}
+      <View style={styles.dayNumRow}>
+        <Text style={[
+          styles.dayNumText,
+          hasEntry && cell.entry?.eventType === 'OFF' && { color: '#047857' },
+          hasEntry && cell.entry?.eventType === 'LEAVE' && { color: '#b91c1c' }
+        ]}>
+          {cell.dayNumber}
+        </Text>
+      </View>
+
+      {/* Contenido / Evento */}
+      <View style={styles.eventContent}>
+        {lines.map((line, i) => {
+          if (!line.text) {
+            return <View key={i} style={styles.lineSpacer} />;
+          }
+          
+          let textStyle = styles.lineNormal;
+          if (line.styleType === 'bold') textStyle = styles.lineBold;
+          else if (line.styleType === 'small') textStyle = styles.lineSmall;
+          else if (line.styleType === 'off') textStyle = styles.lineOff;
+          else if (line.styleType === 'leave') textStyle = styles.lineLeave;
+
+          return (
+            <Text key={i} style={textStyle} numberOfLines={1}>
+              {line.text}
+            </Text>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -316,12 +323,17 @@ export function AlmanaquePDF({
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
+        {/* Header */}
         <View style={styles.headerBar}>
           <Text style={styles.headerTitle}>
-            {monthName} {year}{userName ? ` — ${userName}` : ''}
+            {monthName} {year}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {userName ? `Tripulante: ${userName}  |  ` : ''}Roster Mensual ARMS
           </Text>
         </View>
 
+        {/* Nombres de los Días */}
         <View style={styles.dayHeaderRow}>
           {DAYS_LABEL.map(d => (
             <View key={d} style={styles.dayHeaderCell}>
@@ -330,34 +342,24 @@ export function AlmanaquePDF({
           ))}
         </View>
 
+        {/* Grilla del Calendario */}
         {weeks.map((week, wi) => (
-          <View key={wi}>
-            <View style={styles.weekRow}>
-              {week.map((cell, ci) => (
-                <DayNumCell
-                  key={`n-${wi}-${ci}`}
-                  cell={cell}
-                  isWeekend={ci >= 5}
-                  isEmpty={cell.dayNumber === null}
-                />
-              ))}
-            </View>
-            <View style={styles.weekRow}>
-              {week.map((cell, ci) => (
-                <EventCell
-                  key={`e-${wi}-${ci}`}
-                  cell={cell}
-                  isWeekend={ci >= 5}
-                  isEmpty={cell.dayNumber === null}
-                />
-              ))}
-            </View>
+          <View key={wi} style={styles.weekRow}>
+            {week.map((cell, ci) => (
+              <CalendarDay
+                key={`c-${wi}-${ci}`}
+                cell={cell}
+                isWeekend={ci >= 5}
+                isEmpty={cell.dayNumber === null}
+              />
+            ))}
           </View>
         ))}
 
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Zona horaria: America/Argentina/Buenos_Aires</Text>
-          <Text style={styles.footerText}>Roster ARMS — Verifique con su roster oficial</Text>
+          <Text style={styles.footerText}>Generado por Personal Flight Log • Verifique con su programación oficial</Text>
         </View>
       </Page>
     </Document>
