@@ -27,6 +27,7 @@ import {
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
+import { generateRosterICS } from '../utils/ics';
 
 
 
@@ -1041,6 +1042,38 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   };
 
   // ╔═════════════════════════════════════════════════════════════════════╗
+  // ║  EXPORTAR A CALENDARIO — ICS file share / download                ║
+  // ╚═════════════════════════════════════════════════════════════════════╝
+  const handleExportCalendar = async () => {
+    if (entries.length === 0) return;
+
+    const icsContent = generateRosterICS(entries, month, year);
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const file = new File([blob], `Roster-ARMS-${month}-${year}.ics`, { type: 'text/calendar' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Roster ARMS ${month}/${year}`,
+        });
+        return;
+      } catch {
+        // user cancelled or share failed — fall back to download
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Roster-ARMS-${month}-${year}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // ╔═════════════════════════════════════════════════════════════════════╗
   // ║  NAVEGACIÓN DE MESES                                              ║
   // ╚═════════════════════════════════════════════════════════════════════╝
   const goToPrevMonth = () => {
@@ -1080,14 +1113,25 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             </p>
             <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Mi Calendario</h1>
           </div>
-          <button
-            onClick={handleSyncClick}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-200 dark:border-[#1152d4]/30 rounded-full text-[#1152d4] text-sm font-semibold hover:bg-[#1152d4]/20 active:scale-[0.96] transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
-          </button>
+          <div className="flex items-center gap-2">
+            {entries.length > 0 && (
+              <button
+                onClick={handleExportCalendar}
+                className="flex items-center gap-1.5 px-3 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-full text-emerald-600 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 active:scale-[0.96] transition-all"
+              >
+                <Calendar size={14} />
+                Exportar
+              </button>
+            )}
+            <button
+              onClick={handleSyncClick}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-200 dark:border-[#1152d4]/30 rounded-full text-[#1152d4] text-sm font-semibold hover:bg-[#1152d4]/20 active:scale-[0.96] transition-all disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            </button>
+          </div>
         </div>
       </div>
 
