@@ -65,7 +65,7 @@ export function generateRosterICS(
           const suffix = isDH ? ' (DH)' : '';
           const descParts: string[] = [
             `Vuelo: ${leg.flightNumber}${suffix}`,
-            `Ruta: ${leg.origin} → ${leg.destination}`,
+            `Ruta: ${leg.origin} - ${leg.destination}`,
             `Presentación: ${leg.reportTimeLoc} local`,
             `Salida: ${leg.departureTimeLoc} local`,
             `Llegada: ${leg.arrivalTimeLoc} local`,
@@ -82,9 +82,9 @@ export function generateRosterICS(
           lines.push(`DTSTAMP:${now}`);
           lines.push(`DTSTART:${toICSDatetime(entry.dateISO, leg.departureTimeUtc)}`);
           lines.push(`DTEND:${toICSDatetime(entry.dateISO, leg.arrivalTimeUtc)}`);
-          lines.push(`SUMMARY:${escapeICS(`${leg.origin} → ${leg.destination} / ${leg.flightNumber}${suffix}`)}`);
+          lines.push(`SUMMARY:${escapeICS(`${leg.origin} - ${leg.destination} / ${leg.flightNumber}${suffix}`)}`);
           lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
-          lines.push(`LOCATION:${escapeICS(`${leg.origin} → ${leg.destination}`)}`);
+          lines.push(`LOCATION:${escapeICS(`${leg.origin} - ${leg.destination}`)}`);
           lines.push('END:VEVENT');
         }
         break;

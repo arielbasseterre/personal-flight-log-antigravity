@@ -22,12 +22,19 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
   Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff, HelpCircle,
-  Calendar, CalendarMinus, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2
+  Calendar, CalendarMinus, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2,
+  FileText, Download
 } from 'lucide-react';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
 import { generateRosterICS } from '../utils/ics';
+import { pdf } from '@react-pdf/renderer';
+import { AlmanaquePDF } from './AlmanaquePDF';
+import { saveAs } from 'file-saver';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 
 
@@ -808,6 +815,78 @@ function NoChangesAlert({ onClose }: { onClose: () => void }) {
   );
 }
 
+function ExportMenuModal({
+  onCalendar,
+  onPDF,
+  onClose,
+}: {
+  onCalendar: () => void;
+  onPDF: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-sm bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-3"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center mb-1">
+          Exportar Roster
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 text-center mb-2">
+          Seleccioná el formato de exportación
+        </p>
+
+        <button
+          onClick={() => { onCalendar(); onClose(); }}
+          className="w-full flex items-center gap-3 p-4 rounded-xl bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-200 dark:border-[#1152d4]/30 active:scale-[0.98] transition-all text-left"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-[#1152d4]/20 flex items-center justify-center shrink-0">
+            <Calendar size={20} className="text-[#1152d4]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-900 dark:text-white">Exportar a Calendario</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+              Archivo .ICS para importar en Google Calendar o Apple Calendar
+            </p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => { onPDF(); onClose(); }}
+          className="w-full flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 active:scale-[0.98] transition-all text-left"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
+            <FileText size={20} className="text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-900 dark:text-white">Almanaque PDF</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+              Calendario mensual imprimible con todas tus actividades
+            </p>
+          </div>
+        </button>
+
+        <button
+          onClick={onClose}
+          className="w-full py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+        >
+          Cancelar
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECCIÓN E: COMPONENTE ROOT — ArmsRosterScreen
@@ -854,6 +933,9 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
 
   // ── Estado de carga inicial ───────────────────────────────────────────
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // ── Estado del menú de exportación ─────────────────────────────────────
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // ── Entrada seleccionada ──────────────────────────────────────────────
   const selectedEntry = entries.find(e => e.dateISO === selectedDate) || null;
@@ -1074,6 +1156,43 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   };
 
   // ╔═════════════════════════════════════════════════════════════════════╗
+  // ║  EXPORTAR A PDF — Almanaque mensual vía @react-pdf/renderer       ║
+  // ╚═════════════════════════════════════════════════════════════════════╝
+  const handleExportPDF = async () => {
+    if (entries.length === 0) return;
+
+    const doc = <AlmanaquePDF entries={entries} month={month} year={year} />;
+    const pdfBlob = await pdf(doc).toBlob();
+    const fileName = `Almanaque-Roster-${MONTH_NAMES[month - 1]}-${year}.pdf`;
+
+    const isMobile = Capacitor.isNativePlatform();
+    if (isMobile) {
+      const reader = new FileReader();
+      reader.readAsDataURL(pdfBlob);
+      reader.onloadend = async () => {
+        try {
+          const base64Data = (reader.result as string).split(',')[1];
+          const savedFile = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Cache,
+          });
+          await Share.share({
+            title: `Almanaque Roster ${MONTH_NAMES[month - 1]} ${year}`,
+            text: 'Aquí tienes tu almanaque mensual del roster',
+            url: savedFile.uri,
+            dialogTitle: 'Compartir Almanaque PDF',
+          });
+        } catch (err) {
+          console.error('Error sharing PDF on mobile:', err);
+        }
+      };
+    } else {
+      saveAs(pdfBlob, fileName);
+    }
+  };
+
+  // ╔═════════════════════════════════════════════════════════════════════╗
   // ║  NAVEGACIÓN DE MESES                                              ║
   // ╚═════════════════════════════════════════════════════════════════════╝
   const goToPrevMonth = () => {
@@ -1116,10 +1235,10 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           <div className="flex items-center gap-2">
             {entries.length > 0 && (
               <button
-                onClick={handleExportCalendar}
+                onClick={() => setShowExportMenu(true)}
                 className="flex items-center gap-1.5 px-3 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-full text-emerald-600 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 active:scale-[0.96] transition-all"
               >
-                <Calendar size={14} />
+                <Download size={14} />
                 Exportar
               </button>
             )}
@@ -1555,6 +1674,17 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       <AnimatePresence>
         {showNoChangesAlert && (
           <NoChangesAlert onClose={() => setShowNoChangesAlert(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Exportación (Calendario / PDF) */}
+      <AnimatePresence>
+        {showExportMenu && (
+          <ExportMenuModal
+            onCalendar={handleExportCalendar}
+            onPDF={handleExportPDF}
+            onClose={() => setShowExportMenu(false)}
+          />
         )}
       </AnimatePresence>
     </div>
