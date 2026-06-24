@@ -52,8 +52,7 @@ import {
   Tooltip, 
   ResponsiveContainer,
   Cell,
-  LabelList,
-  Customized
+  LabelList
 } from 'recharts';
 import { FlightLog, Profile, AnacLog } from '@/src/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -2576,23 +2575,16 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                       formatter={(value: number) => [`${value.toFixed(1)} h`]}
                     />
                     <Bar dataKey="diurna" stackId="hours" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="nocturna" stackId="hours" fill="#da631e" radius={[4, 4, 0, 0]} />
-                    <Customized component={(props: any) => {
-                      const items = props.formattedGraphicalItems;
-                      const chartData = props.data as Array<{ total: number }>;
-                      if (!items?.length || !chartData?.length) return null;
-                      const topBar = items[items.length - 1];
-                      const points = topBar?.props?.points || [];
-                      return points.map((p: any, i: number) => {
-                        const total = chartData[i]?.total;
-                        if (!total || total <= 0) return null;
-                        return (
-                          <text key={i} x={p.x} y={p.y - 6} textAnchor="middle" fill="#64748b" fontSize={11} fontWeight="bold">
-                            {total.toFixed(1)} h
-                          </text>
-                        );
-                      });
-                    }} />
+                    <Bar dataKey="nocturna" stackId="hours" fill="#da631e" radius={[4, 4, 0, 0]} minPointSize={0.1}>
+                      <LabelList 
+                        dataKey="total" 
+                        position="top" 
+                        fill="#64748b" 
+                        fontSize={11} 
+                        fontWeight="bold"
+                        formatter={(value: number) => value > 0 ? `${value.toFixed(1)} h` : ''} 
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
