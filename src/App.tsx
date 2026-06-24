@@ -1069,7 +1069,7 @@ export default function App() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
 
   const fetchData = async (userId: string) => {
     if (!supabase) return null;
@@ -1270,27 +1270,49 @@ export default function App() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     let mounted = true;
+
+    const activateUpdate = (sw: ServiceWorker) => {
+      if (!mounted) return;
+      setShowUpdateBanner(true);
+      setTimeout(() => { sw.postMessage('SKIP_WAITING'); }, 300);
+    };
+
     navigator.serviceWorker.ready.then((reg) => {
       if (!mounted) return;
+
       const checkUpdate = () => reg.update();
-      const interval = setInterval(checkUpdate, 24 * 60 * 60 * 1000);
-      const onVisibility = () => { if (!document.hidden && mounted) checkUpdate(); };
-      document.addEventListener('visibilitychange', onVisibility);
+
+      if (reg.waiting) activateUpdate(reg.waiting);
+
+      if (reg.installing) {
+        reg.installing.addEventListener('statechange', () => {
+          if (reg.installing?.state === 'installed' && navigator.serviceWorker.controller) {
+            activateUpdate(reg.installing);
+          }
+        });
+      }
+
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing;
         if (!newSW) return;
         newSW.addEventListener('statechange', () => {
           if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
             if (!mounted) return;
-            setIsUpdating(true);
-            setTimeout(() => { newSW.postMessage('SKIP_WAITING'); }, 300);
+            activateUpdate(newSW);
           }
         });
       });
+
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!mounted) return;
         window.location.reload();
       });
+
+      checkUpdate();
+      const interval = setInterval(checkUpdate, 24 * 60 * 60 * 1000);
+      const onVisibility = () => { if (!document.hidden && mounted) checkUpdate(); };
+      document.addEventListener('visibilitychange', onVisibility);
+
       return () => {
         clearInterval(interval);
         document.removeEventListener('visibilitychange', onVisibility);
@@ -1502,11 +1524,11 @@ export default function App() {
   return (
     <>
       {content}
-      {isUpdating && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center">
-          <div className="text-white text-center space-y-4">
-            <Loader2 className="animate-spin mx-auto" size={40} />
-            <p className="text-lg font-semibold">Descargando nueva versión, por favor espere...</p>
+      {showUpdateBanner && (
+        <div className="fixed top-0 left-0 right-0 z-[9999] bg-blue-600 text-white px-4 py-3 text-center text-sm font-medium shadow-lg">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="animate-spin" size={16} />
+            <span>Nueva versión disponible, actualizando...</span>
           </div>
         </div>
       )}
