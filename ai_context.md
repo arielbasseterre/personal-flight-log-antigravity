@@ -62,6 +62,12 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **Almanaque PDF fix superposición (23-Jun-2026)**: Mejora del diseño del componente `AlmanaquePDF.tsx` para evitar superposición de texto en celdas con múltiples actividades. Rediseño estético general manteniendo toda la información existente.
 - **RLS en pending_registrations (23-Jun-2026)**: Análisis confirmó que habilitar RLS en `pending_registrations` no tiene impacto en ninguna de las dos apps (v1 y v2) porque `server.ts` usa `SUPABASE_SERVICE_ROLE_KEY` que bypasea RLS. Verificado en variables de entorno de Render.
 - **Version bump**: 1.4.4 → 1.4.5
+- **Compatibilidad con Safari 15 / iOS 15.8.7 (24-Jun-2026)**:
+  Se detectó que en dispositivos iOS antiguos (como Safari 15.8.7 en iPhone 6s/7), el fondo de los recuadros de horas aparecía transparente o blanco debido a la falta de soporte para el espacio de color `oklch()`.
+  Se resolvieron los problemas convirtiendo todos los valores `oklch()` a formato hexadecimal/rgba en `:root` y `.dark` dentro de `src/index.css`.
+  Adicionalmente, se reemplazaron los gradientes Tailwind en Tailwind CSS (`bg-gradient-to-...` que utilizaban opacidades de Slate) por propiedades `style={{ background: 'linear-gradient(...)' }}` inline con colores hexadecimales planos/rgba para asegurar que se rendericen correctamente en Safari antiguo.
+   Se aplicó este mismo fix de compatibilidad a la versión v1 (`D:\app Antigravity\personal-flight-log sin roster`).
+- **Fix chart actividad reciente (24-Jun-2026)**: El grafico de barras "Actividad Reciente" y la tabla de vuelos omitian horas de copiloto en el total mensual cuando el vuelo no tenia `horasDia`/`horasNoche`. Se agregaron los 4 campos de copiloto al fallback en `chartData` y en el display de la tabla. Aplica en ambas versiones (v1 commit ec38fad, v2 commit 7b960a8).
 
 ---
 
@@ -73,6 +79,11 @@ Sistema de pagos por suscripción anual implementado con redirect checkout de MP
 **Referencia de implementación en v1:** Ver sección "Lecciones Aprendidas" y "Decisiones Técnicas" más abajo para evitar errores conocidos.
 
 - [x] Fix login intermitente (15-Jun-2026): `signOut({ scope: 'local' })` antes de `signInWithPassword` en AuthScreen
+
+### ✅ Completado — Compatibilidad con Navegadores/iOS Antiguos (Safari 15.8.7)
+- [x] Corrección de valores `oklch()` a Hexadecimal en `src/index.css` (temas claro y oscuro) para corregir recuadros transparentes.
+- [x] Reemplazo de gradientes Tailwind problemáticos (`bg-gradient-to-...`) por estilos inline `linear-gradient` con colores hexadecimales en `LibroScreen.tsx` y `PdfViewer.tsx` (y equivalentes en versión v1).
+- [x] Replicado de cambios en la versión v1 (`D:\app Antigravity\personal-flight-log sin roster`).
 
 ### ✅ Completado — Roster Export (Calendario ICS + Almanaque PDF)
 Sistema de exportación de roster en dos formatos desde ArmsRosterScreen.
