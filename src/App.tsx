@@ -1274,7 +1274,7 @@ export default function App() {
     const activateUpdate = (sw: ServiceWorker) => {
       if (!mounted) return;
       setShowUpdateBanner(true);
-      setTimeout(() => { sw.postMessage('SKIP_WAITING'); }, 300);
+      setTimeout(() => { sw.postMessage('SKIP_WAITING'); }, 2000);
     };
 
     navigator.serviceWorker.ready.then((reg) => {
