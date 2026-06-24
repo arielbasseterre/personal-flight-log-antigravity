@@ -1,3 +1,4 @@
+// deploy: 2026-06-24
 const CACHE_NAME = 'flightlog-v3';
 const MAX_CACHE_ENTRIES = 50;
 const ASSETS_TO_CACHE = [
