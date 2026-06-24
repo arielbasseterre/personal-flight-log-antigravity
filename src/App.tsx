@@ -1480,7 +1480,7 @@ export default function App() {
     }
 
     return (
-      <div className={`h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative overflow-hidden font-sans transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
+      <div className={`min-h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative font-sans transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={screen}
