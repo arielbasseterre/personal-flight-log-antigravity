@@ -257,10 +257,10 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 ### 🟡 Medio
 - [x] Agregar middleware `helmet` en `server.ts` (CSP, X-Frame-Options, etc.) — solo en producción, CSP condicional
 - [x] Restringir CORS a lista blanca explicita (`server.ts:44-64`) — 5 orígenes conocidos
-- [ ] Agregar `arms_debug_*.html` a `.gitignore` y eliminar del repo
+- [x] Agregar `arms_debug_*.html` a `.gitignore` y eliminar del repo
 - [ ] Auditar y aplicar middleware de auth a endpoints sensibles de `/api/*`
-- [ ] Agregar `scripts/` al `.gitignore` (contiene `add_mp_payer_email.sql`, `add_calendar_token.sql`)
+- [x] Agregar `scripts/` al `.gitignore` (contiene `add_mp_payer_email.sql`, `add_calendar_token.sql`)
 
 ### 🔵 Bajo
-- [ ] Eliminar inyeccion de `window.VITE_SUPABASE_ANON_KEY` y `window.VITE_SUPABASE_URL` del servidor (`server.ts:999-1002`)
-- [ ] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
+- [x] ~~Eliminar inyeccion de `window.VITE_SUPABASE_ANON_KEY` y `window.VITE_SUPABASE_URL` del servidor~~ — No aplica: Render no expone `VITE_*` en build time
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)

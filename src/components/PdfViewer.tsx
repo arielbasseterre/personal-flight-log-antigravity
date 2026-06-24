@@ -250,7 +250,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url }) => {
       </div>
 
       {/* Bottom Download Bar */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-950 to-slate-950/90 border-t border-slate-800 z-20 flex justify-center">
+      <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-slate-800 z-20 flex justify-center" style={{ background: 'linear-gradient(to top, #020617, rgba(2, 6, 23, 0.9))' }}>
         <button
           onClick={handleDownload}
           className="w-full max-w-xs bg-[#1152d4] hover:bg-[#1152d4]/90 text-white font-bold py-3.5 px-6 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-[#1152d4]/20 text-sm"

@@ -2446,7 +2446,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
             </Card>
 
             <div className="grid grid-cols-1 gap-4">
-              <Card className="bg-gradient-to-br from-slate-700 to-slate-900 text-white border-none shadow-lg">
+              <Card className="text-white border-none shadow-lg" style={{ background: 'linear-gradient(to bottom right, #334155, #0f172a)' }}>
                 <CardContent className="pt-6 flex justify-between items-center">
                   <div className="space-y-1">
                     <div className="text-sm font-medium opacity-80 uppercase tracking-wider">HORAS TOTALES</div>
@@ -2461,7 +2461,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white border-none shadow-lg">
+              <Card className="text-white border-none shadow-lg" style={{ background: 'linear-gradient(to bottom right, #3b82f6, #1d4ed8)' }}>
                 <CardContent className="pt-6">
                   <div className="text-sm font-medium opacity-80">Horas Diurnas</div>
                   <div className="text-3xl font-bold flex items-baseline gap-1">
