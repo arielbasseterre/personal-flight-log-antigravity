@@ -2248,12 +2248,12 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       });
       const day = monthLogs.reduce((acc, log) => {
         const newVal = parseFloat(log.horasDia || '0');
-        const oldVal = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).cross_country_day_pilot) || 0);
+        const oldVal = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).airfield_day_copilot) || 0) + (Number((log as any).cross_country_day_pilot) || 0) + (Number((log as any).cross_country_day_copilot) || 0);
         return acc + (newVal > 0 ? newVal : oldVal);
       }, 0);
       const night = monthLogs.reduce((acc, log) => {
         const newVal = parseFloat(log.horasNoche || '0');
-        const oldVal = (Number((log as any).airfield_night_pilot) || 0) + (Number((log as any).cross_country_night_pilot) || 0);
+        const oldVal = (Number((log as any).airfield_night_pilot) || 0) + (Number((log as any).airfield_night_copilot) || 0) + (Number((log as any).cross_country_night_pilot) || 0) + (Number((log as any).cross_country_night_copilot) || 0);
         return acc + (newVal > 0 ? newVal : oldVal);
       }, 0);
       
@@ -3430,7 +3430,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         <TableCell className="text-right font-mono text-xs">
                           {(() => {
                             const nH = (parseFloat(log.horasDia || '0') + parseFloat(log.horasNoche || '0'));
-                            const oH = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).airfield_night_pilot) || 0) + (Number((log as any).cross_country_day_pilot) || 0) + (Number((log as any).cross_country_night_pilot) || 0);
+                            const oH = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).airfield_day_copilot) || 0) + (Number((log as any).airfield_night_pilot) || 0) + (Number((log as any).airfield_night_copilot) || 0) + (Number((log as any).cross_country_day_pilot) || 0) + (Number((log as any).cross_country_day_copilot) || 0) + (Number((log as any).cross_country_night_pilot) || 0) + (Number((log as any).cross_country_night_copilot) || 0);
                             return (nH > 0 ? nH : oH).toFixed(1);
                           })()}h
                         </TableCell>
