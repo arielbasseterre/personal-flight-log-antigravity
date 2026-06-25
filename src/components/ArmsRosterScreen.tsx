@@ -2186,6 +2186,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           <MisEnlacesModal
             userId={userId}
             onClose={() => setShowTokensModal(false)}
+            onOpenPreferences={() => setShowPreferences(true)}
           />
         )}
       </AnimatePresence>

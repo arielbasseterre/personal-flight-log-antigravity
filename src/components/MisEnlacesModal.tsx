@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Loader2, Copy, CheckCircle2, X, Plus, Trash2, Link as LinkIcon } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, X, Plus, Trash2, Settings, Link } from 'lucide-react';
 import { getApiUrl } from '../utils/api';
 
 const SPRING_CONFIG = { type: 'spring' as const, stiffness: 200, damping: 24 };
@@ -43,9 +43,11 @@ function describeSettings(settings: any): string {
 export function MisEnlacesModal({
   userId,
   onClose,
+  onOpenPreferences,
 }: {
   userId: string;
   onClose: () => void;
+  onOpenPreferences?: () => void;
 }) {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,6 +176,15 @@ export function MisEnlacesModal({
           <p className="text-xs text-red-500 text-center">{error}</p>
         )}
 
+        {onOpenPreferences && (
+          <button
+            onClick={onOpenPreferences}
+            className="w-full py-3 text-xs font-semibold bg-slate-100 dark:bg-[#1a2233] border border-slate-200 dark:border-[#2d3748] rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 hover:bg-slate-200 dark:hover:bg-[#242f3e]"
+          >
+            <Settings size={14} /> Ajustar preferencias de calendario
+          </button>
+        )}
+
         <div className="shrink-0">
           {showNewInput ? (
             <div className="space-y-2">
@@ -222,7 +233,7 @@ export function MisEnlacesModal({
             </div>
           ) : tokens.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <LinkIcon size={32} className="text-slate-300 dark:text-slate-600 mb-2" />
+              <Link size={32} className="text-slate-300 dark:text-slate-600 mb-2" />
               <p className="text-xs text-slate-500 dark:text-slate-400">No tenés enlaces generados todavía.</p>
             </div>
           ) : (
@@ -235,38 +246,32 @@ export function MisEnlacesModal({
                   <span className="text-sm font-semibold text-slate-900 dark:text-white truncate mr-2">
                     {t.label}
                   </span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleCopy(t.url, i)}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-[#2d3748] transition-colors"
-                      title="Copiar enlace"
-                    >
-                      {copiedIndex === i ? (
-                        <CheckCircle2 size={14} className="text-emerald-500" />
-                      ) : (
-                        <Copy size={14} className="text-slate-500" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleRevoke(t.token, i)}
-                      disabled={revokingIndex === i}
-                      className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                      title="Revocar enlace"
-                    >
-                      {revokingIndex === i ? (
-                        <Loader2 size={14} className="text-red-500 animate-spin" />
-                      ) : (
-                        <Trash2 size={14} className="text-red-500" />
-                      )}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleRevoke(t.token, i)}
+                    disabled={revokingIndex === i}
+                    className="p-1.5 shrink-0 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                    title="Revocar enlace"
+                  >
+                    {revokingIndex === i ? (
+                      <Loader2 size={14} className="text-red-500 animate-spin" />
+                    ) : (
+                      <Trash2 size={14} className="text-red-500" />
+                    )}
+                  </button>
                 </div>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
                   📅 {describeSettings(t.settings)}
                 </p>
-                <p className="text-[9px] text-slate-400 dark:text-slate-600 truncate font-mono">
-                  {t.url}
-                </p>
+                <button
+                  onClick={() => handleCopy(t.url, i)}
+                  className="w-full py-2 text-xs font-bold bg-[#1152d4] text-white rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  {copiedIndex === i ? (
+                    <><CheckCircle2 size={14} /> Copiado</>
+                  ) : (
+                    <><Copy size={14} /> Copiar URL</>
+                  )}
+                </button>
               </div>
             ))
           )}
@@ -284,7 +289,18 @@ export function MisEnlacesModal({
               <><Trash2 size={14} /> Revocar todos los accesos</>
             )}
           </button>
-        )}
+        )        }
+
+        <div className="bg-blue-50 dark:bg-[#1152d4]/5 border border-blue-200 dark:border-[#1152d4]/20 rounded-xl p-3 space-y-1">
+          <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">📱 iOS</p>
+          <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            Configuración → Calendario → Cuentas → Agregar cuenta → Otra → Agregar calendario por suscripción
+          </p>
+          <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-2">💻 Google Calendar</p>
+          <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            Otros calendarios → Agregar por URL → pegar el enlace (solo desde PC)
+          </p>
+        </div>
 
         <button
           onClick={onClose}
