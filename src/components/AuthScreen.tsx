@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, UserPlus, Mail, Lock, Plane, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, Plane, ArrowRight, Loader2, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const AuthScreen = () => {
@@ -20,6 +20,11 @@ export const AuthScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgotSent, setForgotSent] = useState(false);
+  const [successAlert, setSuccessAlert] = useState<{ show: boolean; title: string; message: string }>({
+    show: false,
+    title: '',
+    message: '',
+  });
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +69,7 @@ export const AuthScreen = () => {
         
         if (authError) throw authError;
 
-        alert("¡Registro exitoso! Revisa tu email para confirmar.");
+        setSuccessAlert({ show: true, title: 'Registro exitoso', message: 'Revisa tu email para confirmar.' });
       }
     } catch (err: any) {
       if (err.message?.includes("Invalid login credentials")) {
@@ -255,6 +260,44 @@ export const AuthScreen = () => {
           </CardContent>
         </Card>
       </motion.div>
+
+      <AnimatePresence>
+        {successAlert.show && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSuccessAlert({ show: false, title: '', message: '' })}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
+            >
+              <div className="p-6 text-center">
+                <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-blue-50 dark:bg-blue-900/20 text-blue-500">
+                  <Info size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{successAlert.title}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {successAlert.message}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+                <Button
+                  className="flex-1 rounded-xl h-12 font-bold text-white shadow-lg bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"
+                  onClick={() => setSuccessAlert({ show: false, title: '', message: '' })}
+                >
+                  Entendido
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
