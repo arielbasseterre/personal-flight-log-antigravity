@@ -10,3 +10,4 @@ coverage/
 # Debug/auditoría local (contienen datos scrapeados del portal ARMS)
 arms_debug_*
 scripts/
+supabase/.temp/

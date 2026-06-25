@@ -2,6 +2,8 @@
 
 Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravity u otros entornos de desarrollo) alineado sobre el estado actual, la arquitectura, configuraciones críticas e historial del proyecto.
 
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
+
 ---
 
 ## 1. Propósito del Proyecto
@@ -10,6 +12,8 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - Gestionar tramos, simulación de vuelos y tripulaciones.
 - Sincronizar automáticamente tramos mensuales del roster a través de la integración con **ARMS**.
 - Sincronizar los registros directamente con la **ANAC** (Administración Nacional de Aviación Civil de Argentina), automatizando la carga de vuelos en su portal de Foliado Web.
+
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
 ---
 
@@ -20,6 +24,8 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **Scraping e Integración ANAC / ARMS**: 
   - **Playwright (Chromium)**: Se ejecuta headless en el backend para iniciar sesión en el portal de ANAC y en el sistema de ARMS usando las credenciales del usuario, recuperando cookies de sesión y resolviendo el flujo de autenticación.
   - **Axios**: Utilizado para enviar peticiones POST estructuradas directamente a las APIs internas de ANAC (`/api/VueloTripulante/Create` en `cad.anac.gob.ar` o en su fallback `cadam.anac.gob.ar`).
+
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
 ---
 
@@ -35,6 +41,8 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
   ```
 - **Proxy de Vite**: 
   El servidor de desarrollo de Vite redirige todas las llamadas de `/api` y `/ping` hacia `http://localhost:3000` (el servidor Express de backend).
+
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
 ---
 
@@ -67,7 +75,18 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
   Se resolvieron los problemas convirtiendo todos los valores `oklch()` a formato hexadecimal/rgba en `:root` y `.dark` dentro de `src/index.css`.
   Adicionalmente, se reemplazaron los gradientes Tailwind en Tailwind CSS (`bg-gradient-to-...` que utilizaban opacidades de Slate) por propiedades `style={{ background: 'linear-gradient(...)' }}` inline con colores hexadecimales planos/rgba para asegurar que se rendericen correctamente en Safari antiguo.
    Se aplicó este mismo fix de compatibilidad a la versión v1 (`D:\app Antigravity\personal-flight-log sin roster`).
-- **Fix chart actividad reciente (24-Jun-2026)**: El grafico de barras "Actividad Reciente" y la tabla de vuelos omitian horas de copiloto en el total mensual cuando el vuelo no tenia `horasDia`/`horasNoche`. Se agregaron los 4 campos de copiloto al fallback en `chartData` y en el display de la tabla. Aplica en ambas versiones (v1 commit ec38fad, v2 commit 7b960a8).
+- **Fix chart actividad reciente (24-Jun-2026)**: El grafico de barras "Actividad Reciente" y la tabla de vuelos omitian horas de copiloto en el total mensual cuando el vuelo no tenia `horasDia`/`horasNoche`. Se agregaron los 4 campos de copiloto al fallback en `chartData` y en el display de la tabla.
+- **Fix barra total (24-Jun-2026)**: El `LabelList` del total mensual no se mostraba cuando `nocturna = 0` (solo horas diurnas) porque Recharts no renderiza el label en un segmento de barra con altura 0. Se agregó `minPointSize={0.1}` a la barra `nocturna` para forzar un segmento mínimo que el LabelList pueda usar como ancla.
+- **Fix layout iPad Safari (24-Jun-2026)**: El contenedor raíz usaba `h-screen overflow-hidden` que en iOS Safari cortaba el contenido porque `100vh` incluye el área detrás de las barras del navegador. Reemplazado por `min-h-screen` sin `overflow-hidden`. Tambien se agregó `viewport-fit=cover` al meta viewport tag.
+- **Fix SW update detection (24-Jun-2026)**: El codigo nunca revisaba si ya habia un SW esperando (eg.waiting). Agregado check de eg.waiting, eg.installing, y eg.update() inmediato. Overlay reemplazado por banner azul con timeout de 2s antes de SKIP_WAITING.
+- **Fix PDF.js self-host (24-Jun-2026)**: CSP de Safari bloqueaba carga dinamica desde CDN. Descargado a public/assets/ y cargado desde self. Eliminado cdnjs de CSP.
+- **Fix WASM bloqueado por CSP (25-Jun-2026)**: @react-pdf/renderer usa yoga-layout con WASM binario. WebAssembly.instantiate(buffer) requiere unsafe-eval en CSP. Agregado a script-src en server.ts.
+- **Build version injection (25-Jun-2026)**: Creado inject-sw-version.cjs que inyecta timestamp de build en dist/sw.js post-vite build. Cada deploy fuerza deteccion de actualizacion.
+- **Admin notification via Brevo (25-Jun-2026)**: El endpoint `POST /api/send-welcome-email` en `server.ts` ahora envía notificación administrativa a `gringo.soft.ar@gmail.com` vía Brevo después del welcome email al usuario. La Edge Function `welcome-email` (Resend) también fue modificada pero no está conectada al webhook.
+- **Fix escaped interpolation en welcome email (\${firstName}) (25-Jun-2026)**: En el HTML del welcome email, `${firstName}` estaba escapado como `\${firstName}`, mostrando el texto literal en vez del nombre del usuario. Corregido en ambas versiones.
+- **Modal de registro exitoso en App.tsx (25-Jun-2026)**: El `alert()` nativo del navegador fue reemplazado por un modal overlay estilizado renderizado desde `App.tsx` (z-[9999], encima de cualquier screen). Al registrarse, `onRegisterSuccess` callback desde `AuthScreen` dispara `setRegisterAlert` en App. El modal persiste aunque el listener de auth navegue a MainScreen (auto-confirmación).
+
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
 ---
 
@@ -142,6 +161,8 @@ Panel de estadísticas mensuales en `ArmsRosterScreen.tsx`, calculado dinámicam
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
 - [ ] Probar la persistencia y refresco de sesiones de autenticación para ARMS y ANAC almacenadas en Supabase (`arms_sessions` y `user_remote_sessions`).
 - [ ] Validar el correcto flujo de envío de notificaciones push (FCM) registradas en la tabla `push_tokens`.
+
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
 ---
 
@@ -254,6 +275,8 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 - [ ] Agregar columna `mp_payer_email TEXT` a `profiles` y poblar en cada callback/webhook para vincular pagos de MP con usuarios de la app
 - [ ] Cartel de pago exitoso/fallido premium: Reemplazar los `alert` nativos del navegador por un modal overlay animado estilizado con la estética de la app (azul `#1152d4`, soporte oscuro/claro y animaciones fluidas vía `framer-motion`).
 
+- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
+
 ---
 
 ## 7. Plan de Seguridad (Auditoria 23-Jun-2026)
@@ -274,4 +297,3 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 
 ### 🔵 Bajo
 - [x] ~~Eliminar inyeccion de `window.VITE_SUPABASE_ANON_KEY` y `window.VITE_SUPABASE_URL` del servidor~~ — No aplica: Render no expone `VITE_*` en build time
-- [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
