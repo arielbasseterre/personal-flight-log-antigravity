@@ -74,7 +74,44 @@ serve(async (req) => {
       throw new Error(`Error de Resend: ${errorText}`)
     }
 
-    console.log("Correo enviado con éxito.")
+    console.log("Correo de bienvenida enviado con éxito.")
+
+    // Notificar al administrador
+    try {
+      console.log(`Enviando notificación de nuevo registro al administrador...`)
+      const notifyResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "Personal Flight Log <onboarding@resend.dev>",
+          to: ["gringo.soft.ar@gmail.com"],
+          subject: `Nuevo usuario registrado: ${firstName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <h2 style="color:#2563eb;">Nuevo registro en Personal Flight Log</h2>
+              <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Nombre</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${firstName} ${record.last_name || ''}</td></tr>
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Email</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${email}</td></tr>
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">ID</td><td style="padding:8px 12px; border:1px solid #e2e8f0; font-size:12px;">${record.id || ''}</td></tr>
+              </table>
+              <p style="margin-top:20px; color:#64748b; font-size:13px;">Recibido automáticamente desde el webhook de Supabase.</p>
+            </div>
+          `,
+        }),
+      })
+      if (!notifyResponse.ok) {
+        const errorText = await notifyResponse.text()
+        console.error("Error al notificar al administrador:", errorText)
+      } else {
+        console.log("Notificación al administrador enviada con éxito.")
+      }
+    } catch (notifyErr: any) {
+      console.error("Error al enviar notificación al administrador:", notifyErr.message)
+    }
+
     return new Response("ok")
   } catch (error: any) {
     console.error("Error en welcome-email function:", error.message)
