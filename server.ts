@@ -1237,40 +1237,131 @@ app.use("/api/arms/sync-roster", authLimiter);
     return lines.join('\r\n');
   }
 
-  // POST /api/roster/generate-token — create or retrieve the calendar subscription token
+  // ── Calendar subscription tokens ────────────────────────────────────
+  // POST /api/roster/generate-token — create a new token with snapshot of current settings
   app.post("/api/roster/generate-token", async (req, res) => {
-    const { user_id } = req.body;
+    const { user_id, label } = req.body;
     if (!user_id) {
-      return res.status(400).json({ error: "user_id es requerido" });
+      return res.status(400).json({ success: false, error: "user_id es requerido" });
     }
 
     try {
-      const { data: profile, error: fetchError } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('calendar_token')
+        .select('calendar_settings')
         .eq('id', user_id)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+      if (profileError) throw profileError;
 
-      let token = profile?.calendar_token;
-      if (!token) {
-        token = crypto.randomBytes(24).toString('hex');
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ calendar_token: token })
-          .eq('id', user_id);
-
-        if (updateError) throw updateError;
-      }
-
+      const token = crypto.randomBytes(24).toString('hex');
+      const savedSettings = profile?.calendar_settings;
+      const settings = savedSettings || {
+        exportTodayOnwards: false,
+        excludeStandby: false,
+        excludeDayOff: false,
+        excludeLeave: false,
+        excludeNDA: false,
+        excludeGTR: false,
+        excludeOTH: false,
+        excludeCrew: false,
+        excludeLayover: false,
+        aggregateFlights: false,
+        flightEventFormat: 'route_flight_times',
+        reportEventFormat: 'type_only',
+        postFlightMinutes: 0,
+        layover30MinOnly: false,
+      };
       const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.headers.host || 'localhost:5173'}`;
-      const subUrl = `${baseUrl}/api/roster/calendar/${token}`;
 
+      const { error: insertError } = await supabase
+        .from('calendar_tokens')
+        .insert({
+          user_id,
+          token,
+          label: label || 'Sin nombre',
+          settings,
+        });
+
+      if (insertError) throw insertError;
+
+      const subUrl = `${baseUrl}/api/roster/calendar/${token}`;
       res.json({ success: true, token, subscriptionUrl: subUrl });
     } catch (error: any) {
       console.error("[ROSTER_TOKEN_ERR]", error.message);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // GET /api/roster/my-tokens — list all tokens for a user
+  app.get("/api/roster/my-tokens", async (req, res) => {
+    const user_id = req.query.user_id as string;
+    if (!user_id) {
+      return res.status(400).json({ success: false, error: "user_id es requerido" });
+    }
+
+    try {
+      const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.headers.host || 'localhost:5173'}`;
+
+      const { data: tokens, error } = await supabase
+        .from('calendar_tokens')
+        .select('id, token, label, settings, created_at')
+        .eq('user_id', user_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const list = (tokens || []).map(t => ({
+        ...t,
+        url: `${baseUrl}/api/roster/calendar/${t.token}`,
+      }));
+
+      res.json({ success: true, tokens: list });
+    } catch (error: any) {
+      console.error("[ROSTER_MY_TOKENS_ERR]", error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/roster/revoke-token — revoke a specific token
+  app.post("/api/roster/revoke-token", async (req, res) => {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, error: "token es requerido" });
+    }
+
+    try {
+      const { error } = await supabase
+        .from('calendar_tokens')
+        .delete()
+        .eq('token', token);
+
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[ROSTER_REVOKE_ERR]", error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST /api/roster/revoke-all-tokens — revoke all tokens for a user
+  app.post("/api/roster/revoke-all-tokens", async (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ success: false, error: "user_id es requerido" });
+    }
+
+    try {
+      const { error } = await supabase
+        .from('calendar_tokens')
+        .delete()
+        .eq('user_id', user_id);
+
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[ROSTER_REVOKE_ALL_ERR]", error.message);
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 
@@ -1279,20 +1370,20 @@ app.use("/api/arms/sync-roster", authLimiter);
     const { token } = req.params;
 
     try {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, calendar_settings')
-        .eq('calendar_token', token)
+      const { data: link, error: linkError } = await supabase
+        .from('calendar_tokens')
+        .select('user_id, label, settings')
+        .eq('token', token)
         .single();
 
-      if (profileError || !profile) {
+      if (linkError || !link) {
         return res.status(404).json({ error: "Token inválido o expirado" });
       }
 
       const { data: rosterData, error: rosterError } = await supabase
         .from('arms_roster')
         .select('month, year, roster_json')
-        .eq('user_id', profile.id);
+        .eq('user_id', link.user_id);
 
       if (rosterError) throw rosterError;
 
@@ -1305,7 +1396,7 @@ app.use("/api/arms/sync-roster", authLimiter);
 
       const icsContent = generateRosterICSForUser(
         rosterData.map(r => ({ entries: r.roster_json, month: r.month, year: r.year })),
-        profile.calendar_settings
+        link.settings
       );
 
       res
@@ -1318,6 +1409,7 @@ app.use("/api/arms/sync-roster", authLimiter);
       res.status(500).json({ error: error.message });
     }
   });
+  // ── End calendar subscription tokens ────────────────────────────────
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

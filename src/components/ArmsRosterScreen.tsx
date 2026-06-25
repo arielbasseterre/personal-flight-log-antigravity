@@ -25,6 +25,7 @@ import {
   Calendar, CalendarMinus, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2,
   FileText, Download, Settings
 } from 'lucide-react';
+import { MisEnlacesModal } from './MisEnlacesModal';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
@@ -948,81 +949,6 @@ const Select = ({ label, value, options, onChange }: { label: string; value: str
   </div>
 );
 
-function SubscriptionModal({
-  data,
-  onClose,
-}: {
-  data: { url: string; loading: boolean; error?: string };
-  onClose: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [timestamp] = useState(Date.now());
-
-  const displayUrl = data.url ? `${data.url}${data.url.includes('?') ? '&' : '?'}t=${timestamp}` : '';
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(displayUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {}
-  };
-
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <motion.div
-        className="relative w-full max-w-md bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 shadow-2xl"
-        initial={{ scale: 0.95, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 20 }}
-        transition={SPRING_CONFIG}
-      >
-        {data.loading ? (
-          <div className="flex flex-col items-center justify-center py-10 space-y-4">
-            <Loader2 size={32} className="text-[#1152d4] animate-spin" />
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center">Generando enlace de suscripción...</p>
-          </div>
-        ) : data.error ? (
-          <div className="flex flex-col items-center justify-center py-6 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">Error</h3>
-            <p className="text-sm text-red-500 text-center">{data.error}</p>
-            <button onClick={onClose} className="w-full py-3 text-sm font-semibold text-[#1152d4] hover:opacity-70 transition-opacity">Cerrar</button>
-          </div>
-        ) : (
-          <>
-            <div className="text-center">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Suscripción de Calendario</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                Copiá el enlace y agregalo en tu app de calendario para mantenerlo sincronizado automáticamente.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-xl p-3">
-              <input readOnly value={displayUrl} className="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-300 outline-none select-all" onClick={(e) => (e.target as HTMLInputElement).select()} />
-              <button onClick={handleCopy} className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#1152d4] text-white active:scale-95 hover:opacity-90 transition-all">{copied ? 'Copiado' : 'Copiar'}</button>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-[#1152d4]/5 border border-blue-200 dark:border-[#1152d4]/20 rounded-xl p-3 space-y-1">
-              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">📱 iOS</p>
-              <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed">Configuración → Calendario → Cuentas → Agregar cuenta → Otra → Agregar calendario por suscripción</p>
-              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-2">💻 Google Calendar</p>
-              <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed">Otros calendarios → Agregar por URL → pegar el enlace (solo desde PC)</p>
-            </div>
-
-            <button onClick={onClose} className="w-full py-3 text-sm font-bold bg-[#1152d4] text-white rounded-xl active:scale-98 transition-all">Listo</button>
-          </>
-        )}
-      </motion.div>
-    </motion.div>
-  );
-}
-
 function PreferencesModal({
   userId,
   onClose,
@@ -1308,12 +1234,8 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
 
-  // ── Estado de suscripción de calendario ────────────────────────────────
-  const [subscriptionData, setSubscriptionData] = useState<{
-    url: string;
-    loading: boolean;
-    error?: string;
-  } | null>(null);
+  // ── Estado de modal de enlaces de calendario ──────────────────────────
+  const [showTokensModal, setShowTokensModal] = useState(false);
 
   // ── Entrada seleccionada ──────────────────────────────────────────────
   const selectedEntry = entries.find(e => e.dateISO === selectedDate) || null;
@@ -1683,28 +1605,6 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       };
     } else {
       saveAs(pdfBlob, fileName);
-    }
-  };
-
-  // ╔═════════════════════════════════════════════════════════════════════╗
-  // ║  SUSCRIPCIÓN DE CALENDARIO — WebCal                                ║
-  // ╚═════════════════════════════════════════════════════════════════════╝
-  const handleSubscription = async () => {
-    setSubscriptionData({ url: '', loading: true });
-    try {
-      const res = await fetch(getApiUrl('/api/roster/generate-token'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setSubscriptionData({ url: '', loading: false, error: data.error || 'Error al generar token' });
-        return;
-      }
-      setSubscriptionData({ url: data.subscriptionUrl, loading: false });
-    } catch {
-      setSubscriptionData({ url: '', loading: false, error: 'Error de conexión con el servidor' });
     }
   };
 
@@ -2273,19 +2173,19 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           <ExportMenuModal
             onCalendar={handleExportCalendar}
             onPDF={handleExportPDF}
-            onSubscribe={handleSubscription}
+            onSubscribe={() => setShowTokensModal(true)}
             onPreferences={() => setShowPreferences(true)}
             onClose={() => setShowExportMenu(false)}
           />
         )}
       </AnimatePresence>
 
-      {/* Modal de Suscripción de Calendario */}
+      {/* Modal de Mis Enlaces de Calendario */}
       <AnimatePresence>
-        {subscriptionData && (
-          <SubscriptionModal
-            data={subscriptionData}
-            onClose={() => setSubscriptionData(null)}
+        {showTokensModal && (
+          <MisEnlacesModal
+            userId={userId}
+            onClose={() => setShowTokensModal(false)}
           />
         )}
       </AnimatePresence>
