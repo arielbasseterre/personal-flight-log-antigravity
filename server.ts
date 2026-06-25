@@ -817,6 +817,39 @@ app.use("/api/arms/sync-roster", authLimiter);
       });
 
       console.log(`[WELCOME-EMAIL] Correo enviado con éxito a ${email} vía Brevo.`);
+
+      // Notificar al administrador
+      try {
+        console.log(`[WELCOME-EMAIL] Enviando notificación de nuevo registro al administrador...`);
+        await axios.post("https://api.brevo.com/v3/smtp/email", {
+          sender: {
+            name: "Personal Flight Log",
+            email: "gringo.soft.ar@gmail.com"
+          },
+          to: [{ email: "gringo.soft.ar@gmail.com", name: "Admin" }],
+          subject: `Nuevo usuario registrado: ${firstName}`,
+          htmlContent: `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <h2 style="color:#2563eb;">Nuevo registro en Personal Flight Log</h2>
+              <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Nombre</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${firstName} ${record?.last_name || ''}</td></tr>
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Email</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${email}</td></tr>
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">ID</td><td style="padding:8px 12px; border:1px solid #e2e8f0; font-size:12px;">${record?.id || ''}</td></tr>
+              </table>
+              <p style="margin-top:20px; color:#64748b; font-size:13px;">Recibido automáticamente desde el webhook de Supabase.</p>
+            </div>
+          `
+        }, {
+          headers: {
+            "api-key": brevoApiKey,
+            "Content-Type": "application/json"
+          }
+        });
+        console.log(`[WELCOME-EMAIL] Notificación al administrador enviada con éxito.`);
+      } catch (adminErr: any) {
+        console.error("[WELCOME-EMAIL] Error al notificar al administrador:", adminErr.response?.data || adminErr.message);
+      }
+
       return res.json({ success: true, message: "Correo enviado con éxito" });
 
     } catch (error: any) {
