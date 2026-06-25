@@ -786,7 +786,7 @@ app.use("/api/arms/sync-roster", authLimiter);
             </div>
 
             <div style="padding: 40px 30px; background-color: #ffffff;">
-              <h2 style="color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 20px;">¡Hola, \${firstName}! 👋</h2>
+              <h2 style="color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 20px;">¡Hola, ${firstName}! 👋</h2>
               <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">Te damos una cálida bienvenida a <strong>Personal Flight Log</strong>, tu plataforma profesional para el registro y control de horas de vuelo.</p>
               
               <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
