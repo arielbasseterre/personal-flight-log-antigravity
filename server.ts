@@ -961,12 +961,8 @@ app.use("/api/arms/sync-roster", authLimiter);
       layover30MinOnly: false,
       aggregateFlights: false,
       postFlightMinutes: 0,
-      flightTitleFormat: "route_flight",
-      flightLocationFormat: "times_flight",
-      flightDescriptionFormat: "city_icao",
-      reportTitleFormat: "type_info",
-      reportLocationFormat: "time_utc",
-      reportDescriptionFormat: "crew_info"
+      flightEventFormat: "route_flight_times",
+      reportEventFormat: "type_info",
     };
 
     const settings = { ...defaultSettings, ...customSettings };
@@ -1010,22 +1006,22 @@ app.use("/api/arms/sync-roster", authLimiter);
             const suffix = isDH ? ' (DH)' : '';
             const flightNumbers = legs.map((l: any) => l.flightNumber).join('-');
 
+            const routeStr = [...legs.map((l: any) => l.origin), lastLeg.destination].join('-');
+            const timeStr = `${firstLeg.departureTimeLoc || ''} - ${lastLeg.arrivalTimeLoc || ''}`;
+
             let summary = '';
-            if (settings.flightTitleFormat === 'route_flight') {
-              summary = `${firstLeg.origin} - ${lastLeg.destination} / ${flightNumbers}${suffix}`;
-            } else if (settings.flightTitleFormat === 'flight_route') {
-              summary = `${flightNumbers} / ${firstLeg.origin} - ${lastLeg.destination}${suffix}`;
+            let location = '';
+            if (settings.flightEventFormat === 'route_flight_times') {
+              summary = `${routeStr} / ${flightNumbers}${suffix}`;
+              location = timeStr;
+            } else if (settings.flightEventFormat === 'flight_route_times') {
+              summary = `${flightNumbers} / ${routeStr}${suffix}`;
+              location = timeStr;
+            } else if (settings.flightEventFormat === 'route_times') {
+              summary = `${routeStr}${suffix}`;
+              location = timeStr;
             } else {
               summary = `${flightNumbers}${suffix}`;
-            }
-
-            let location = '';
-            if (settings.flightLocationFormat === 'times_flight') {
-              location = `${firstLeg.departureTimeLoc || ''} - ${lastLeg.arrivalTimeLoc || ''}`;
-            } else if (settings.flightLocationFormat === 'route_only') {
-              location = `${firstLeg.origin} - ${lastLeg.destination}`;
-            } else {
-              location = `${firstLeg.origin || ''} / ${lastLeg.destination || ''}`;
             }
 
             const descParts: string[] = [];
@@ -1066,22 +1062,22 @@ app.use("/api/arms/sync-roster", authLimiter);
               if (!leg.departureTimeUtc || !leg.arrivalTimeUtc) return;
 
               const suffix = isDH ? ' (DH)' : '';
+              const routeStr = `${leg.origin} - ${leg.destination}`;
+              const timeStr = `${leg.departureTimeLoc || ''} - ${leg.arrivalTimeLoc || ''}`;
+
               let summary = '';
-              if (settings.flightTitleFormat === 'route_flight') {
-                summary = `${leg.origin} - ${leg.destination} / ${leg.flightNumber}${suffix}`;
-              } else if (settings.flightTitleFormat === 'flight_route') {
-                summary = `${leg.flightNumber} / ${leg.origin} - ${leg.destination}${suffix}`;
+              let location = '';
+              if (settings.flightEventFormat === 'route_flight_times') {
+                summary = `${routeStr} / ${leg.flightNumber}${suffix}`;
+                location = timeStr;
+              } else if (settings.flightEventFormat === 'flight_route_times') {
+                summary = `${leg.flightNumber} / ${routeStr}${suffix}`;
+                location = timeStr;
+              } else if (settings.flightEventFormat === 'route_times') {
+                summary = `${routeStr}${suffix}`;
+                location = timeStr;
               } else {
                 summary = `${leg.flightNumber}${suffix}`;
-              }
-
-              let location = '';
-              if (settings.flightLocationFormat === 'times_flight') {
-                location = `${leg.departureTimeLoc || ''} - ${leg.arrivalTimeLoc || ''}`;
-              } else if (settings.flightLocationFormat === 'route_only') {
-                location = `${leg.origin} - ${leg.destination}`;
-              } else {
-                location = `${leg.origin || ''} / ${leg.destination || ''}`;
               }
 
               const descParts: string[] = [
@@ -1122,9 +1118,9 @@ app.use("/api/arms/sync-roster", authLimiter);
           }
         } else if (isStandby) {
           const uid = `arms-${entry.dateISO}-standby@flightlog`;
-          let title = settings.reportTitleFormat === 'type_only' ? 'Guardia' : `Guardia (STB) - ${entry.rawTask || ''}`;
-          let description = settings.reportDescriptionFormat === 'crew_info' ? (entry.rawTask || 'Guardia de Roster') : '';
-          let location = settings.reportLocationFormat === 'time_utc' ? `${entry.startTimeUtc || ''} - ${entry.endTimeUtc || ''} UTC` : '';
+          let title = settings.reportEventFormat === 'type_only' ? 'Guardia' : `Guardia (STB) - ${entry.rawTask || ''}`;
+          let description = settings.reportEventFormat === 'type_info' ? (entry.rawTask || 'Guardia de Roster') : '';
+          let location = settings.reportEventFormat === 'type_info' ? `${entry.startTimeUtc || ''} - ${entry.endTimeUtc || ''} UTC` : '';
 
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:${uid}`);
@@ -1144,10 +1140,10 @@ app.use("/api/arms/sync-roster", authLimiter);
           const uid = `arms-${entry.dateISO}-gtr@flightlog`;
           const isSim = (entry.rawTask || '').toLowerCase().includes('sim') || entry.eventType === 'SIMULATOR';
           let title = isSim
-            ? (settings.reportTitleFormat === 'type_only' ? 'Simulador' : `Simulador - ${entry.rawTask || ''}`)
-            : (settings.reportTitleFormat === 'type_only' ? 'Curso' : `GTR - ${entry.rawTask || 'Entrenamiento Terrestre'}`);
-          let description = settings.reportDescriptionFormat === 'crew_info' ? (entry.rawTask || '') : '';
-          let location = settings.reportLocationFormat === 'time_utc' ? `${entry.startTimeUtc || ''} - ${entry.endTimeUtc || ''} UTC` : '';
+            ? (settings.reportEventFormat === 'type_only' ? 'Simulador' : `Simulador - ${entry.rawTask || ''}`)
+            : (settings.reportEventFormat === 'type_only' ? 'Curso' : `GTR - ${entry.rawTask || 'Entrenamiento Terrestre'}`);
+          let description = settings.reportEventFormat === 'type_info' ? (entry.rawTask || '') : '';
+          let location = settings.reportEventFormat === 'type_info' ? `${entry.startTimeUtc || ''} - ${entry.endTimeUtc || ''} UTC` : '';
 
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:${uid}`);
@@ -1187,7 +1183,7 @@ app.use("/api/arms/sync-roster", authLimiter);
           lines.push('END:VEVENT');
         } else if (isDayOff) {
           const uid = `arms-${entry.dateISO}-off@flightlog`;
-          let title = settings.reportTitleFormat === 'type_only' ? 'Libre' : 'Libre (OFF)';
+          let title = settings.reportEventFormat === 'type_only' ? 'Libre' : 'Libre (OFF)';
 
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:${uid}`);
