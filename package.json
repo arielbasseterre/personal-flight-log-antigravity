@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch --ignore .env --ignore node_modules --ignore dist server.ts",
     "start": "node server.ts",
-    "build": "vite build",
+    "build": "vite build && node inject-sw-version.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
