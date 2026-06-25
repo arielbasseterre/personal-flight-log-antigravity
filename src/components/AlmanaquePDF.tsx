@@ -269,6 +269,7 @@ function CalendarDay({
   cell: CalendarCell;
   isWeekend: boolean;
   isEmpty: boolean;
+  key?: string;
 }) {
   if (isEmpty || cell.dayNumber === null) {
     return <View style={styles.dayCellEmpty} />;

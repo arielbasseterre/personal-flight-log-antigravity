@@ -908,22 +908,117 @@ function ExportMenuModal({
 
 function SubscriptionModal({
   data,
+  userId,
   onClose,
 }: {
   data: { url: string; loading: boolean; error?: string };
+  userId: string;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [settings, setSettings] = useState<any>({
+    exportTodayOnwards: false,
+    excludeDeadhead: false,
+    excludeStandby: false,
+    excludeDayOff: false,
+    excludeReport: false,
+    excludeSimulator: false,
+    excludeDebrief: false,
+    excludeLayover: false,
+    layover30MinOnly: false,
+    aggregateFlights: false,
+    postFlightMinutes: 0,
+    flightTitleFormat: "route_flight",
+    flightLocationFormat: "times_flight",
+    flightDescriptionFormat: "city_icao",
+    reportTitleFormat: "type_info",
+    reportLocationFormat: "time_utc",
+    reportDescriptionFormat: "crew_info"
+  });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('calendar_settings')
+          .eq('id', userId)
+          .single();
+        if (profile?.calendar_settings) {
+          setSettings((prev: any) => ({ ...prev, ...profile.calendar_settings }));
+        }
+      } catch (err) {
+        console.error("Error loading calendar settings:", err);
+      } finally {
+        setSettingsLoading(false);
+      }
+    }
+    loadSettings();
+  }, [userId]);
+
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [timestamp, setTimestamp] = useState(Date.now());
+
+  const handleUpdateSetting = (key: string, value: any) => {
+    setSettings((prev: any) => ({ ...prev, [key]: value }));
+    setSaveSuccess(false);
+  };
+
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    setSaveSuccess(false);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ calendar_settings: settings })
+        .eq('id', userId);
+      if (error) throw error;
+      setSaveSuccess(true);
+      setTimestamp(Date.now()); // Update timestamp to force calendar apps to bypass cache on new copy
+    } catch (err) {
+      console.error("Error saving calendar settings:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const displayUrl = data.url ? `${data.url}${data.url.includes('?') ? '&' : '?'}t=${timestamp}` : '';
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(data.url);
+      await navigator.clipboard.writeText(displayUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
       // fallback: select the text manually
     }
   };
+
+  const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
+    <label className="flex items-center justify-between cursor-pointer py-1.5 select-none">
+      <span className="text-xs text-slate-700 dark:text-slate-300 leading-tight">{label}</span>
+      <div className="relative shrink-0">
+        <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <div className={`w-8 h-4.5 rounded-full transition-colors ${checked ? 'bg-[#1152d4]' : 'bg-slate-300 dark:bg-slate-700'}`} />
+        <div className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${checked ? 'translate-x-3.5' : 'translate-x-0'}`} />
+      </div>
+    </label>
+  );
+
+  const Select = ({ label, value, options, onChange }: { label: string; value: string; options: {value: string; label: string}[]; onChange: (v: string) => void }) => (
+    <div className="flex flex-col gap-1 w-full">
+      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full text-xs bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-lg p-2 text-slate-700 dark:text-slate-300 outline-none focus:border-[#1152d4] cursor-pointer"
+      >
+        {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+      </select>
+    </div>
+  );
 
   return (
     <motion.div
@@ -934,23 +1029,21 @@ function SubscriptionModal({
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        className="relative w-full max-w-sm bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4"
+        className="relative w-full max-w-md bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] flex flex-col"
         initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, y: 20 }}
         transition={SPRING_CONFIG}
       >
         {data.loading ? (
-          <>
-            <div className="flex justify-center py-4">
-              <Loader2 size={32} className="text-[#1152d4] animate-spin" />
-            </div>
+          <div className="flex flex-col items-center justify-center py-10 space-y-4">
+            <Loader2 size={32} className="text-[#1152d4] animate-spin" />
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
               Generando enlace de suscripción...
             </p>
-          </>
+          </div>
         ) : data.error ? (
-          <>
+          <div className="flex flex-col items-center justify-center py-6 space-y-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">
               Error
             </h3>
@@ -961,49 +1054,184 @@ function SubscriptionModal({
             >
               Cerrar
             </button>
-          </>
+          </div>
         ) : (
           <>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">
-              Suscribir Calendario
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
-              Copiá este enlace y agregalo como calendario por suscripción en tu app de calendario.
-              Los eventos se actualizarán automáticamente.
-            </p>
-
-            <div className="flex items-center gap-2 bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-xl p-3">
-              <input
-                readOnly
-                value={data.url}
-                className="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-300 outline-none select-all"
-                onClick={(e) => (e.target as HTMLInputElement).select()}
-              />
-              <button
-                onClick={handleCopy}
-                className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#1152d4] text-white active:scale-95 hover:opacity-90 transition-all"
-              >
-                {copied ? 'Copiado' : 'Copiar'}
-              </button>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-[#1152d4]/5 border border-blue-200 dark:border-[#1152d4]/20 rounded-xl p-3 space-y-1">
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">📱 iOS</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Configuración → Calendario → Cuentas → Agregar cuenta → Otra → Agregar calendario por suscripción
-              </p>
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">💻 Google Calendar</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Otros calendarios → Agregar por URL → pegar el enlace (solo desde PC escritorio o notebook)
+            <div className="shrink-0">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">
+                Suscripción de Calendario
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed mt-1">
+                Personalizá tu calendario. Modificá las opciones y guardá los cambios para actualizar el enlace.
               </p>
             </div>
 
-            <button
-              onClick={onClose}
-              className="w-full py-3 text-sm font-semibold text-[#1152d4] hover:opacity-70 transition-opacity"
-            >
-              Listo
-            </button>
+            {/* Panel de configuraciones */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0 py-2 border-y border-slate-200 dark:border-[#2d3748]">
+              {settingsLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 size={24} className="text-[#1152d4] animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Seccion 1: Filtros de Actividad */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                      Filtros de Calendario
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
+                      <Toggle label="Exportar solo desde hoy" checked={settings.exportTodayOnwards} onChange={(v) => handleUpdateSetting('exportTodayOnwards', v)} />
+                      <Toggle label="Excluir vuelos Deadhead (DH)" checked={settings.excludeDeadhead} onChange={(v) => handleUpdateSetting('excludeDeadhead', v)} />
+                      <Toggle label="Excluir guardias (Standby)" checked={settings.excludeStandby} onChange={(v) => handleUpdateSetting('excludeStandby', v)} />
+                      <Toggle label="Excluir días libres (Day Off)" checked={settings.excludeDayOff} onChange={(v) => handleUpdateSetting('excludeDayOff', v)} />
+                      <Toggle label="Excluir reporte / firmas" checked={settings.excludeReport} onChange={(v) => handleUpdateSetting('excludeReport', v)} />
+                      <Toggle label="Excluir simuladores" checked={settings.excludeSimulator} onChange={(v) => handleUpdateSetting('excludeSimulator', v)} />
+                      <Toggle label="Excluir debriefs" checked={settings.excludeDebrief} onChange={(v) => handleUpdateSetting('excludeDebrief', v)} />
+                      <Toggle label="Excluir escalas (Layover)" checked={settings.excludeLayover} onChange={(v) => handleUpdateSetting('excludeLayover', v)} />
+                    </div>
+                  </div>
+
+                  {/* Seccion 2: Unificación de Vuelos */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                      Unificación de Vuelos
+                    </h4>
+                    <div className="space-y-3">
+                      <Toggle label="Unificar todos los vuelos del día" checked={settings.aggregateFlights} onChange={(v) => handleUpdateSetting('aggregateFlights', v)} />
+                      
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-xs text-slate-700 dark:text-slate-300">Minutos extras post-bloque</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={settings.postFlightMinutes}
+                          onChange={(e) => handleUpdateSetting('postFlightMinutes', Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-16 text-center text-xs bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-lg p-1.5 text-slate-700 dark:text-slate-300 outline-none focus:border-[#1152d4]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seccion 3: Formato de Vuelos */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                      Formato de Vuelos
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                      <Select
+                        label="Formato de Título"
+                        value={settings.flightTitleFormat}
+                        options={[
+                          { value: 'route_flight', label: 'Ruta / Vuelo (AEP-MDZ / AR1400)' },
+                          { value: 'flight_route', label: 'Vuelo / Ruta (AR1400 / AEP-MDZ)' },
+                          { value: 'flight_only', label: 'Solo Vuelo (AR1400)' }
+                        ]}
+                        onChange={(v) => handleUpdateSetting('flightTitleFormat', v)}
+                      />
+                      <Select
+                        label="Formato de Ubicación"
+                        value={settings.flightLocationFormat}
+                        options={[
+                          { value: 'times_flight', label: 'Horarios (12:00 - 14:00)' },
+                          { value: 'route_only', label: 'Ruta Completa (AEP - MDZ)' },
+                          { value: 'airport_icao', label: 'Aeropuertos (SABE / SABE)' }
+                        ]}
+                        onChange={(v) => handleUpdateSetting('flightLocationFormat', v)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Seccion 4: Formato de Reportes / Actividades */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                      Formato de Reportes y Actividades
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                      <Select
+                        label="Formato de Título"
+                        value={settings.reportTitleFormat}
+                        options={[
+                          { value: 'type_info', label: 'Detallado (Guardia STB - CPT)' },
+                          { value: 'type_only', label: 'Solo Tipo (Guardia / Curso)' }
+                        ]}
+                        onChange={(v) => handleUpdateSetting('reportTitleFormat', v)}
+                      />
+                      <Select
+                        label="Formato de Ubicación"
+                        value={settings.reportLocationFormat}
+                        options={[
+                          { value: 'time_utc', label: 'Rango Horario UTC' },
+                          { value: 'airport_only', label: 'Base / Aeropuerto' }
+                        ]}
+                        onChange={(v) => handleUpdateSetting('reportLocationFormat', v)}
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <Toggle label="Mostrar escalas (Layover) solo 30 min" checked={settings.layover30MinOnly} onChange={(v) => handleUpdateSetting('layover30MinOnly', v)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Enlace y descarga */}
+            <div className="shrink-0 space-y-3">
+              <div className="flex items-center gap-2 bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-xl p-3">
+                <input
+                  readOnly
+                  value={displayUrl}
+                  className="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-300 outline-none select-all"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  onClick={handleCopy}
+                  className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#1152d4] text-white active:scale-95 hover:opacity-90 transition-all"
+                >
+                  {copied ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-[#1152d4]/5 border border-blue-200 dark:border-[#1152d4]/20 rounded-xl p-3 space-y-1">
+                <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">📱 iOS</p>
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Configuración → Calendario → Cuentas → Agregar cuenta → Otra → Agregar calendario por suscripción
+                </p>
+                <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-2">💻 Google Calendar</p>
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Otros calendarios → Agregar por URL → pegar el enlace (solo desde PC)
+                </p>
+              </div>
+
+              {/* Botón de Guardar e Información de Estado */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={saving}
+                  className="flex-1 py-3 text-xs font-bold bg-[#1152d4] hover:bg-[#1152d4]/90 text-white rounded-xl active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <span>Guardar Preferencias</span>
+                  )}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="py-3 px-5 text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl active:scale-98 transition-all"
+                >
+                  Listo
+                </button>
+              </div>
+
+              {saveSuccess && (
+                <p className="text-[10px] text-center text-emerald-500 font-semibold animate-pulse">
+                  ✓ Preferencias guardadas. El enlace incluye un actualizador para forzar cambios en tu app de calendario.
+                </p>
+              )}
+            </div>
           </>
         )}
       </motion.div>
@@ -1348,7 +1576,21 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const handleExportCalendar = async () => {
     if (entries.length === 0) return;
 
-    const icsContent = generateRosterICS(entries, month, year);
+    let userSettings = undefined;
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('calendar_settings')
+        .eq('id', userId)
+        .single();
+      if (profile?.calendar_settings) {
+        userSettings = profile.calendar_settings;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    const icsContent = generateRosterICS(entries, month, year, userSettings);
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const file = new File([blob], `Roster-ARMS-${month}-${year}.ics`, { type: 'text/calendar' });
 
@@ -2009,6 +2251,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         {subscriptionData && (
           <SubscriptionModal
             data={subscriptionData}
+            userId={userId}
             onClose={() => setSubscriptionData(null)}
           />
         )}
