@@ -28,7 +28,8 @@ import {
   Calendar,
   Lock,
   CheckCircle,
-  Loader2
+  Loader2,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -1064,6 +1065,7 @@ export default function App() {
   const [showResetPassword, setShowResetPassword] = useState(() => {
     return window.location.hash.includes('type=recovery');
   });
+  const [registerAlert, setRegisterAlert] = useState<{ show: boolean }>({ show: false });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
@@ -1390,7 +1392,7 @@ export default function App() {
             />
             <div className="flex flex-col flex-1 overflow-y-auto">
               {!user ? (
-                <AuthScreen />
+                <AuthScreen onRegisterSuccess={() => setRegisterAlert({ show: true })} />
               ) : (
                 <LibroScreen
                   logs={logs}
@@ -1411,7 +1413,7 @@ export default function App() {
             <Header title="Mi Roster ARMS" onBack={() => setScreen('home')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
             <div className="flex-1 overflow-y-auto">
               {!user ? (
-                <AuthScreen />
+                <AuthScreen onRegisterSuccess={() => setRegisterAlert({ show: true })} />
               ) : (
                 <ArmsRosterScreen userId={user.id} />
               )}
@@ -1532,6 +1534,44 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {registerAlert.show && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setRegisterAlert({ show: false })}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
+            >
+              <div className="p-6 text-center">
+                <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-blue-50 dark:bg-blue-900/20 text-blue-500">
+                  <Info size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Registro exitoso</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Su cuenta ha sido creada con éxito. Por favor revise su correo donde encontrará las instrucciones de uso. ¡Muchas gracias!
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+                <Button
+                  className="flex-1 rounded-xl h-12 font-bold text-white shadow-lg bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"
+                  onClick={() => setRegisterAlert({ show: false })}
+                >
+                  Entendido
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
