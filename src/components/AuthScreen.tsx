@@ -69,7 +69,11 @@ export const AuthScreen = () => {
         
         if (authError) throw authError;
 
-        setSuccessAlert({ show: true, title: 'Registro exitoso', message: 'Revisa tu email para confirmar.' });
+        if (authData?.session) {
+          try { await supabase.auth.signOut(); } catch {}
+        }
+
+        setSuccessAlert({ show: true, title: 'Registro exitoso', message: 'Su cuenta ha sido creada con éxito. Por favor revise su correo donde encontrará las instrucciones de uso. ¡Muchas gracias!' });
       }
     } catch (err: any) {
       if (err.message?.includes("Invalid login credentials")) {
