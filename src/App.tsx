@@ -200,6 +200,17 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "25 de Junio, 2026",
+    version: "1.4.6",
+    items: [
+      "Preferencias de exportación: nuevo panel con filtros (Standby, Day Off, NDA, GTR, OTH, Layover, Licencias), unificación de vuelos, minutos extras post-bloque, y exclusión de tripulación.",
+      "Formato de evento personalizable: elegí entre vista combinada (ruta+vuelo+horarios), solo ruta o solo vuelo para los eventos del calendario.",
+      "Vista previa en vivo: las preferencias de formato muestran un ejemplo visual de cómo se verá el evento en el calendario antes de guardar.",
+      "Las preferencias de exportación ahora aplican también al Almanaque PDF (filtros, formato y agregación de vuelos).",
+      "Corrección: el aviso de nueva versión ahora funciona correctamente en iPad y Safari al forzar la actualización del service worker sin caché HTTP."
+    ]
+  },
+  {
     date: "23 de Junio, 2026",
     version: "1.4.5",
     items: [

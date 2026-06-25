@@ -76,6 +76,7 @@ export function generateRosterICS(
     layover30MinOnly: false,
     aggregateFlights: false,
     postFlightMinutes: 0,
+    excludeCrew: false,
     flightEventFormat: "route_flight_times",
     reportEventFormat: "type_info",
   };
@@ -157,7 +158,7 @@ export function generateRosterICS(
             `Block: ${leg.blockTime || ''}`
           );
           const crew = formatCrewForLeg(leg);
-          if (crew) {
+          if (crew && !settings.excludeCrew) {
             descParts.push(`Tripulación:\n${crew}`);
           }
           if (leg.remarks?.trim()) {
@@ -214,7 +215,7 @@ export function generateRosterICS(
             `Block: ${leg.blockTime || ''}`
           );
           const crew = formatCrewForLeg(leg);
-          if (crew) {
+          if (crew && !settings.excludeCrew) {
             descParts.push(`Tripulación:\n${crew}`);
           }
           if (leg.remarks?.trim()) {

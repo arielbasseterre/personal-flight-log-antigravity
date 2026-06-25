@@ -164,8 +164,20 @@ interface EventLine {
 function buildMonthGrid(
   entries: ArmsDayEntry[],
   month: number,
-  year: number
+  year: number,
+  settings?: any
 ): CalendarCell[][] {
+  const filtered = entries.filter(entry => {
+    if (settings?.excludeStandby && entry.eventType === 'STANDBY') return false;
+    if (settings?.excludeDayOff && entry.eventType === 'OFF') return false;
+    if (settings?.excludeLayover && entry.eventType === 'LAYOVER') return false;
+    if (settings?.excludeLeave && (entry.eventType === 'LEAVE' || entry.rawTask?.toUpperCase().startsWith('LEAVE'))) return false;
+    if (settings?.excludeNDA && entry.eventType === 'NDA') return false;
+    if (settings?.excludeGTR && entry.eventType === 'GTR') return false;
+    if (settings?.excludeOTH && entry.eventType === 'UNKNOWN') return false;
+    return true;
+  });
+
   const firstDay = new Date(year, month - 1, 1);
   const daysInMonth = new Date(year, month, 0).getDate();
 
@@ -179,7 +191,7 @@ function buildMonthGrid(
     if (i >= startCol && i < startCol + daysInMonth) {
       const day = i - startCol + 1;
       const dateISO = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const entry = entries.find(e => e.dateISO === dateISO) || null;
+      const entry = filtered.find(e => e.dateISO === dateISO) || null;
       flat.push({ dayNumber: day, entry });
     } else {
       flat.push({ dayNumber: null, entry: null });
@@ -193,33 +205,105 @@ function buildMonthGrid(
   return weeks;
 }
 
-function getEntryLines(entry: ArmsDayEntry): EventLine[] {
+function addMinutesToTime(timeStr: string | undefined, minutes: number): string {
+  if (!timeStr || minutes <= 0) return timeStr || '';
+  const parts = timeStr.split(':');
+  if (parts.length !== 2) return timeStr;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return timeStr;
+  const total = h * 60 + m + minutes;
+  const newH = Math.floor(total / 60) % 24;
+  const newM = total % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+}
+
+function getEntryLines(entry: ArmsDayEntry, settings?: any): EventLine[] {
+  const fmt = settings?.reportEventFormat || 'type_info';
   switch (entry.eventType) {
     case 'FLIGHT_OP':
     case 'FLIGHT_DH': {
       const lines: EventLine[] = [];
       const isDH = entry.eventType === 'FLIGHT_DH';
-      const isCompact = entry.legs.length > 2;
+      const legs = entry.legs;
+      const fFmt = settings?.flightEventFormat || 'route_flight_times';
+      const aggregate = settings?.aggregateFlights && legs.length > 1;
 
-      if (isCompact && entry.legs[0]?.reportTimeLoc) {
-        lines.push({ text: `Pres: ${entry.legs[0].reportTimeLoc}`, styleType: 'small' });
+      if (aggregate) {
+        const prefix = isDH ? '(DH) ' : '';
+        const firstLeg = legs[0];
+        const lastLeg = legs[legs.length - 1];
+        const routeStr = [...legs.map(l => l.origin), lastLeg.destination].join('-');
+        const flightNumbers = legs.map(l => l.flightNumber).join('-');
+        const postMin = settings?.postFlightMinutes || 0;
+        const arrTime = postMin > 0 ? addMinutesToTime(lastLeg.arrivalTimeLoc, postMin) : lastLeg.arrivalTimeLoc;
+        const timeStr = `${firstLeg.departureTimeLoc || ''} - ${arrTime || ''}`;
+
+        if (firstLeg?.reportTimeLoc) {
+          lines.push({ text: `Pres: ${firstLeg.reportTimeLoc}`, styleType: 'small' });
+        }
+
+        if (fFmt === 'flight_only') {
+          lines.push({ text: `${prefix}${flightNumbers}`, styleType: 'bold' });
+        } else if (fFmt === 'route_times') {
+          lines.push({ text: `${prefix}${routeStr}`, styleType: 'bold' });
+          lines.push({ text: timeStr, styleType: 'small' });
+        } else if (fFmt === 'flight_route_times') {
+          lines.push({ text: `${prefix}${flightNumbers} / ${routeStr}`, styleType: 'bold' });
+          lines.push({ text: timeStr, styleType: 'small' });
+        } else {
+          lines.push({ text: `${prefix}${routeStr} / ${flightNumbers}`, styleType: 'bold' });
+          lines.push({ text: timeStr, styleType: 'small' });
+        }
+        return lines;
       }
 
-      for (let i = 0; i < entry.legs.length; i++) {
-        const leg = entry.legs[i];
+      const isCompact = legs.length > 2;
+
+      if (isCompact && legs[0]?.reportTimeLoc) {
+        lines.push({ text: `Pres: ${legs[0].reportTimeLoc}`, styleType: 'small' });
+      }
+
+      for (let i = 0; i < legs.length; i++) {
+        const leg = legs[i];
         const prefix = isDH ? '(DH) ' : '';
+        const routeStr = `${leg.origin}-${leg.destination}`;
+        const isLast = i === legs.length - 1;
+        const postMin = isLast ? (settings?.postFlightMinutes || 0) : 0;
+        const arrTime = postMin > 0 ? addMinutesToTime(leg.arrivalTimeLoc, postMin) : leg.arrivalTimeLoc;
+        const timeStr = `${leg.departureTimeLoc}-${arrTime}`;
+
         if (isCompact) {
-          lines.push({ 
-            text: `${leg.origin}-${leg.destination} ${leg.departureTimeLoc}-${leg.arrivalTimeLoc} ${prefix}${leg.flightNumber}`, 
-            styleType: 'small' 
-          });
+          let text = '';
+          if (fFmt === 'flight_only') {
+            text = `${prefix}${leg.flightNumber}`;
+          } else if (fFmt === 'route_times') {
+            text = `${routeStr} ${timeStr}`;
+          } else if (fFmt === 'flight_route_times') {
+            text = `${leg.flightNumber} / ${routeStr} ${timeStr}`;
+          } else {
+            text = `${routeStr} / ${leg.flightNumber} ${timeStr}`;
+          }
+          lines.push({ text: `${prefix}${text}`, styleType: 'small' });
         } else {
           if (i > 0) lines.push({ text: '' });
-          lines.push({ text: `${leg.origin}-${leg.destination}`, styleType: 'bold' });
+
+          if (fFmt === 'flight_only') {
+            lines.push({ text: `${prefix}${leg.flightNumber}`, styleType: 'bold' });
+          } else if (fFmt === 'route_times') {
+            lines.push({ text: routeStr, styleType: 'bold' });
+            lines.push({ text: `${timeStr} ${prefix}${leg.flightNumber}`, styleType: 'small' });
+          } else if (fFmt === 'flight_route_times') {
+            lines.push({ text: `${leg.flightNumber} / ${routeStr}`, styleType: 'bold' });
+            lines.push({ text: timeStr, styleType: 'small' });
+          } else {
+            lines.push({ text: `${routeStr} / ${leg.flightNumber}`, styleType: 'bold' });
+            lines.push({ text: timeStr, styleType: 'small' });
+          }
+
           if (i === 0 && leg.reportTimeLoc) {
             lines.push({ text: `Pres: ${leg.reportTimeLoc}`, styleType: 'small' });
           }
-          lines.push({ text: `${leg.departureTimeLoc}-${leg.arrivalTimeLoc} ${prefix}${leg.flightNumber}`, styleType: 'small' });
         }
       }
       return lines;
@@ -228,20 +312,22 @@ function getEntryLines(entry: ArmsDayEntry): EventLine[] {
       const raw = (entry.rawTask || '').trim();
       const from = (entry.startTimeLoc || '').trim();
       const to = (entry.endTimeLoc || '').trim();
-      const lines: EventLine[] = [{ text: 'Guardia', styleType: 'bold' }];
+      const lines: EventLine[] = [{ text: fmt === 'type_only' ? 'Guardia' : 'Guardia (STB)', styleType: 'bold' }];
       if (from && to) lines.push({ text: `${from} - ${to}`, styleType: 'small' });
       else if (from) lines.push({ text: `Desde: ${from}`, styleType: 'small' });
       else if (to) lines.push({ text: `Hasta: ${to}`, styleType: 'small' });
-      if (raw && from && to) lines.push({ text: raw, styleType: 'small' });
-      else if (raw && !from && !to) lines.push({ text: raw, styleType: 'small' });
+      if (raw && (from || to || fmt === 'type_info')) lines.push({ text: raw, styleType: 'small' });
       return lines;
     }
     case 'GTR': {
       const raw = (entry.rawTask || '').trim();
       const times = `${entry.startTimeLoc || ''} ${entry.endTimeLoc || ''}`.trim();
-      const lines: EventLine[] = [{ text: 'Curso / GTR', styleType: 'bold' }];
-      if (raw && times) lines.push({ text: `${times} ${raw}`, styleType: 'small' });
-      else if (raw) lines.push({ text: raw, styleType: 'small' });
+      const isSim = raw.toLowerCase().includes('sim');
+      const title = fmt === 'type_only'
+        ? (isSim ? 'Simulador' : 'Curso')
+        : (isSim ? `Simulador - ${raw}` : `GTR - ${raw || 'Entrenamiento Terrestre'}`);
+      const lines: EventLine[] = [{ text: title, styleType: 'bold' }];
+      if (times && fmt === 'type_info') lines.push({ text: times, styleType: 'small' });
       else if (times) lines.push({ text: times, styleType: 'small' });
       return lines;
     }
@@ -251,7 +337,7 @@ function getEntryLines(entry: ArmsDayEntry): EventLine[] {
       return lines;
     }
     case 'OFF':
-      return [{ text: 'DÍA LIBRE (OFF)', styleType: 'off' }];
+      return [{ text: fmt === 'type_only' ? 'Libre' : 'Libre (OFF)', styleType: 'off' }];
     case 'LEAVE':
       return [{ text: entry.rawTask || 'Licencia', styleType: 'leave' }];
     case 'NDA':
@@ -265,10 +351,12 @@ function CalendarDay({
   cell,
   isWeekend,
   isEmpty,
+  settings,
 }: {
   cell: CalendarCell;
   isWeekend: boolean;
   isEmpty: boolean;
+  settings?: any;
   key?: string;
 }) {
   if (isEmpty || cell.dayNumber === null) {
@@ -276,7 +364,7 @@ function CalendarDay({
   }
 
   const hasEntry = !!cell.entry;
-  const lines = cell.entry ? getEntryLines(cell.entry) : [];
+  const lines = cell.entry ? getEntryLines(cell.entry, settings) : [];
 
   return (
     <View style={[
@@ -325,13 +413,15 @@ export function AlmanaquePDF({
   month,
   year,
   userName,
+  settings,
 }: {
   entries: ArmsDayEntry[];
   month: number;
   year: number;
   userName?: string;
+  settings?: any;
 }) {
-  const weeks = buildMonthGrid(entries, month, year);
+  const weeks = buildMonthGrid(entries, month, year, settings);
   const monthName = MONTHS[month - 1] || '';
 
   return (
@@ -365,6 +455,7 @@ export function AlmanaquePDF({
                 cell={cell}
                 isWeekend={ci >= 5}
                 isEmpty={cell.dayNumber === null}
+                settings={settings}
               />
             ))}
           </View>

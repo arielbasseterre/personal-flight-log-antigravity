@@ -961,6 +961,7 @@ app.use("/api/arms/sync-roster", authLimiter);
       layover30MinOnly: false,
       aggregateFlights: false,
       postFlightMinutes: 0,
+      excludeCrew: false,
       flightEventFormat: "route_flight_times",
       reportEventFormat: "type_info",
     };
@@ -1036,7 +1037,7 @@ app.use("/api/arms/sync-roster", authLimiter);
                 `Block: ${leg.blockTime || ''}`
               );
               const crew = formatCrewForLeg(leg);
-              if (crew) {
+              if (crew && !settings.excludeCrew) {
                 descParts.push(`Tripulación:\n${crew}`);
               }
               if (leg.remarks?.trim()) {
@@ -1327,13 +1328,27 @@ app.use("/api/arms/sync-roster", authLimiter);
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+
+    // Serve sw.js with no-cache headers so Safari/iOS always fetches the latest version
+    app.get('/sw.js', async (req, res) => {
+      try {
+        const swPath = path.join(distPath, 'sw.js');
+        const content = await fs.readFile(swPath, 'utf-8');
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.type('.js');
+        res.send(content);
+      } catch {
+        res.status(404).send('Not found');
+      }
+    });
+
     app.use(express.static(distPath, { index: false })); // Disable default index.html serving
-    
+
     app.get("*", async (req, res) => {
       try {
-        const html = await fs.readFile(path.join(distPath, "index.html"), 'utf-8');
+        let html = await fs.readFile(path.join(distPath, "index.html"), 'utf-8');
         // Inject environment variables into the <head>
-        const injectedHtml = html.replace(
+        html = html.replace(
           '<head>',
           `<head>
             <script>
@@ -1341,7 +1356,16 @@ app.use("/api/arms/sync-roster", authLimiter);
               window.VITE_SUPABASE_ANON_KEY = ${JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || '')};
             </script>`
         );
-        res.send(injectedHtml);
+        // Inject SW version for cache-busting URL
+        try {
+          const swVersionPath = path.join(distPath, 'sw-version.json');
+          const swVersionData = await fs.readFile(swVersionPath, 'utf-8');
+          const swVersion = JSON.parse(swVersionData).version;
+          html = html.replace('SW_VERSION', swVersion);
+        } catch {
+          // Fallback if sw-version.json doesn't exist (e.g., dev build)
+        }
+        res.send(html);
       } catch (e) {
         res.status(500).send("Error loading index.html");
       }

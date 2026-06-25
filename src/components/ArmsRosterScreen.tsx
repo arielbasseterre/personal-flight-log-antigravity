@@ -899,7 +899,7 @@ function ExportMenuModal({
         </div>
 
         <button
-          onClick={() => { onPreferences(); onClose(); }}
+          onClick={() => { onPreferences(); }}
           className="w-full flex items-center gap-3 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 active:scale-[0.98] transition-all text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
@@ -1042,6 +1042,7 @@ function PreferencesModal({
     layover30MinOnly: false,
     aggregateFlights: false,
     postFlightMinutes: 0,
+    excludeCrew: false,
     flightEventFormat: "route_flight_times",
     reportEventFormat: "type_info",
   });
@@ -1131,6 +1132,7 @@ function PreferencesModal({
                   <Toggle label="Excluir NDA" checked={settings.excludeNDA} onChange={(v) => handleUpdateSetting('excludeNDA', v)} />
                   <Toggle label="Excluir GTR" checked={settings.excludeGTR} onChange={(v) => handleUpdateSetting('excludeGTR', v)} />
                   <Toggle label="Excluir otros (OTH)" checked={settings.excludeOTH} onChange={(v) => handleUpdateSetting('excludeOTH', v)} />
+                  <Toggle label="Excluir tripulación de los eventos" checked={settings.excludeCrew} onChange={(v) => handleUpdateSetting('excludeCrew', v)} />
                   <Toggle label="Excluir escalas (Layover)" checked={settings.excludeLayover} onChange={(v) => handleUpdateSetting('excludeLayover', v)} />
                 </div>
               </div>
@@ -1639,7 +1641,21 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const handleExportPDF = async () => {
     if (entries.length === 0) return;
 
-    const doc = <AlmanaquePDF entries={entries} month={month} year={year} />;
+    let settings = {};
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('calendar_settings')
+        .eq('id', userId)
+        .single();
+      if (profile?.calendar_settings) {
+        settings = profile.calendar_settings;
+      }
+    } catch (err) {
+      console.error("Error loading calendar settings for PDF:", err);
+    }
+
+    const doc = <AlmanaquePDF entries={entries} month={month} year={year} settings={settings} />;
     const pdfBlob = await pdf(doc).toBlob();
     const fileName = `Almanaque-Roster-${MONTH_NAMES[month - 1]}-${year}.pdf`;
 
