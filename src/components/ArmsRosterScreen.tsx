@@ -918,13 +918,13 @@ function SubscriptionModal({
   const [copied, setCopied] = useState(false);
   const [settings, setSettings] = useState<any>({
     exportTodayOnwards: false,
-    excludeDeadhead: false,
     excludeStandby: false,
     excludeDayOff: false,
-    excludeReport: false,
-    excludeSimulator: false,
-    excludeDebrief: false,
     excludeLayover: false,
+    excludeLeave: false,
+    excludeNDA: false,
+    excludeGTR: false,
+    excludeOTH: false,
     layover30MinOnly: false,
     aggregateFlights: false,
     postFlightMinutes: 0,
@@ -1081,12 +1081,12 @@ function SubscriptionModal({
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
                       <Toggle label="Exportar solo desde hoy" checked={settings.exportTodayOnwards} onChange={(v) => handleUpdateSetting('exportTodayOnwards', v)} />
-                      <Toggle label="Excluir vuelos Deadhead (DH)" checked={settings.excludeDeadhead} onChange={(v) => handleUpdateSetting('excludeDeadhead', v)} />
                       <Toggle label="Excluir guardias (Standby)" checked={settings.excludeStandby} onChange={(v) => handleUpdateSetting('excludeStandby', v)} />
                       <Toggle label="Excluir días libres (Day Off)" checked={settings.excludeDayOff} onChange={(v) => handleUpdateSetting('excludeDayOff', v)} />
-                      <Toggle label="Excluir reporte / firmas" checked={settings.excludeReport} onChange={(v) => handleUpdateSetting('excludeReport', v)} />
-                      <Toggle label="Excluir simuladores" checked={settings.excludeSimulator} onChange={(v) => handleUpdateSetting('excludeSimulator', v)} />
-                      <Toggle label="Excluir debriefs" checked={settings.excludeDebrief} onChange={(v) => handleUpdateSetting('excludeDebrief', v)} />
+                      <Toggle label="Excluir licencias (Leaves)" checked={settings.excludeLeave} onChange={(v) => handleUpdateSetting('excludeLeave', v)} />
+                      <Toggle label="Excluir NDA" checked={settings.excludeNDA} onChange={(v) => handleUpdateSetting('excludeNDA', v)} />
+                      <Toggle label="Excluir GTR" checked={settings.excludeGTR} onChange={(v) => handleUpdateSetting('excludeGTR', v)} />
+                      <Toggle label="Excluir otros (OTH)" checked={settings.excludeOTH} onChange={(v) => handleUpdateSetting('excludeOTH', v)} />
                       <Toggle label="Excluir escalas (Layover)" checked={settings.excludeLayover} onChange={(v) => handleUpdateSetting('excludeLayover', v)} />
                     </div>
                   </div>

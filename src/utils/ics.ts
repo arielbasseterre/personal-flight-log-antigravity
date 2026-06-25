@@ -66,13 +66,13 @@ export function generateRosterICS(
 
   const defaultSettings = {
     exportTodayOnwards: false,
-    excludeDeadhead: false,
     excludeStandby: false,
     excludeDayOff: false,
-    excludeReport: false,
-    excludeSimulator: false,
-    excludeDebrief: false,
     excludeLayover: false,
+    excludeLeave: false,
+    excludeNDA: false,
+    excludeGTR: false,
+    excludeOTH: false,
     layover30MinOnly: false,
     aggregateFlights: false,
     postFlightMinutes: 0,
@@ -107,23 +107,17 @@ export function generateRosterICS(
     const isGtr = entry.eventType === 'GTR';
     const isLayover = entry.eventType === 'LAYOVER';
     const isLeave = isLeaveEntry(entry);
+    const isNDA = entry.eventType === 'NDA';
+    const isOther = entry.eventType === 'UNKNOWN';
 
     // Filtering
-    if (isDH && settings.excludeDeadhead) continue;
     if (isStandby && settings.excludeStandby) continue;
     if (isDayOff && settings.excludeDayOff) continue;
     if (isLayover && settings.excludeLayover) continue;
-
-    if (isGtr) {
-      const taskLower = (entry.rawTask || '').toLowerCase();
-      const isSim = taskLower.includes('sim') || taskLower.includes('simulator') || (entry.eventType as string) === 'SIMULATOR';
-      const isReportEvent = taskLower.includes('report') || taskLower.includes('firma') || taskLower.includes('present');
-      const isDebriefEvent = taskLower.includes('debrief');
-
-      if (isSim && settings.excludeSimulator) continue;
-      if (isReportEvent && settings.excludeReport) continue;
-      if (isDebriefEvent && settings.excludeDebrief) continue;
-    }
+    if (isLeave && settings.excludeLeave) continue;
+    if (isNDA && settings.excludeNDA) continue;
+    if (isOther && settings.excludeOTH) continue;
+    if (isGtr && settings.excludeGTR) continue;
 
     if (isFlight) {
       const legs = entry.legs || [];
@@ -158,7 +152,7 @@ export function generateRosterICS(
         const descParts: string[] = [];
         legs.forEach((leg, idx) => {
           descParts.push(`--- Tramo ${idx + 1}: ${leg.origin} - ${leg.destination} (${leg.flightNumber}) ---`);
-          if (leg.reportTimeLoc && !settings.excludeReport) {
+          if (leg.reportTimeLoc) {
             descParts.push(`Presentación: ${leg.reportTimeLoc} local`);
           }
           descParts.push(
@@ -215,7 +209,7 @@ export function generateRosterICS(
             `Vuelo: ${leg.flightNumber}${suffix}`,
             `Ruta: ${leg.origin} - ${leg.destination}`
           ];
-          if (leg.reportTimeLoc && !settings.excludeReport) {
+          if (leg.reportTimeLoc) {
             descParts.push(`Presentación: ${leg.reportTimeLoc} local`);
           }
           descParts.push(
@@ -322,9 +316,33 @@ export function generateRosterICS(
       lines.push(`DTEND;VALUE=DATE:${toICSDate(entry.dateISO)}`);
       lines.push(`SUMMARY:${escapeICS(title)}`);
       lines.push('END:VEVENT');
-    } else if (isLeave || entry.eventType === 'NDA') {
+    } else if (isLeave) {
+      const uid = `arms-${entry.dateISO}-leave@flightlog`;
+      let title = `Licencia: ${entry.rawTask || ''}`;
+
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${uid}`);
+      lines.push(`DTSTAMP:${now}`);
+      lines.push(`DTSTART;VALUE=DATE:${toICSDate(entry.dateISO)}`);
+      lines.push(`DTEND;VALUE=DATE:${toICSDate(entry.dateISO)}`);
+      lines.push(`SUMMARY:${escapeICS(title)}`);
+      if (entry.rawTask) lines.push(`DESCRIPTION:${escapeICS(entry.rawTask)}`);
+      lines.push('END:VEVENT');
+    } else if (isNDA) {
       const uid = `arms-${entry.dateISO}-nda@flightlog`;
-      let title = isLeave ? `Licencia: ${entry.rawTask || ''}` : `Actividad (NDA) - ${entry.rawTask || ''}`;
+      let title = `Actividad (NDA) - ${entry.rawTask || ''}`;
+
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${uid}`);
+      lines.push(`DTSTAMP:${now}`);
+      lines.push(`DTSTART;VALUE=DATE:${toICSDate(entry.dateISO)}`);
+      lines.push(`DTEND;VALUE=DATE:${toICSDate(entry.dateISO)}`);
+      lines.push(`SUMMARY:${escapeICS(title)}`);
+      if (entry.rawTask) lines.push(`DESCRIPTION:${escapeICS(entry.rawTask)}`);
+      lines.push('END:VEVENT');
+    } else if (isOther) {
+      const uid = `arms-${entry.dateISO}-oth@flightlog`;
+      let title = `Otro: ${entry.rawTask || ''}`;
 
       lines.push('BEGIN:VEVENT');
       lines.push(`UID:${uid}`);
