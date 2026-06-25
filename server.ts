@@ -29,7 +29,7 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       workerSrc: ["'self'", "blob:"],
       connectSrc: ["'self'", "https://mexnmpbpqtccaulekupo.supabase.co"],
       imgSrc: ["'self'", "data:"],
