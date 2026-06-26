@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { heroBase64 } from './assets/hero-base64';
 import {
   Plane,
@@ -1083,6 +1083,7 @@ export default function App() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+  const handledSW = useRef<Set<ServiceWorker>>(new Set());
 
   const fetchData = async (userId: string) => {
     if (!supabase) return null;
@@ -1285,7 +1286,8 @@ export default function App() {
     let mounted = true;
 
     const activateUpdate = (sw: ServiceWorker) => {
-      if (!mounted) return;
+      if (!mounted || handledSW.current.has(sw)) return;
+      handledSW.current.add(sw);
       setShowUpdateBanner(true);
       setTimeout(() => { sw.postMessage('SKIP_WAITING'); }, 2000);
     };

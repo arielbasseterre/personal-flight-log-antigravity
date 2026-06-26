@@ -818,16 +818,14 @@ function NoChangesAlert({ onClose }: { onClose: () => void }) {
 }
 
 function ExportMenuModal({
-  onCalendar,
   onPDF,
   onSubscribe,
-  onPreferences,
+  onICS,
   onClose,
 }: {
-  onCalendar: () => void;
   onPDF: () => void;
   onSubscribe: () => void;
-  onPreferences: () => void;
+  onICS: () => void;
   onClose: () => void;
 }) {
   return (
@@ -853,16 +851,16 @@ function ExportMenuModal({
         </p>
 
         <button
-          onClick={() => { onCalendar(); onClose(); }}
+          onClick={() => { onICS(); onClose(); }}
           className="w-full flex items-center gap-3 p-4 rounded-xl bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-200 dark:border-[#1152d4]/30 active:scale-[0.98] transition-all text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-[#1152d4]/20 flex items-center justify-center shrink-0">
             <Calendar size={20} className="text-[#1152d4]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900 dark:text-white">Exportar a Calendario</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">Exportar Calendario (.ICS)</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
-              Archivo .ICS para importar en Google Calendar o Apple Calendar
+              Configurar filtros y descargar archivo .ICS
             </p>
           </div>
         </button>
@@ -898,21 +896,6 @@ function ExportMenuModal({
             </div>
           </button>
         </div>
-
-        <button
-          onClick={() => { onPreferences(); }}
-          className="w-full flex items-center gap-3 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 active:scale-[0.98] transition-all text-left"
-        >
-          <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
-            <Settings size={20} className="text-slate-600 dark:text-slate-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900 dark:text-white">Preferencias de Exportación</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
-              Configura filtros, formatos y unificación de vuelos
-            </p>
-          </div>
-        </button>
 
         <button
           onClick={onClose}
@@ -1174,9 +1157,254 @@ function PreferencesModal({
 
         {saveSuccess && (
           <p className="text-[10px] text-center text-emerald-500 font-semibold animate-pulse">
-            ✓ Preferencias guardadas.
+                      ✓ Preferencias guardadas.
           </p>
         )}
+      </motion.div>
+    </motion.div>
+  );
+}
+function ExportICSModal({
+  entries,
+  month,
+  year,
+  userId,
+  onClose,
+}: {
+  entries: ArmsDayEntry[];
+  month: number;
+  year: number;
+  userId: string;
+  onClose: () => void;
+}) {
+  const [settings, setSettings] = useState<any>({
+    exportTodayOnwards: false,
+    excludeStandby: false,
+    excludeDayOff: false,
+    excludeLayover: false,
+    excludeLeave: false,
+    excludeNDA: false,
+    excludeGTR: false,
+    excludeOTH: false,
+    layover30MinOnly: false,
+    aggregateFlights: false,
+    postFlightMinutes: 0,
+    excludeCrew: false,
+    flightEventFormat: "route_flight_times",
+    reportEventFormat: "type_info",
+  });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('calendar_settings')
+          .eq('id', userId)
+          .single();
+        if (profile?.calendar_settings) {
+          setSettings((prev: any) => ({ ...prev, ...profile.calendar_settings }));
+        }
+      } catch (err) {
+        console.error("Error loading calendar settings:", err);
+      } finally {
+        setSettingsLoading(false);
+      }
+    }
+    loadSettings();
+  }, [userId]);
+
+  const handleUpdateSetting = (key: string, value: any) => {
+    setSettings((prev: any) => ({ ...prev, [key]: value }));
+  };
+
+  const handleExport = () => {
+    if (entries.length === 0) return;
+    setExporting(true);
+    try {
+      const icsContent = generateRosterICS(entries, month, year, settings);
+      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+      const file = new File([blob], `Roster-ARMS-${month}-${year}.ics`, { type: 'text/calendar' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: `Roster ARMS ${month}/${year}` }).catch(() => {});
+        setExporting(false);
+        onClose();
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Roster-ARMS-${month}-${year}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error exporting ICS:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-md bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] flex flex-col"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <div className="shrink-0">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">
+            Exportar Calendario (.ICS)
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-1">
+            Ajustá los filtros antes de exportar
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0 py-2 border-y border-slate-200 dark:border-[#2d3748]">
+          {settingsLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 size={24} className="text-[#1152d4] animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Filtros
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
+                  <Toggle label="Solo desde hoy" checked={settings.exportTodayOnwards} onChange={(v) => handleUpdateSetting('exportTodayOnwards', v)} />
+                  <Toggle label="Excluir Standby" checked={settings.excludeStandby} onChange={(v) => handleUpdateSetting('excludeStandby', v)} />
+                  <Toggle label="Excluir Day Off" checked={settings.excludeDayOff} onChange={(v) => handleUpdateSetting('excludeDayOff', v)} />
+                  <Toggle label="Excluir Leaves" checked={settings.excludeLeave} onChange={(v) => handleUpdateSetting('excludeLeave', v)} />
+                  <Toggle label="Excluir NDA" checked={settings.excludeNDA} onChange={(v) => handleUpdateSetting('excludeNDA', v)} />
+                  <Toggle label="Excluir GTR" checked={settings.excludeGTR} onChange={(v) => handleUpdateSetting('excludeGTR', v)} />
+                  <Toggle label="Excluir OTH" checked={settings.excludeOTH} onChange={(v) => handleUpdateSetting('excludeOTH', v)} />
+                  <Toggle label="Excluir tripulación" checked={settings.excludeCrew} onChange={(v) => handleUpdateSetting('excludeCrew', v)} />
+                  <Toggle label="Excluir Layover" checked={settings.excludeLayover} onChange={(v) => handleUpdateSetting('excludeLayover', v)} />
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Unificación
+                </h4>
+                <div className="space-y-3">
+                  <Toggle label="Unificar vuelos del día" checked={settings.aggregateFlights} onChange={(v) => handleUpdateSetting('aggregateFlights', v)} />
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-slate-700 dark:text-slate-300">Minutos extra post-bloque</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={settings.postFlightMinutes}
+                      onChange={(e) => handleUpdateSetting('postFlightMinutes', Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-16 text-center text-xs bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-lg p-1.5 text-slate-700 dark:text-slate-300 outline-none focus:border-[#1152d4]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Vista Previa
+                </h4>
+                <div className="bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-xl p-3 space-y-1 mb-2">
+                  <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
+                    {formatFlightPreview(settings.flightEventFormat).summary}
+                  </p>
+                  {formatFlightPreview(settings.flightEventFormat).location && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {formatFlightPreview(settings.flightEventFormat).location}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    {formatFlightPreview(settings.flightEventFormat).description}
+                  </p>
+                  <div className="border-t border-slate-200 dark:border-[#2d3748] my-1" />
+                  <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
+                    {formatReportPreview(settings.reportEventFormat).summary}
+                  </p>
+                  {formatReportPreview(settings.reportEventFormat).location && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {formatReportPreview(settings.reportEventFormat).location}
+                    </p>
+                  )}
+                  {formatReportPreview(settings.reportEventFormat).description && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {formatReportPreview(settings.reportEventFormat).description}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-slate-400 dark:text-slate-600 mt-1 italic">
+                    Vista previa basada en datos de ejemplo.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Formato de Vuelos
+                </h4>
+                <div className="mt-2">
+                  <Select
+                    label="Formato de evento"
+                    value={settings.flightEventFormat}
+                    options={FLIGHT_EVENT_FORMATS.map(f => ({ value: f.value, label: f.label }))}
+                    onChange={(v) => handleUpdateSetting('flightEventFormat', v)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Formato de Reportes
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <Select
+                    label="Formato de evento"
+                    value={settings.reportEventFormat}
+                    options={REPORT_EVENT_FORMATS.map(f => ({ value: f.value, label: f.label }))}
+                    onChange={(v) => handleUpdateSetting('reportEventFormat', v)}
+                  />
+                </div>
+                <div className="mt-2">
+                  <Toggle label="Mostrar Layover solo 30 min" checked={settings.layover30MinOnly} onChange={(v) => handleUpdateSetting('layover30MinOnly', v)} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={handleExport}
+          disabled={exporting || entries.length === 0}
+          className="w-full py-3 text-sm font-bold bg-[#1152d4] text-white rounded-xl active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {exporting ? (
+            <><Loader2 size={14} className="animate-spin" /> Exportando...</>
+          ) : (
+            <><Download size={14} /> Descargar .ICS</>
+          )}
+        </button>
+
+        <button
+          onClick={onClose}
+          className="w-full py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+        >
+          Cerrar
+        </button>
       </motion.div>
     </motion.div>
   );
@@ -1233,6 +1461,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   // ── Estado del menú de exportación ─────────────────────────────────────
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
+  const [showICSExport, setShowICSExport] = useState(false);
 
   // ── Estado de modal de enlaces de calendario ──────────────────────────
   const [showTokensModal, setShowTokensModal] = useState(false);
@@ -1509,52 +1738,6 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     } else {
       setShowCredentials(true);
     }
-  };
-
-  // ╔═════════════════════════════════════════════════════════════════════╗
-  // ║  EXPORTAR A CALENDARIO — ICS file share / download                ║
-  // ╚═════════════════════════════════════════════════════════════════════╝
-  const handleExportCalendar = async () => {
-    if (entries.length === 0) return;
-
-    let userSettings = undefined;
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('calendar_settings')
-        .eq('id', userId)
-        .single();
-      if (profile?.calendar_settings) {
-        userSettings = profile.calendar_settings;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    const icsContent = generateRosterICS(entries, month, year, userSettings);
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const file = new File([blob], `Roster-ARMS-${month}-${year}.ics`, { type: 'text/calendar' });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: `Roster ARMS ${month}/${year}`,
-        });
-        return;
-      } catch {
-        // user cancelled or share failed — fall back to download
-      }
-    }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Roster-ARMS-${month}-${year}.ics`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   // ╔═════════════════════════════════════════════════════════════════════╗
@@ -2167,14 +2350,13 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         )}
       </AnimatePresence>
 
-      {/* Modal de Exportación (Calendario / PDF / Suscripción) */}
+      {/* Modal de Exportación (PDF / Suscripción) */}
       <AnimatePresence>
         {showExportMenu && (
           <ExportMenuModal
-            onCalendar={handleExportCalendar}
             onPDF={handleExportPDF}
             onSubscribe={() => setShowTokensModal(true)}
-            onPreferences={() => setShowPreferences(true)}
+            onICS={() => setShowICSExport(true)}
             onClose={() => setShowExportMenu(false)}
           />
         )}
@@ -2197,6 +2379,19 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           <PreferencesModal
             userId={userId}
             onClose={() => setShowPreferences(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Exportar .ICS */}
+      <AnimatePresence>
+        {showICSExport && (
+          <ExportICSModal
+            entries={entries}
+            month={month}
+            year={year}
+            userId={userId}
+            onClose={() => setShowICSExport(false)}
           />
         )}
       </AnimatePresence>
