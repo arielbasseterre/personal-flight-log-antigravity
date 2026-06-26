@@ -1304,22 +1304,25 @@ export default function App() {
 
       const checkUpdate = () => reg.update();
 
-      const onStateChange = () => {
-        if (reg.installing?.state === 'installed' && navigator.serviceWorker.controller) {
-          activateUpdate(reg.installing);
-        }
-      };
-
       if (reg.waiting) activateUpdate(reg.waiting);
 
       if (reg.installing) {
-        reg.installing.addEventListener('statechange', onStateChange);
+        const sw = reg.installing;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+            activateUpdate(sw);
+          }
+        });
       }
 
       reg.addEventListener('updatefound', () => {
-        if (reg.installing) {
-          reg.installing.addEventListener('statechange', onStateChange);
-        }
+        const sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+            activateUpdate(sw);
+          }
+        });
       });
 
       navigator.serviceWorker.addEventListener('controllerchange', () => {
