@@ -30,24 +30,26 @@ export function formatFlightPreview(flightEventFormat: string): FlightPreview {
   const aircraft = 'B738';
   const block = '2:05';
 
+  const descLine = `${origin} ${depTimeLoc} → ${dest} ${arrTimeLoc} local`;
+
   switch (flightEventFormat) {
     case 'route_flight_times':
       return {
         summary: `${origin}-${dest} / ${flight}`,
-        location: `${depTimeLoc} - ${arrTimeLoc}`,
-        description: `${depIcao}→${arrIcao} • ${aircraft} • ${block}`,
+        location: '',
+        description: `${descLine} • ${depIcao}→${arrIcao} • ${aircraft} • ${block}`,
       };
     case 'flight_route_times':
       return {
         summary: `${flight} / ${origin}-${dest}`,
-        location: `${depTimeLoc} - ${arrTimeLoc}`,
-        description: `${depIcao}→${arrIcao} • ${aircraft} • ${block}`,
+        location: '',
+        description: `${descLine} • ${depIcao}→${arrIcao} • ${aircraft} • ${block}`,
       };
     case 'route_times':
       return {
         summary: `${origin}-${dest}`,
-        location: `${depTimeLoc} - ${arrTimeLoc}`,
-        description: `${depIcao}→${arrIcao} • ${aircraft} • ${block}`,
+        location: '',
+        description: `${descLine} • ${depIcao}→${arrIcao} • ${aircraft} • ${block}`,
       };
     case 'flight_only':
       return {

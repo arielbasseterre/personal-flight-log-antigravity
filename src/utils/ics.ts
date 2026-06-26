@@ -52,6 +52,19 @@ function addMinutesToUtcTime(dateISO: string, timeUTC: string, minutes: number):
   return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 }
 
+function adjustLocalTime(timeStr: string, minutes: number): string {
+  if (!timeStr || minutes <= 0) return timeStr;
+  const cleaned = timeStr.replace(':', '');
+  if (cleaned.length < 4) return timeStr;
+  const h = parseInt(cleaned.substring(0, 2), 10);
+  const m = parseInt(cleaned.substring(2, 4), 10);
+  if (isNaN(h) || isNaN(m)) return timeStr;
+  const totalMinutes = (h * 60 + m + minutes) % 1440;
+  const nh = Math.floor(totalMinutes / 60);
+  const nm = totalMinutes % 60;
+  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+}
+
 function isLeaveEntry(entry: ArmsDayEntry): boolean {
   return entry.eventType === 'LEAVE' || entry.rawTask?.toUpperCase().startsWith('LEAVE') || (entry.eventType === 'NDA' && entry.rawTask?.toUpperCase().includes('LEAVE'));
 }
@@ -129,32 +142,33 @@ export function generateRosterICS(
         const flightNumbers = legs.map(l => l.flightNumber).join('-');
 
         const routeStr = [...legs.map(l => l.origin), lastLeg.destination].join('-');
-        const timeStr = `${firstLeg.departureTimeLoc || ''} - ${lastLeg.arrivalTimeLoc || ''}`;
 
         let summary = '';
-        let location = '';
+        const location = '';
         if (settings.flightEventFormat === 'route_flight_times') {
           summary = `${routeStr} / ${flightNumbers}${suffix}`;
-          location = timeStr;
         } else if (settings.flightEventFormat === 'flight_route_times') {
           summary = `${flightNumbers} / ${routeStr}${suffix}`;
-          location = timeStr;
         } else if (settings.flightEventFormat === 'route_times') {
           summary = `${routeStr}${suffix}`;
-          location = timeStr;
         } else {
           summary = `${flightNumbers}${suffix}`;
         }
 
         const descParts: string[] = [];
         legs.forEach((leg, idx) => {
+          const isLastLeg = idx === legs.length - 1;
           descParts.push(`--- Tramo ${idx + 1}: ${leg.origin} - ${leg.destination} (${leg.flightNumber}) ---`);
           if (leg.reportTimeLoc) {
             descParts.push(`Presentación: ${leg.reportTimeLoc} local`);
           }
+          const depLoc = leg.departureTimeLoc || '';
+          const arrLoc = leg.arrivalTimeLoc || '';
+          const adjArrLoc = isLastLeg && settings.postFlightMinutes > 0
+            ? adjustLocalTime(arrLoc, settings.postFlightMinutes)
+            : arrLoc;
           descParts.push(
-            `Salida: ${leg.departureTimeLoc || ''} local`,
-            `Llegada: ${leg.arrivalTimeLoc || ''} local`,
+            `Horario: ${leg.origin} ${depLoc} → ${leg.destination} ${adjArrLoc} local${isLastLeg && settings.postFlightMinutes > 0 ? ` (+${settings.postFlightMinutes} min)` : ''}`,
             `Block: ${leg.blockTime || ''}`
           );
           const crew = formatCrewForLeg(leg);
@@ -185,19 +199,15 @@ export function generateRosterICS(
 
           const suffix = isDH ? ' (DH)' : '';
           const routeStr = `${leg.origin} - ${leg.destination}`;
-          const timeStr = `${leg.departureTimeLoc || ''} - ${leg.arrivalTimeLoc || ''}`;
 
           let summary = '';
-          let location = '';
+          const location = '';
           if (settings.flightEventFormat === 'route_flight_times') {
             summary = `${routeStr} / ${leg.flightNumber}${suffix}`;
-            location = timeStr;
           } else if (settings.flightEventFormat === 'flight_route_times') {
             summary = `${leg.flightNumber} / ${routeStr}${suffix}`;
-            location = timeStr;
           } else if (settings.flightEventFormat === 'route_times') {
             summary = `${routeStr}${suffix}`;
-            location = timeStr;
           } else {
             summary = `${leg.flightNumber}${suffix}`;
           }
@@ -209,9 +219,14 @@ export function generateRosterICS(
           if (leg.reportTimeLoc) {
             descParts.push(`Presentación: ${leg.reportTimeLoc} local`);
           }
+          const isLastLeg = idx === legs.length - 1;
+          const depLoc = leg.departureTimeLoc || '';
+          const arrLoc = leg.arrivalTimeLoc || '';
+          const adjArrLoc = isLastLeg && settings.postFlightMinutes > 0
+            ? adjustLocalTime(arrLoc, settings.postFlightMinutes)
+            : arrLoc;
           descParts.push(
-            `Salida: ${leg.departureTimeLoc || ''} local`,
-            `Llegada: ${leg.arrivalTimeLoc || ''} local`,
+            `Horario: ${leg.origin} ${depLoc} → ${leg.destination} ${adjArrLoc} local${isLastLeg && settings.postFlightMinutes > 0 ? ` (+${settings.postFlightMinutes} min)` : ''}`,
             `Block: ${leg.blockTime || ''}`
           );
           const crew = formatCrewForLeg(leg);
@@ -226,7 +241,6 @@ export function generateRosterICS(
           lines.push(`UID:arms-${entry.dateISO}-${leg.flightNumber}-${idx}@flightlog`);
           lines.push(`DTSTAMP:${now}`);
           lines.push(`DTSTART:${toICSDatetime(entry.dateISO, leg.departureTimeUtc)}`);
-          const isLastLeg = idx === legs.length - 1;
           const dtEnd = (isLastLeg && settings.postFlightMinutes > 0)
             ? addMinutesToUtcTime(entry.dateISO, leg.arrivalTimeUtc || '', settings.postFlightMinutes)
             : toICSDatetime(entry.dateISO, leg.arrivalTimeUtc);
