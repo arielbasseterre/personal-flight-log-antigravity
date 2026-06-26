@@ -1248,7 +1248,7 @@ app.use("/api/arms/sync-roster", authLimiter);
     try {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('calendar_settings')
+        .select('calendar_settings, email')
         .eq('id', user_id)
         .single();
 
@@ -1278,6 +1278,7 @@ app.use("/api/arms/sync-roster", authLimiter);
         .from('calendar_tokens')
         .insert({
           user_id,
+          user_email: profile?.email || null,
           token,
           label: label || 'Sin nombre',
           settings,
