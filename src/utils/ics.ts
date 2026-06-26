@@ -86,7 +86,6 @@ export function generateRosterICS(
     excludeNDA: false,
     excludeGTR: false,
     excludeOTH: false,
-    layover30MinOnly: false,
     aggregateFlights: false,
     postFlightMinutes: 0,
     excludeCrew: false,
@@ -302,17 +301,8 @@ export function generateRosterICS(
       lines.push('BEGIN:VEVENT');
       lines.push(`UID:${uid}`);
       lines.push(`DTSTAMP:${now}`);
-
-      if (settings.layover30MinOnly) {
-        const startUtc = "12:00";
-        const endUtc = "12:30";
-        lines.push(`DTSTART:${toICSDatetime(entry.dateISO, startUtc)}`);
-        lines.push(`DTEND:${toICSDatetime(entry.dateISO, endUtc)}`);
-      } else {
-        lines.push(`DTSTART;VALUE=DATE:${toICSDate(entry.dateISO)}`);
-        lines.push(`DTEND;VALUE=DATE:${toICSDate(entry.dateISO)}`);
-      }
-
+      lines.push(`DTSTART;VALUE=DATE:${toICSDate(entry.dateISO)}`);
+      lines.push(`DTEND;VALUE=DATE:${toICSDate(entry.dateISO)}`);
       lines.push(`SUMMARY:${escapeICS(title)}`);
       lines.push(`DESCRIPTION:${escapeICS(description)}`);
       lines.push('END:VEVENT');

@@ -948,16 +948,15 @@ function PreferencesModal({
     excludeNDA: false,
     excludeGTR: false,
     excludeOTH: false,
-    layover30MinOnly: false,
     aggregateFlights: false,
     postFlightMinutes: 0,
     excludeCrew: false,
     flightEventFormat: "route_flight_times",
     reportEventFormat: "type_info",
   });
-  const [settingsLoading, setSettingsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
     async function loadSettings() {
@@ -1127,9 +1126,6 @@ function PreferencesModal({
                     onChange={(v) => handleUpdateSetting('reportEventFormat', v)}
                   />
                 </div>
-                <div className="mt-2">
-                  <Toggle label="Mostrar escalas (Layover) solo 30 min" checked={settings.layover30MinOnly} onChange={(v) => handleUpdateSetting('layover30MinOnly', v)} />
-                </div>
               </div>
             </div>
           )}
@@ -1186,7 +1182,6 @@ function ExportICSModal({
     excludeNDA: false,
     excludeGTR: false,
     excludeOTH: false,
-    layover30MinOnly: false,
     aggregateFlights: false,
     postFlightMinutes: 0,
     excludeCrew: false,
@@ -1372,25 +1367,22 @@ function ExportICSModal({
                   Formato de Reportes
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <Select
-                    label="Formato de evento"
-                    value={settings.reportEventFormat}
-                    options={REPORT_EVENT_FORMATS.map(f => ({ value: f.value, label: f.label }))}
-                    onChange={(v) => handleUpdateSetting('reportEventFormat', v)}
-                  />
-                </div>
-                <div className="mt-2">
-                  <Toggle label="Mostrar Layover solo 30 min" checked={settings.layover30MinOnly} onChange={(v) => handleUpdateSetting('layover30MinOnly', v)} />
+                    <Select
+                      label="Formato de evento"
+                      value={settings.reportEventFormat}
+                      options={REPORT_EVENT_FORMATS.map(f => ({ value: f.value, label: f.label }))}
+                      onChange={(v) => handleUpdateSetting('reportEventFormat', v)}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <button
-          onClick={handleExport}
-          disabled={exporting || entries.length === 0}
-          className="w-full py-3 text-sm font-bold bg-[#1152d4] text-white rounded-xl active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          <button
+            onClick={handleExport}
+            disabled={exporting || entries.length === 0}
+            className="w-full py-3 text-sm font-bold bg-[#1152d4] text-white rounded-xl active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {exporting ? (
             <><Loader2 size={14} className="animate-spin" /> Exportando...</>

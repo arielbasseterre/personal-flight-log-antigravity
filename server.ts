@@ -970,16 +970,15 @@ app.use("/api/arms/sync-roster", authLimiter);
       excludeLeave: false,
       excludeNDA: false,
       excludeGTR: false,
-      excludeOTH: false,
-      layover30MinOnly: false,
-      aggregateFlights: false,
-      postFlightMinutes: 0,
-      excludeCrew: false,
-      flightEventFormat: "route_flight_times",
-      reportEventFormat: "type_info",
-    };
+    excludeOTH: false,
+    aggregateFlights: false,
+    postFlightMinutes: 0,
+    excludeCrew: false,
+    flightEventFormat: "route_flight_times",
+    reportEventFormat: "type_info",
+  };
 
-    const settings = { ...defaultSettings, ...customSettings };
+  const settings = { ...defaultSettings, ...customSettings };
 
     for (const md of monthsData) {
       for (const entry of md.entries) {
@@ -1181,17 +1180,8 @@ app.use("/api/arms/sync-roster", authLimiter);
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:${uid}`);
           lines.push(`DTSTAMP:${now}`);
-
-          if (settings.layover30MinOnly) {
-            const startUtc = "12:00";
-            const endUtc = "12:30";
-            lines.push(`DTSTART:${toICSDatetime(entry.dateISO, startUtc)}`);
-            lines.push(`DTEND:${toICSDatetime(entry.dateISO, endUtc)}`);
-          } else {
-            lines.push(`DTSTART;VALUE=DATE:${toICSDate(entry.dateISO)}`);
-            lines.push(`DTEND;VALUE=DATE:${toICSDate(entry.dateISO)}`);
-          }
-
+          lines.push(`DTSTART;VALUE=DATE:${toICSDate(entry.dateISO)}`);
+          lines.push(`DTEND;VALUE=DATE:${toICSDate(entry.dateISO)}`);
           lines.push(`SUMMARY:${escapeICS(title)}`);
           lines.push(`DESCRIPTION:${escapeICS(description)}`);
           lines.push('END:VEVENT');
@@ -1283,7 +1273,6 @@ app.use("/api/arms/sync-roster", authLimiter);
         flightEventFormat: 'route_flight_times',
         reportEventFormat: 'type_only',
         postFlightMinutes: 0,
-        layover30MinOnly: false,
       };
       const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.headers.host || 'localhost:5173'}`;
 
