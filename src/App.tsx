@@ -1290,27 +1290,32 @@ export default function App() {
       setTimeout(() => { sw.postMessage('SKIP_WAITING'); }, 2000);
     };
 
-    navigator.serviceWorker.ready.then((reg) => {
+    const initSW = async () => {
+      try {
+        await navigator.serviceWorker.register(`/sw.js?v=${import.meta.env.VITE_BUILD_TIME}`);
+      } catch (err) {
+        console.log('SW registration failed', err);
+        return;
+      }
+      if (!mounted) return;
+
+      const reg = await navigator.serviceWorker.ready;
       if (!mounted) return;
 
       const checkUpdate = () => reg.update();
 
-      // Single named listener — browser discards duplicates on same target
       const onStateChange = () => {
         if (reg.installing?.state === 'installed' && navigator.serviceWorker.controller) {
           activateUpdate(reg.installing);
         }
       };
 
-      // Handle SW that is already waiting to activate (from previous load)
       if (reg.waiting) activateUpdate(reg.waiting);
 
-      // Handle SW currently being installed
       if (reg.installing) {
         reg.installing.addEventListener('statechange', onStateChange);
       }
 
-      // Handle future updates (if updatefound fires again)
       reg.addEventListener('updatefound', () => {
         if (reg.installing) {
           reg.installing.addEventListener('statechange', onStateChange);
@@ -1331,7 +1336,9 @@ export default function App() {
         clearInterval(interval);
         document.removeEventListener('visibilitychange', onVisibility);
       };
-    });
+    };
+
+    const cleanup = initSW();
     return () => { mounted = false; };
   }, []);
 

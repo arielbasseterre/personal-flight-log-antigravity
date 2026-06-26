@@ -1451,15 +1451,6 @@ app.use("/api/arms/sync-roster", authLimiter);
               window.VITE_SUPABASE_ANON_KEY = ${JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || '')};
             </script>`
         );
-        // Inject SW version for cache-busting URL
-        try {
-          const swVersionPath = path.join(distPath, 'sw-version.json');
-          const swVersionData = await fs.readFile(swVersionPath, 'utf-8');
-          const swVersion = JSON.parse(swVersionData).version;
-          html = html.replace('SW_VERSION', swVersion);
-        } catch {
-          // Fallback if sw-version.json doesn't exist (e.g., dev build)
-        }
         res.send(html);
       } catch (e) {
         res.status(500).send("Error loading index.html");

@@ -18,5 +18,4 @@ if (content.startsWith('// build:')) {
 }
 
 fs.writeFileSync(swPath, `// build: ${ts}\n${content}`);
-fs.writeFileSync(path.join(distPath, 'sw-version.json'), JSON.stringify({ version: ts }));
 console.log(`[sw-version] Injected build ${ts} into dist/sw.js`);
