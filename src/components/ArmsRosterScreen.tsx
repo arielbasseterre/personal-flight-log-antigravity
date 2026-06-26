@@ -909,23 +909,23 @@ function ExportMenuModal({
 }
 
 const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
-  <label className="flex items-center justify-between cursor-pointer py-1.5 select-none">
-    <span className="text-xs text-slate-700 dark:text-slate-300 leading-tight">{label}</span>
+  <label className="flex items-center justify-between cursor-pointer py-2 select-none">
+    <span className="text-sm text-slate-700 dark:text-slate-300 leading-tight">{label}</span>
     <div className="relative shrink-0">
       <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <div className={`w-8 h-4.5 rounded-full transition-colors ${checked ? 'bg-[#1152d4]' : 'bg-slate-300 dark:bg-slate-700'}`} />
-      <div className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${checked ? 'translate-x-3.5' : 'translate-x-0'}`} />
+      <div className={`w-10 h-6 rounded-full transition-colors ${checked ? 'bg-[#1152d4]' : 'bg-slate-300 dark:bg-slate-700'}`} />
+      <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
     </div>
   </label>
 );
 
 const Select = ({ label, value, options, onChange }: { label: string; value: string; options: {value: string; label: string}[]; onChange: (v: string) => void }) => (
   <div className="flex flex-col gap-1 w-full">
-    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</span>
+    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</span>
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full text-xs bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-lg p-2 text-slate-700 dark:text-slate-300 outline-none focus:border-[#1152d4] cursor-pointer"
+      className="w-full text-sm bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-lg p-2.5 text-slate-700 dark:text-slate-300 outline-none focus:border-[#1152d4] cursor-pointer"
     >
       {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
     </select>
