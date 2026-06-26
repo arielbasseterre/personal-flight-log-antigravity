@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { heroBase64 } from './assets/hero-base64';
 import {
   Plane,
@@ -1083,7 +1083,6 @@ export default function App() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
-  const handledSW = useRef<Set<ServiceWorker>>(new Set());
 
   const fetchData = async (userId: string) => {
     if (!supabase) return null;
@@ -1286,8 +1285,7 @@ export default function App() {
     let mounted = true;
 
     const activateUpdate = (sw: ServiceWorker) => {
-      if (!mounted || handledSW.current.has(sw)) return;
-      handledSW.current.add(sw);
+      if (!mounted) return;
       setShowUpdateBanner(true);
       setTimeout(() => { sw.postMessage('SKIP_WAITING'); }, 2000);
     };
@@ -1297,25 +1295,26 @@ export default function App() {
 
       const checkUpdate = () => reg.update();
 
+      // Single named listener — browser discards duplicates on same target
+      const onStateChange = () => {
+        if (reg.installing?.state === 'installed' && navigator.serviceWorker.controller) {
+          activateUpdate(reg.installing);
+        }
+      };
+
+      // Handle SW that is already waiting to activate (from previous load)
       if (reg.waiting) activateUpdate(reg.waiting);
 
+      // Handle SW currently being installed
       if (reg.installing) {
-        reg.installing.addEventListener('statechange', () => {
-          if (reg.installing?.state === 'installed' && navigator.serviceWorker.controller) {
-            activateUpdate(reg.installing);
-          }
-        });
+        reg.installing.addEventListener('statechange', onStateChange);
       }
 
+      // Handle future updates (if updatefound fires again)
       reg.addEventListener('updatefound', () => {
-        const newSW = reg.installing;
-        if (!newSW) return;
-        newSW.addEventListener('statechange', () => {
-          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            if (!mounted) return;
-            activateUpdate(newSW);
-          }
-        });
+        if (reg.installing) {
+          reg.installing.addEventListener('statechange', onStateChange);
+        }
       });
 
       navigator.serviceWorker.addEventListener('controllerchange', () => {
