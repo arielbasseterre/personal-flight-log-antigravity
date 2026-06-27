@@ -83,6 +83,12 @@ function addDays(dateISO: string, days: number): string {
   return d.toISOString().substring(0, 10);
 }
 
+function getUtcForLoc(leg: ArmsFlightLeg, locTime: string): string {
+  if (locTime && locTime === leg.reportTimeLoc && leg.reportTimeUtc) return leg.reportTimeUtc;
+  if (locTime && locTime === leg.departureTimeLoc && leg.departureTimeUtc) return leg.departureTimeUtc;
+  return leg.departureTimeUtc || locTime;
+}
+
 function isLeaveEntry(entry: ArmsDayEntry): boolean {
   return entry.eventType === 'LEAVE' || entry.rawTask?.toUpperCase().startsWith('LEAVE') || (entry.eventType === 'NDA' && entry.rawTask?.toUpperCase().includes('LEAVE'));
 }
@@ -200,12 +206,19 @@ export function generateRosterICS(
         lines.push('BEGIN:VEVENT');
         lines.push(`UID:arms-${entry.dateISO}-aggregate@flightlog`);
         lines.push(`DTSTAMP:${now}`);
-        const arrLoc = lastLeg.arrivalTimeLoc || lastLeg.arrivalTimeUtc;
-        const adjArrLoc = settings.postFlightMinutes > 0 ? adjustLocalTime(arrLoc, settings.postFlightMinutes) : arrLoc;
-        const startLoc = firstLeg.reportTimeLoc || firstLeg.departureTimeLoc || firstLeg.departureTimeUtc;
-        const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(startLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
-        lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, startLoc)}`);
-        lines.push(`DTEND:${toFloatingDatetime(endDate, adjArrLoc)}`);
+        const startLoc = firstLeg.reportTimeLoc || firstLeg.departureTimeLoc;
+        const startUtc = getUtcForLoc(firstLeg, startLoc);
+        const startDayShift = timeToMinutes(startUtc) < timeToMinutes(startLoc) ? 1 : 0;
+        const dtStartDate = addDays(entry.dateISO, startDayShift);
+
+        const adjArrUtc = settings.postFlightMinutes > 0
+          ? adjustLocalTime(lastLeg.arrivalTimeUtc, settings.postFlightMinutes)
+          : lastLeg.arrivalTimeUtc;
+        const arrDayShift = timeToMinutes(adjArrUtc) < timeToMinutes(startUtc) ? 1 : 0;
+        const dtEndDate = addDays(dtStartDate, arrDayShift);
+
+        lines.push(`DTSTART:${toICSDatetime(dtStartDate, startUtc)}`);
+        lines.push(`DTEND:${toICSDatetime(dtEndDate, adjArrUtc)}`);
         lines.push(`SUMMARY:${escapeICS(summary)}`);
         lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
         lines.push(`LOCATION:${escapeICS(location)}`);
@@ -258,10 +271,19 @@ export function generateRosterICS(
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:arms-${entry.dateISO}-${leg.flightNumber}-${idx}@flightlog`);
           lines.push(`DTSTAMP:${now}`);
-          const startLoc = leg.reportTimeLoc || leg.departureTimeLoc || leg.departureTimeUtc;
-          const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(startLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
-          lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, startLoc)}`);
-          lines.push(`DTEND:${toFloatingDatetime(endDate, adjArrLoc)}`);
+          const startLoc = leg.reportTimeLoc || leg.departureTimeLoc;
+          const startUtc = getUtcForLoc(leg, startLoc);
+          const startDayShift = timeToMinutes(startUtc) < timeToMinutes(startLoc) ? 1 : 0;
+          const dtStartDate = addDays(entry.dateISO, startDayShift);
+
+          const adjArrUtc = isLastLeg && settings.postFlightMinutes > 0
+            ? adjustLocalTime(leg.arrivalTimeUtc, settings.postFlightMinutes)
+            : leg.arrivalTimeUtc;
+          const arrDayShift = timeToMinutes(adjArrUtc) < timeToMinutes(startUtc) ? 1 : 0;
+          const dtEndDate = addDays(dtStartDate, arrDayShift);
+
+          lines.push(`DTSTART:${toICSDatetime(dtStartDate, startUtc)}`);
+          lines.push(`DTEND:${toICSDatetime(dtEndDate, adjArrUtc)}`);
           lines.push(`SUMMARY:${escapeICS(summary)}`);
           lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
           lines.push(`LOCATION:${escapeICS(location)}`);
