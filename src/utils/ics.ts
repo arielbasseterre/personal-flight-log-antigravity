@@ -200,11 +200,11 @@ export function generateRosterICS(
         lines.push('BEGIN:VEVENT');
         lines.push(`UID:arms-${entry.dateISO}-aggregate@flightlog`);
         lines.push(`DTSTAMP:${now}`);
-        const depLoc = firstLeg.departureTimeLoc || firstLeg.departureTimeUtc;
         const arrLoc = lastLeg.arrivalTimeLoc || lastLeg.arrivalTimeUtc;
         const adjArrLoc = settings.postFlightMinutes > 0 ? adjustLocalTime(arrLoc, settings.postFlightMinutes) : arrLoc;
-        const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(depLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
-        lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, depLoc)}`);
+        const startLoc = firstLeg.reportTimeLoc || firstLeg.departureTimeLoc || firstLeg.departureTimeUtc;
+        const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(startLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
+        lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, startLoc)}`);
         lines.push(`DTEND:${toFloatingDatetime(endDate, adjArrLoc)}`);
         lines.push(`SUMMARY:${escapeICS(summary)}`);
         lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
@@ -258,8 +258,9 @@ export function generateRosterICS(
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:arms-${entry.dateISO}-${leg.flightNumber}-${idx}@flightlog`);
           lines.push(`DTSTAMP:${now}`);
-          const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(depLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
-          lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, depLoc)}`);
+          const startLoc = leg.reportTimeLoc || leg.departureTimeLoc || leg.departureTimeUtc;
+          const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(startLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
+          lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, startLoc)}`);
           lines.push(`DTEND:${toFloatingDatetime(endDate, adjArrLoc)}`);
           lines.push(`SUMMARY:${escapeICS(summary)}`);
           lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
