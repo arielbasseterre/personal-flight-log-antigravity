@@ -181,7 +181,7 @@ app.use("/api/arms/sync-roster", authLimiter);
       for (const domain of ANAC_DOMAINS) {
         try {
           await Promise.race([
-            dns.promises.lookup(domain),
+            dns.promises.resolve4(domain),
             new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
           ]);
           anacUrl = `https://${domain}/portalApp`;
