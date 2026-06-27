@@ -949,6 +949,24 @@ app.use("/api/arms/sync-roster", authLimiter);
     return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
   }
 
+  function timeToMinutes(timeStr: string): number {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + (m || 0);
+  }
+
+  function toFloatingDatetime(dateISO: string, timeLoc: string): string {
+    if (!timeLoc) return '';
+    const cleaned = timeLoc.replace(':', '');
+    return `${dateISO.replace(/-/g, '')}T${cleaned.substring(0, 4)}00`;
+  }
+
+  function addDays(dateISO: string, days: number): string {
+    const d = new Date(dateISO + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().substring(0, 10);
+  }
+
   function generateRosterICSForUser(
     monthsData: { entries: any[]; month: number; year: number }[],
     customSettings: any
@@ -1061,11 +1079,12 @@ app.use("/api/arms/sync-roster", authLimiter);
             lines.push('BEGIN:VEVENT');
             lines.push(`UID:arms-${entry.dateISO}-aggregate@flightlog`);
             lines.push(`DTSTAMP:${now}`);
-            lines.push(`DTSTART:${toICSDatetime(entry.dateISO, firstLeg.departureTimeUtc)}`);
-            const dtEnd = settings.postFlightMinutes > 0
-              ? addMinutesToUtcTime(entry.dateISO, lastLeg.arrivalTimeUtc || '', settings.postFlightMinutes)
-              : toICSDatetime(entry.dateISO, lastLeg.arrivalTimeUtc);
-            lines.push(`DTEND:${dtEnd}`);
+            const depLoc = firstLeg.departureTimeLoc || firstLeg.departureTimeUtc;
+            const arrLoc = lastLeg.arrivalTimeLoc || lastLeg.arrivalTimeUtc;
+            const adjArrLoc = settings.postFlightMinutes > 0 ? adjustLocalTime(arrLoc, settings.postFlightMinutes) : arrLoc;
+            const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(depLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
+            lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, depLoc)}`);
+            lines.push(`DTEND:${toFloatingDatetime(endDate, adjArrLoc)}`);
             lines.push(`SUMMARY:${escapeICS(summary)}`);
             lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
             lines.push(`LOCATION:${escapeICS(location)}`);
@@ -1118,11 +1137,9 @@ app.use("/api/arms/sync-roster", authLimiter);
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:arms-${entry.dateISO}-${leg.flightNumber}-${idx}@flightlog`);
           lines.push(`DTSTAMP:${now}`);
-          lines.push(`DTSTART:${toICSDatetime(entry.dateISO, leg.departureTimeUtc)}`);
-              const dtEnd = (isLastLeg && settings.postFlightMinutes > 0)
-                ? addMinutesToUtcTime(entry.dateISO, leg.arrivalTimeUtc || '', settings.postFlightMinutes)
-                : toICSDatetime(entry.dateISO, leg.arrivalTimeUtc);
-              lines.push(`DTEND:${dtEnd}`);
+          const endDate = timeToMinutes(adjArrLoc) < timeToMinutes(depLoc) ? addDays(entry.dateISO, 1) : entry.dateISO;
+          lines.push(`DTSTART:${toFloatingDatetime(entry.dateISO, depLoc)}`);
+          lines.push(`DTEND:${toFloatingDatetime(endDate, adjArrLoc)}`);
               lines.push(`SUMMARY:${escapeICS(summary)}`);
               lines.push(`DESCRIPTION:${escapeICS(descParts.join('\n'))}`);
               lines.push(`LOCATION:${escapeICS(location)}`);
