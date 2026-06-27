@@ -155,6 +155,13 @@ app.use("/api/arms/sync-roster", authLimiter);
     }
 
     console.log(`[AUTH_ANAC] Iniciando login para CUIL: ${cuil}`);
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.flushHeaders();
+    const sendProgress = (message: string, progress: number) => {
+      res.write(JSON.stringify({ type: 'progress', message, progress }) + '\n');
+    };
+    sendProgress('Verificando conexión con el portal ANAC...', 10);
     let context;
     try {
       const browser = await getBrowser();
@@ -188,21 +195,25 @@ app.use("/api/arms/sync-roster", authLimiter);
         throw new Error("No se puede conectar con el portal ANAC desde este servidor. Verifica que cad.anac.gob.ar sea accesible.");
       }
       
+      sendProgress('Iniciando navegador seguro...', 25);
       console.log(`[AUTH_ANAC] Navegando a ${anacUrl}...`);
       await page.goto(anacUrl, { waitUntil: "domcontentloaded" });
 
       await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
+      sendProgress('Accediendo al portal ANAC...', 40);
       console.log("[AUTH_ANAC] Completando credenciales...");
       await page.type("#Username", cuil, { delay: 50 });
       await page.type("#Password", password, { delay: 50 });
 
+      sendProgress('Enviando credenciales...', 55);
       console.log("[AUTH_ANAC] Enviando formulario...");
       await Promise.all([
         page.waitForNavigation({ waitUntil: "load", timeout: 60000 }).catch(() => {}),
         page.click("#loginButton")
       ]);
 
+      sendProgress('Esperando respuesta de ANAC...', 75);
       // --- VALIDACIÓN DE ÉXITO (Solo cookies reales de portal) ---
       let hasAuthCookie = false;
       
@@ -225,6 +236,7 @@ app.use("/api/arms/sync-roster", authLimiter);
 
       console.log("[AUTH_ANAC] Login exitoso confirmado.");
 
+      sendProgress('Guardando sesión...', 90);
       // Capturar cookies y localStorage
       const storageState = await context.storageState();
       console.log(`[AUTH_ANAC] Finalizado. Cookies capturadas: ${storageState.cookies.length}`);
@@ -245,14 +257,15 @@ app.use("/api/arms/sync-roster", authLimiter);
 
       // Solo cerramos el contexto (la pestaña), NO el navegador completo
       await context.close();
-      res.json({ success: true, storageState });
+      sendProgress('¡Sesión capturada correctamente!', 100);
+      res.write(JSON.stringify({ type: 'success', storageState }) + '\n');
+      res.end();
 
     } catch (error: any) {
       if (context) await context.close();
       console.error("[AUTH_ANAC] Error:", error.message);
-      res.status(error.message.includes("Credenciales") ? 401 : 500).json({ 
-        error: error.message 
-      });
+      res.write(JSON.stringify({ type: 'error', message: error.message }) + '\n');
+      res.end();
     }
   });
 

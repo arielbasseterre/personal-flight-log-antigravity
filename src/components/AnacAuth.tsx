@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
 
@@ -6,6 +6,9 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
+  const loadingRef = useRef(false);
 
   const [formData, setFormData] = useState({
     cuil: '',
@@ -16,15 +19,16 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
   const handleSync = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    loadingRef.current = true;
     setError(null);
     setSuccess(false);
+    setProgress(0);
+    setStatusMessage('');
 
     try {
-      // 1. Obtener el usuario actual de Supabase
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Debes estar logueado en la app");
 
-      // 2. Llamar a nuestro servidor local
       const response = await fetch(getApiUrl('/api/auth-anac'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,28 +40,57 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
         })
       });
 
-      const result = await response.json();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No se pudo leer la respuesta del servidor");
 
-      if (!response.ok) {
-        throw new Error(result.error || "Error en la sincronización");
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let result: any = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === 'progress') {
+              setStatusMessage(data.message);
+              setProgress(data.progress);
+            } else if (data.type === 'success') {
+              result = data;
+            } else if (data.type === 'error') {
+              throw new Error(data.message);
+            }
+          } catch (e: any) {
+            if (e instanceof SyntaxError) continue;
+            throw e;
+          }
+        }
       }
 
+      if (!result) throw new Error("No se recibió respuesta del servidor");
+
       setSuccess(true);
-      console.log("Sesión capturada:", result.storageState);
+      setProgress(100);
+      setStatusMessage('¡Sesión capturada!');
 
       if (onAuthSuccess) {
-        console.log("Ejecutando prop onAuthSuccess...");
         onAuthSuccess(result.storageState);
       }
 
-      // Fallback: Evento global
-      console.log("Lanzando evento global 'anac-login-success'...");
       window.dispatchEvent(new CustomEvent('anac-login-success', { detail: result.storageState }));
 
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
@@ -110,9 +143,17 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
         <button
           type="submit"
           disabled={loading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-slate-400"
+          className="relative overflow-hidden w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-slate-400"
         >
-          {loading ? 'Iniciando Sesión en ANAC...' : 'Iniciar Sesión'}
+          {loading && (
+            <div
+              className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          )}
+          <span className="relative z-10">
+            {loading ? (statusMessage || 'Iniciando sesión en ANAC...') : 'Iniciar Sesión'}
+          </span>
         </button>
       </form>
 
