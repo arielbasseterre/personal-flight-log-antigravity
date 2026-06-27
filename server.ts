@@ -970,6 +970,11 @@ app.use("/api/arms/sync-roster", authLimiter);
   function getUtcForLoc(leg: any, locTime: string): string {
     if (locTime && locTime === leg.reportTimeLoc && leg.reportTimeUtc) return leg.reportTimeUtc;
     if (locTime && locTime === leg.departureTimeLoc && leg.departureTimeUtc) return leg.departureTimeUtc;
+    if (locTime && leg.departureTimeLoc && leg.departureTimeUtc) {
+      const offset = (timeToMinutes(leg.departureTimeUtc) - timeToMinutes(leg.departureTimeLoc) + 1440) % 1440;
+      const utcMin = (timeToMinutes(locTime) + offset + 1440) % 1440;
+      return `${String(Math.floor(utcMin / 60)).padStart(2, '0')}:${String(utcMin % 60).padStart(2, '0')}`;
+    }
     return leg.departureTimeUtc || locTime;
   }
 

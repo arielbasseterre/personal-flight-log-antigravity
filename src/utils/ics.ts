@@ -86,6 +86,12 @@ function addDays(dateISO: string, days: number): string {
 function getUtcForLoc(leg: ArmsFlightLeg, locTime: string): string {
   if (locTime && locTime === leg.reportTimeLoc && leg.reportTimeUtc) return leg.reportTimeUtc;
   if (locTime && locTime === leg.departureTimeLoc && leg.departureTimeUtc) return leg.departureTimeUtc;
+  // Si reportTimeUtc falta, estimarlo desde el offset del departure
+  if (locTime && leg.departureTimeLoc && leg.departureTimeUtc) {
+    const offset = (timeToMinutes(leg.departureTimeUtc) - timeToMinutes(leg.departureTimeLoc) + 1440) % 1440;
+    const utcMin = (timeToMinutes(locTime) + offset + 1440) % 1440;
+    return `${String(Math.floor(utcMin / 60)).padStart(2, '0')}:${String(utcMin % 60).padStart(2, '0')}`;
+  }
   return leg.departureTimeUtc || locTime;
 }
 
