@@ -1061,6 +1061,7 @@ app.use("/api/arms/sync-roster", authLimiter);
             } else {
               summary = `${flightNumbers}${suffix}`;
             }
+            summary = `✈️ ${summary}`;
 
             const descParts: string[] = [];
             legs.forEach((leg: any, idx: number) => {
@@ -1126,6 +1127,7 @@ app.use("/api/arms/sync-roster", authLimiter);
               } else {
                 summary = `${leg.flightNumber}${suffix}`;
               }
+              summary = `✈️ ${summary}`;
 
               const descParts: string[] = [
                 `Vuelo: ${leg.flightNumber}${suffix}`,
