@@ -183,6 +183,7 @@ export function generateRosterICS(
         } else {
           summary = `${flightNumbers}${suffix}`;
         }
+        summary = `✈️ ${summary}`;
 
         const descParts: string[] = [];
         legs.forEach((leg, idx) => {
@@ -248,6 +249,7 @@ export function generateRosterICS(
           } else {
             summary = `${leg.flightNumber}${suffix}`;
           }
+          summary = `✈️ ${summary}`;
 
           const descParts: string[] = [
             `Vuelo: ${leg.flightNumber}${suffix}`,
