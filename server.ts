@@ -86,11 +86,13 @@ app.use("/api/arms/sync-roster", authLimiter);
   // --- Instancia global de Playwright para evitar cold-starts ---
   let globalBrowser: any = null;
   let browserTimeout: any = null;
+  let browserLaunchPromise: Promise<any> | null = null;
 
   const getBrowser = async () => {
     if (!globalBrowser) {
-      console.log("[PLAYWRIGHT] Iniciando nueva instancia global de Chromium...");
-      globalBrowser = await chromium.launch({ 
+      if (!browserLaunchPromise) {
+        console.log("[PLAYWRIGHT] Iniciando nueva instancia global de Chromium...");
+        browserLaunchPromise = chromium.launch({ 
         headless: true,
         args: [
           '--no-sandbox',
@@ -101,6 +103,12 @@ app.use("/api/arms/sync-roster", authLimiter);
           '--disable-features=IsolateOrigins,site-per-process'
         ]
       });
+      }
+      try {
+        globalBrowser = await browserLaunchPromise;
+      } finally {
+        browserLaunchPromise = null;
+      }
     }
     
     // Reiniciar temporizador de auto-cierre
