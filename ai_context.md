@@ -98,6 +98,8 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **Fix DNS timeout en Windows/Node v24 (27-Jun-2026)**: `dns.promises.lookup()` tarda ~11s en resolver `cad.anac.gob.ar` en Windows con Node.js v24, superando el timeout de 3s del `Promise.race`. Reemplazado por `dns.promises.resolve4()` que resuelve en ~9ms.
 - **Fix SSL clock drift en Render (27-Jun-2026)**: Agregado `ignoreHTTPSErrors: true` al `browser.newContext()` de Playwright para evitar falsos positivos de certificado cuando el reloj del servidor Render está desviado.
 - **Cambios replicados a v1 (28-Jun-2026)**: ANAC progress NDJSON + barra de progreso, SSL ignoreHTTPSErrors, SW update fix (capturar `sw = reg.installing` en closure), VITE_BUILD_TIME en vite.config.ts, inline SW script removido de index.html.
+- **Fix race condition getBrowser (28-Jun-2026)**: `browserLaunchPromise` como semáforo para evitar lanzar Chromium dos veces si dos requests simultáneos llegan con `globalBrowser === null`. `try/finally` limpia la promesa también si `chromium.launch()` falla.
+- **Progress "Preparando navegador..." (28-Jun-2026)**: `sendProgress('Preparando navegador...', 20)` antes de `getBrowser()` para que usuarios en espera vean progreso mientras otro usuario usa Chromium.
 
 - [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 

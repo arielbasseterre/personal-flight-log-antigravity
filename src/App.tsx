@@ -1548,14 +1548,32 @@ export default function App() {
   return (
     <>
       {content}
-      {showUpdateBanner && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-blue-600 text-white px-4 py-3 text-center text-sm font-medium shadow-lg">
-          <div className="flex items-center justify-center gap-2">
-            <Loader2 className="animate-spin" size={16} />
-            <span>Nueva versión disponible, actualizando...</span>
+      <AnimatePresence>
+        {showUpdateBanner && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800"
+            >
+              <div className="p-6 text-center">
+                <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-blue-50 dark:bg-blue-900/20 text-blue-500">
+                  <Loader2 className="animate-spin" size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Nueva versión disponible</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Actualizando...</p>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {registerAlert.show && (
