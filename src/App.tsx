@@ -29,7 +29,8 @@ import {
   Lock,
   CheckCircle,
   Loader2,
-  Info
+  Info,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -347,7 +348,7 @@ const APP_VERSION = CHANGELOG_DATA[0].version;
 
 // --- Screens ---
 
-const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, userEmail, darkMode, toggleDarkMode, role }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void, role?: string }) => {
+const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, onLogout, userEmail, darkMode, toggleDarkMode, role }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, onLogout: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void, role?: string }) => {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#101622] text-slate-900 dark:text-white transition-colors">
     <div className="flex items-center p-4 justify-between border-b border-slate-200 dark:border-[#2d3748]">
@@ -474,9 +475,18 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
         {userEmail && (
           <button
             onClick={onGoToReport}
-            className="text-slate-400 text-[10px] mb-10 hover:text-amber-500 transition-colors font-medium p-2"
+            className="text-slate-400 text-[10px] hover:text-amber-500 transition-colors font-medium p-2"
           >
             ¿Problemas, cambios o sugerencias?
+          </button>
+        )}
+        {userEmail && (
+          <button
+            onClick={onLogout}
+            className="text-slate-400 text-[10px] mb-10 hover:text-red-500 transition-colors font-medium p-2 flex items-center justify-center gap-1"
+          >
+            <LogOut size={12} />
+            Cerrar Sesión
           </button>
         )}
       </div>
@@ -1384,10 +1394,14 @@ export default function App() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase!.auth.signOut();
+  };
+
   const renderScreen = () => {
     switch (screen) {
       case 'home':
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
@@ -1457,7 +1471,7 @@ export default function App() {
       case 'report':
         return <ReportScreen onBack={() => setScreen('home')} />;
       default:
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
     }
   };
 
