@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { heroBase64 } from './assets/hero-base64';
 import {
   Plane,
@@ -153,9 +153,9 @@ const CustomTimeInput = ({ value, onChange, className = "" }: { value: string, o
   </div>
 );
 
-const BottomNav = ({ currentScreen, setScreen }: { currentScreen: Screen, setScreen: (s: Screen) => void }) => (
+const BottomNav = ({ currentScreen, setScreen, role }: { currentScreen: Screen, setScreen: (s: Screen) => void, role?: string }) => (
   <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1a2233] border-t border-slate-200 dark:border-[#2d3748] pb-safe-area-inset-bottom z-50 transition-all duration-300">
-    <div className="flex max-w-lg mx-auto h-16">
+    <div className="flex justify-around max-w-lg mx-auto h-16">
       <button onClick={() => setScreen('home')} className={`nav-item ${currentScreen === 'home' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
         <LayoutDashboard size={24} />
         <span className="text-[10px] font-medium">Dashboard</span>
@@ -168,10 +168,12 @@ const BottomNav = ({ currentScreen, setScreen }: { currentScreen: Screen, setScr
         <TcpIcon size={24} active={currentScreen === 'tcp'} />
         <span className="text-[10px] font-medium">TCP</span>
       </button>
-      <button onClick={() => setScreen('libro')} className={`nav-item ${currentScreen === 'libro' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
-        <Plane size={24} className={currentScreen === 'libro' ? 'fill-[#1152d4]/20' : ''} />
-        <span className="text-[10px] font-medium">Libro</span>
-      </button>
+      {role !== 'tcp_fb' && (
+        <button onClick={() => setScreen('libro')} className={`nav-item ${currentScreen === 'libro' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
+          <Plane size={24} className={currentScreen === 'libro' ? 'fill-[#1152d4]/20' : ''} />
+          <span className="text-[10px] font-medium">Libro</span>
+        </button>
+      )}
       <button onClick={() => setScreen('roster')} className={`nav-item ${currentScreen === 'roster' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
         <Calendar size={24} />
         <span className="text-[10px] font-medium">Roster</span>
@@ -345,7 +347,7 @@ const APP_VERSION = CHANGELOG_DATA[0].version;
 
 // --- Screens ---
 
-const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, userEmail, darkMode, toggleDarkMode }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void }) => {
+const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, userEmail, darkMode, toggleDarkMode, role }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void, role?: string }) => {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#101622] text-slate-900 dark:text-white transition-colors">
     <div className="flex items-center p-4 justify-between border-b border-slate-200 dark:border-[#2d3748]">
@@ -419,20 +421,21 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
             <ChevronRight size={18} className="text-slate-300 group-hover:text-emerald-500" />
           </button>
 
-          {/* Libro de Vuelo */}
-          <button
-            onClick={onGoToLibro}
-            className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-amber-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
-          >
-            <div className="bg-amber-500/10 p-3 rounded-xl group-hover:bg-amber-500/20 transition-colors">
-              <BookOpen className="text-amber-500" size={24} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Libro de Vuelo Digital</h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">Registros y exportación</p>
-            </div>
-            <ChevronRight size={18} className="text-slate-300 group-hover:text-amber-500" />
-          </button>
+          {role !== 'tcp_fb' && (
+            <button
+              onClick={onGoToLibro}
+              className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-amber-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
+            >
+              <div className="bg-amber-500/10 p-3 rounded-xl group-hover:bg-amber-500/20 transition-colors">
+                <BookOpen className="text-amber-500" size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Libro de Vuelo Digital</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Registros y exportación</p>
+              </div>
+              <ChevronRight size={18} className="text-slate-300 group-hover:text-amber-500" />
+            </button>
+          )}
 
           {/* Roster de Vuelo ARMS */}
           <button
@@ -1063,11 +1066,18 @@ const ChangelogScreen = ({ onBack }: { onBack: () => void }) => {
 // --- Main App ---
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen_] = useState<Screen>('home');
   const [user, setUser] = useState<RawUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [logs, setLogs] = useState<FlightLog[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+
+  const setScreen = useCallback((s: Screen) => {
+    setScreen_(prev => {
+      if (s === 'libro' && profile?.role === 'tcp_fb') return prev;
+      return s;
+    });
+  }, [profile?.role]);
   const [dataLoading, setDataLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
@@ -1377,7 +1387,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'home':
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
@@ -1447,7 +1457,7 @@ export default function App() {
       case 'report':
         return <ReportScreen onBack={() => setScreen('home')} />;
       default:
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
     }
   };
 
@@ -1540,7 +1550,7 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
 
-        {screen !== 'changelog' && <BottomNav currentScreen={screen} setScreen={setScreen} />}
+        {screen !== 'changelog' && <BottomNav currentScreen={screen} setScreen={setScreen} role={profile?.role} />}
       </div>
     );
   })();

@@ -32,6 +32,7 @@ export interface Profile {
   initial_total_hours?: number | null;
   grand_total_hours?: number | null;
   last_synced_flight_at?: string | null;
+  role?: string;
 }
 
 export interface FlightLog {

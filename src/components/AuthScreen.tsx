@@ -17,6 +17,7 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
   const [license, setLicense] = useState('');
   const [dni, setDni] = useState('');
   const [legajo, setLegajo] = useState('');
+  const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgotSent, setForgotSent] = useState(false);
@@ -47,6 +48,8 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
+        if (!role) throw new Error("Debes seleccionar tu cargo (Pilotos FB / TCPs FB)");
+
         const { data: authData, error: authError } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -57,7 +60,8 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
               last_name: lastName,
               license: license,
               dni: dni,
-              legajo: legajo
+              legajo: legajo,
+              role: role
             }
           }
         });
@@ -158,16 +162,37 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
               )}
 
               {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="dni">DNI / Pasaporte</Label>
-                  <Input 
-                    id="dni" 
-                    placeholder="12345678" 
-                    value={dni}
-                    onChange={(e) => setDni(e.target.value)}
-                    required
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="dni">DNI / Pasaporte</Label>
+                    <Input 
+                      id="dni" 
+                      placeholder="12345678" 
+                      value={dni}
+                      onChange={(e) => setDni(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Cargo en Flybondi</Label>
+                    <div className="relative">
+                      <select
+                        id="role"
+                        required
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        className="w-full h-11 pl-4 pr-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 appearance-none"
+                      >
+                        <option value="" disabled>Seleccionar cargo</option>
+                        <option value="piloto_fb">Pilotos FB</option>
+                        <option value="tcp_fb">TCPs FB</option>
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="space-y-2">
