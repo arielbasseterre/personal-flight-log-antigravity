@@ -172,6 +172,7 @@ app.use("/api/arms/sync-roster", authLimiter);
     sendProgress('Verificando conexión con el portal ANAC...', 10);
     let context;
     try {
+      sendProgress('Preparando navegador...', 20);
       const browser = await getBrowser();
       
       context = await browser.newContext({
