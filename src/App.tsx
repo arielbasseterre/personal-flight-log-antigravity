@@ -473,7 +473,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
             onClick={onGoToReport}
             className="text-slate-400 text-[10px] mb-10 hover:text-amber-500 transition-colors font-medium p-2"
           >
-            Reportar un problema
+            ¿Problemas, cambios o sugerencias?
           </button>
         )}
       </div>
