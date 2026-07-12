@@ -100,6 +100,14 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **Cambios replicados a v1 (28-Jun-2026)**: ANAC progress NDJSON + barra de progreso, SSL ignoreHTTPSErrors, SW update fix (capturar `sw = reg.installing` en closure), VITE_BUILD_TIME en vite.config.ts, inline SW script removido de index.html.
 - **Fix race condition getBrowser (28-Jun-2026)**: `browserLaunchPromise` como semáforo para evitar lanzar Chromium dos veces si dos requests simultáneos llegan con `globalBrowser === null`. `try/finally` limpia la promesa también si `chromium.launch()` falla.
 - **Progress "Preparando navegador..." (28-Jun-2026)**: `sendProgress('Preparando navegador...', 20)` antes de `getBrowser()` para que usuarios en espera vean progreso mientras otro usuario usa Chromium.
+- **Fix ANAC: enviar OACI 4 letras para internacionales (28-Jun-2026)**:
+  - `resolveToAnac` en LibroScreen: el fallback `IATA_AIRPORTS` devolvía IATA ("GIG") en vez de ICAO ("SBGL") para aeropuertos internacionales. Ahora devuelve ICAO si el prefijo ICAO no es "SA" (Argentina).
+  - `mapAirportCode` en `handleSyncANAC`: agregado mismo fallback a `IATA_AIRPORTS` antes del `return c`.
+  - Autocomplete: búsqueda normaliza acentos (`normalize('NFD')`) para encontrar "Rio" escribiendo "Río".
+  - `airports.csv`: anac_code de 24 internacionales actualizado de `N/A` a su ICAO (ej. `SBGL`).
+  - `server.ts` y `api/sync-anac.ts`: agregados 24 internacionales a `ANAC_MAPPINGS` (IATA->ICAO) como safety net.
+- **Confirmacion al eliminar registro (28-Jun-2026)**: Al presionar la X roja en el historial, ahora aparece modal con fecha, ruta y matricula del vuelo + boton rojo "Confirmar" (tipo danger, via `askConfirm`).
+- **NOTA: Revision cruzada entre versiones (28-Jun-2026)**: A partir de ahora, cualquier cambio en esta version debe evaluarse para aplicar tambien en la v1 (`D:\app Antigravity\personal-flight-log sin roster`). Se requiere consentimiento del usuario antes de replicar.
 
 - [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
