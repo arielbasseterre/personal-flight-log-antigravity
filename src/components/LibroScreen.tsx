@@ -1534,30 +1534,45 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     }
   };
 
-  const deleteLog = async (id: string) => {
-    if (!supabase) return;
+  const deleteLog = async (log: FlightLog) => {
+    const fecha = new Date(log.fechaHoraSalida).toLocaleDateString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    const hora = new Date(log.fechaHoraSalida).toLocaleTimeString('es-AR', {
+      hour: '2-digit', minute: '2-digit'
+    });
+    const route = `${log.origenID} → ${log.destinoID}`;
     
-    if (!navigator.onLine) {
-      addToQueue({ type: 'delete', remoteId: id, createdAt: new Date().toISOString(), retryCount: 0 });
-      const updatedLogs = logs.filter(l => l.id !== id);
-      setLogs(updatedLogs);
-      setPendingOps(getQueue());
-      return;
-    }
-    
-    try {
-      const { error } = await supabase
-        .from('flight_logs')
-        .delete()
-        .eq('id', id);
+    askConfirm(
+      'Eliminar registro',
+      `Fecha: ${fecha} ${hora}\nRuta: ${route}\nMatrícula: ${log.matriculaAvion}\n\n¿Estás seguro? Esta acción no se puede deshacer.`,
+      async () => {
+        if (!supabase) return;
         
-      if (error) throw error;
-      const updatedLogs = logs.filter(l => l.id !== id);
-      setLogs(updatedLogs);
-      await syncProfileTotal(updatedLogs);
-    } catch (error) {
-      console.error("Error deleting log:", error);
-    }
+        if (!navigator.onLine) {
+          addToQueue({ type: 'delete', remoteId: log.id, createdAt: new Date().toISOString(), retryCount: 0 });
+          const updatedLogs = logs.filter(l => l.id !== log.id);
+          setLogs(updatedLogs);
+          setPendingOps(getQueue());
+          return;
+        }
+        
+        try {
+          const { error } = await supabase
+            .from('flight_logs')
+            .delete()
+            .eq('id', log.id);
+            
+          if (error) throw error;
+          const updatedLogs = logs.filter(l => l.id !== log.id);
+          setLogs(updatedLogs);
+          await syncProfileTotal(updatedLogs);
+        } catch (error) {
+          console.error("Error deleting log:", error);
+        }
+      },
+      'danger'
+    );
   };
 
   const startEditing = (log: FlightLog) => {
@@ -3465,7 +3480,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500" onClick={() => startEditing(log)}>
                               <Edit2 size={14} />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteLog(log.id)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteLog(log)}>
                               <X size={14} />
                             </Button>
                           </div>
