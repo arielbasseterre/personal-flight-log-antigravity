@@ -361,6 +361,13 @@ app.use("/api/arms/sync-roster", authLimiter);
               "LGS": "MAL", "SAMO": "MAL", // Malargüe
               "AFA": "SRA", "SAMR": "SRA", // San Rafael
               "RSA": "OSA", "SAWR": "OSA", // Santa Rosa
+              // Internacionales → OACI (código 4 letras)
+              "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
+              "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
+              "SSA": "SBSV", "MCZ": "SBMO", "REC": "SBRF", "FOR": "SBFZ",
+              "LIM": "SPJC", "BOG": "SKBO", "UIO": "SEQM", "PTY": "MPTO",
+              "CUN": "MMUN", "MEX": "MMMX", "PUJ": "MDPC", "HAV": "MUHA",
+              "MIA": "KMIA", "JFK": "KJFK", "MAD": "LEMD", "FCO": "LIRF",
             };
 
             return ANAC_MAPPINGS[c] || c;

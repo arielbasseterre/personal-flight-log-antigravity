@@ -64,6 +64,13 @@ export default async function handler(req: any, res: any) {
             "LGS": "MAL", "SAMO": "MAL",
             "AFA": "SRA", "SAMR": "SRA",
             "RSA": "OSA", "SAWR": "OSA",
+            // Internacionales → OACI
+            "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
+            "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
+            "SSA": "SBSV", "MCZ": "SBMO", "REC": "SBRF", "FOR": "SBFZ",
+            "LIM": "SPJC", "BOG": "SKBO", "UIO": "SEQM", "PTY": "MPTO",
+            "CUN": "MMUN", "MEX": "MMMX", "PUJ": "MDPC", "HAV": "MUHA",
+            "MIA": "KMIA", "JFK": "KJFK", "MAD": "LEMD", "FCO": "LIRF",
           };
           return ANAC_MAPPINGS[c] || c;
         };

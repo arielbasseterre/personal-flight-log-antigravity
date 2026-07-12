@@ -316,9 +316,12 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
 
+  const normalizeStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
   const filtered = useMemo(() => {
     if (!search) return [];
     const lower = search.toLowerCase();
+    const lowerNorm = normalizeStr(lower);
     
     let allApts: any[] = localAirportsList;
     if (dbAirports && dbAirports.length > 0) {
@@ -327,19 +330,21 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
       const dbAptsMerged = dbAirports.filter((apt: any) => !localKeys.has(apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code)).map((apt: any) => {
         const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
         const uniqueCodes = Array.from(new Set(codes));
+        const raw = `${apt.name} ${uniqueCodes.join(' ')}`;
         return {
           code: apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code,
           label: `${apt.name} (${uniqueCodes.join('/')})`,
-          searchStr: `${apt.name} ${uniqueCodes.join(' ')}`.toLowerCase()
+          searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
         }
       });
       allApts = [...localAirportsList.map(apt => {
         const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
         const uniqueCodes = Array.from(new Set(codes));
+        const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
         return {
           code: apt.key_code,
           label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`,
-          searchStr: `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`.toLowerCase()
+          searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
         }
       }), ...dbAptsMerged];
     } else {
@@ -347,22 +352,26 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
       allApts = localAirportsList.map(apt => {
         const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
         const uniqueCodes = Array.from(new Set(codes));
+        const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
         return {
           code: apt.key_code,
           label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`,
-          searchStr: `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`.toLowerCase()
+          searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
         }
       });
       if (allApts.length === 0) {
-        allApts = IATA_LIST.map((apt: any) => ({
-          code: apt.iata,
-          label: `${apt.name} (${apt.iata})`,
-          searchStr: `${apt.name} ${apt.iata}`.toLowerCase()
-        }));
+        allApts = IATA_LIST.map((apt: any) => {
+          const raw = `${apt.name} ${apt.iata}`;
+          return {
+            code: apt.iata,
+            label: `${apt.name} (${apt.iata})`,
+            searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
+          }
+        });
       }
     }
 
-    return allApts.filter((a: any) => a.searchStr.includes(lower)).slice(0, 15);
+    return allApts.filter((a: any) => a.searchStr.includes(lower) || a.searchStr.includes(lowerNorm)).slice(0, 15);
   }, [search, dbAirports, IATA_LIST]);
 
   return (
@@ -707,11 +716,13 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     );
     
     if (localFound) {
+      const icao = localFound[0] as string;
       const iata = localFound[1].iata;
       if (iata === "AEP") return "AER";
       if (iata === "CNQ") return "CRR";
       if (iata === "BRC") return "BAR";
       if (iata === "PSS") return "POS";
+      if (!icao.startsWith("SA")) return icao;
       return iata;
     }
 
@@ -858,6 +869,21 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         // Si encontramos el aeropuerto y tiene un anac_code o key_code definido, lo usamos.
         if (airport) {
           return airport.anac_code || airport.key_code || c;
+        }
+        
+        // Fallback a IATA_AIRPORTS
+        const localFound = Object.entries(IATA_AIRPORTS).find(([icao, info]) =>
+          icao.toUpperCase() === c || info.iata.toUpperCase() === c
+        );
+        if (localFound) {
+          const icao = localFound[0];
+          const iata = localFound[1].iata;
+          if (iata === "AEP") return "AER";
+          if (iata === "CNQ") return "CRR";
+          if (iata === "BRC") return "BAR";
+          if (iata === "PSS") return "POS";
+          if (!icao.startsWith("SA")) return icao.toUpperCase();
+          return iata;
         }
         
         return c;
