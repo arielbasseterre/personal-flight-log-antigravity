@@ -518,7 +518,51 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
   }
 
   // ── Ordenar entradas cronológicamente ──────────────────────────────────
-  return entries.sort((a, b) => a.dateISO.localeCompare(b.dateISO));
+  entries.sort((a, b) => a.dateISO.localeCompare(b.dateISO));
+
+  // ── Post-procesamiento: detectar tramos que son continuación del día ───
+  // anterior (mismo servicio). Si el último aterrizaje del día anterior
+  // está a ≤13h de la salida del primer vuelo del día actual, se marca
+  // como continuación y se calcula el turnTime cross-day.
+  const MAX_CONTINUATION_MINUTES = 13 * 60; // 13 horas
+
+  for (let i = 1; i < entries.length; i++) {
+    const curr = entries[i];
+    const prev = entries[i - 1];
+
+    // Solo aplica si ambos días son vuelo y el día actual tiene legs
+    if (!curr.isFlight || curr.legs.length === 0) continue;
+    if (!prev.isFlight || prev.legs.length === 0) continue;
+
+    // Verificar que sean días consecutivos
+    const prevDate = new Date(prev.dateISO + 'T00:00:00');
+    const currDate = new Date(curr.dateISO + 'T00:00:00');
+    const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (dayDiff !== 1) continue;
+
+    // Calcular la diferencia real cruzando medianoche
+    const prevLastLeg = prev.legs[prev.legs.length - 1];
+    const currFirstLeg = curr.legs[0];
+
+    const toMin = (t: string): number => {
+      const p = t.split(':').map(Number);
+      return (p[0] || 0) * 60 + (p[1] || 0);
+    };
+
+    // Minutos desde el aterrizaje del día anterior hasta la salida del día actual
+    // cruzando la medianoche: (24:00 - arrival) + departure
+    const diffMins = (24 * 60 - toMin(prevLastLeg.arrivalTimeLoc)) + toMin(currFirstLeg.departureTimeLoc);
+
+    if (diffMins <= MAX_CONTINUATION_MINUTES) {
+      currFirstLeg.isContinuation = true;
+      // Calcular y asignar el turnTime cross-day
+      const h = Math.floor(diffMins / 60);
+      const m = diffMins % 60;
+      currFirstLeg.turnTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+  }
+
+  return entries;
 }
 
 

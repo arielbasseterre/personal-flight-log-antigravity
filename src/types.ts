@@ -191,6 +191,7 @@ export interface ArmsFlightLeg {
   arrivalTimeUtc: string;      // Hora de llegada UTC, e.g. "20:50"
   blockTime: string;           // Tiempo bloque HH:MM, e.g. "07:40"
   turnTime?: string;           // Tiempo en tierra hasta el sig. tramo, e.g. "02:20"
+  isContinuation?: boolean;    // true si es continuación de un servicio del día anterior (≤13h)
   crewComplement: ArmsCrewMember[];  // Tripulación asignada a este leg
   remarks?: string;            // Trg/Remarks column from ARMS
 }

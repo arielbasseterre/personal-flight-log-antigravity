@@ -203,6 +203,14 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "14 de Julio, 2026",
+    version: "1.4.7",
+    items: [
+      "Detalle de Roster: corregido el indicador de 'Presentación' cuando un tramo de vuelo cruza la medianoche (es al otro día) pero es continuación de un servicio previo (dentro de las 13 horas). Ahora muestra correctamente 'escala HH:MM'.",
+      "Cálculo de escala cross-day: la app calcula automáticamente el tiempo de escala entre vuelos de días consecutivos al cruzar la medianoche."
+    ]
+  },
+  {
     date: "25 de Junio, 2026",
     version: "1.4.6",
     items: [

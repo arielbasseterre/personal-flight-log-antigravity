@@ -243,8 +243,8 @@ function FlightLegCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08, ...SPRING_CONFIG }}
     >
-      {/* ── Evento de Presentación (REPORT) — solo en el primer tramo ── */}
-      {index === 0 && (
+      {/* ── Evento de Presentación (REPORT) — solo en el primer tramo y si NO es continuación del día anterior ── */}
+      {index === 0 && !leg.isContinuation && (
         <div className="flex items-center gap-3 px-4 py-2.5">
           {/* Ícono circular de reloj */}
           <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#1152d4]/10 border border-blue-100 dark:border-[#1152d4]/20 flex items-center justify-center shrink-0">
