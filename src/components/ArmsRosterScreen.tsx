@@ -1488,7 +1488,23 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         return (p[0] || 0) * 60 + (p[1] || 0);
       };
 
-      const diffMins = (24 * 60 - toMin(prevLastLeg.arrivalTimeLoc)) + toMin(currFirstLeg.departureTimeLoc);
+      // Si la llegada del día anterior (prev) ocurrió después de su salida, fue el mismo día prev.
+      // Si la llegada es numéricamente menor que la salida, cruzó la medianoche (es del día curr).
+      const prevLastArrivalMins = toMin(prevLastLeg.arrivalTimeLoc);
+      const prevLastDepartureMins = toMin(prevLastLeg.departureTimeLoc);
+      const currFirstDepartureMins = toMin(currFirstLeg.departureTimeLoc);
+
+      let diffMins = 0;
+      if (prevLastArrivalMins < prevLastDepartureMins) {
+        // Ya cruzó la medianoche, ambos eventos ocurrieron el mismo día (curr)
+        diffMins = currFirstDepartureMins - prevLastArrivalMins;
+      } else {
+        // La llegada ocurrió en el día anterior (prev)
+        diffMins = (24 * 60 - prevLastArrivalMins) + currFirstDepartureMins;
+      }
+
+      // Si por alguna razón da negativo, sumar un día
+      if (diffMins < 0) diffMins += 24 * 60;
 
       if (diffMins <= MAX_CONTINUATION_MINUTES) {
         currFirstLeg.isContinuation = true;
