@@ -1459,7 +1459,48 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [showTokensModal, setShowTokensModal] = useState(false);
 
   // ── Entrada seleccionada ──────────────────────────────────────────────
-  const selectedEntry = entries.find(e => e.dateISO === selectedDate) || null;
+  const processedEntries = React.useMemo(() => {
+    const sorted = [...entries].sort((a, b) => a.dateISO.localeCompare(b.dateISO));
+    const result = sorted.map(e => ({
+      ...e,
+      legs: e.legs.map(l => ({ ...l }))
+    }));
+
+    const MAX_CONTINUATION_MINUTES = 13 * 60; // 13 horas
+
+    for (let i = 1; i < result.length; i++) {
+      const curr = result[i];
+      const prev = result[i - 1];
+
+      if (!curr.isFlight || curr.legs.length === 0) continue;
+      if (!prev.isFlight || prev.legs.length === 0) continue;
+
+      const prevDate = new Date(prev.dateISO + 'T00:00:00');
+      const currDate = new Date(curr.dateISO + 'T00:00:00');
+      const dayDiff = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+      if (dayDiff !== 1) continue;
+
+      const prevLastLeg = prev.legs[prev.legs.length - 1];
+      const currFirstLeg = curr.legs[0];
+
+      const toMin = (t: string): number => {
+        const p = t.split(':').map(Number);
+        return (p[0] || 0) * 60 + (p[1] || 0);
+      };
+
+      const diffMins = (24 * 60 - toMin(prevLastLeg.arrivalTimeLoc)) + toMin(currFirstLeg.departureTimeLoc);
+
+      if (diffMins <= MAX_CONTINUATION_MINUTES) {
+        currFirstLeg.isContinuation = true;
+        const h = Math.floor(diffMins / 60);
+        const m = diffMins % 60;
+        currFirstLeg.turnTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+    }
+    return result;
+  }, [entries]);
+
+  const selectedEntry = processedEntries.find(e => e.dateISO === selectedDate) || null;
 
   // ── Estadísticas mensuales calculadas ─────────────────────────────────
   const stats = React.useMemo(() => {
@@ -1484,7 +1525,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     let training = 0;
     let simulator = 0;
 
-    entries.forEach(e => {
+    processedEntries.forEach(e => {
       const isLeave = isLeaveEntry(e);
       if (isLeave) {
         leaves++;
@@ -1736,7 +1777,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   // ║  EXPORTAR A PDF — Almanaque mensual vía @react-pdf/renderer       ║
   // ╚═════════════════════════════════════════════════════════════════════╝
   const handleExportPDF = async () => {
-    if (entries.length === 0) return;
+    if (processedEntries.length === 0) return;
 
     let settings = {};
     try {
@@ -1752,7 +1793,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       console.error("Error loading calendar settings for PDF:", err);
     }
 
-    const doc = <AlmanaquePDF entries={entries} month={month} year={year} settings={settings} />;
+    const doc = <AlmanaquePDF entries={processedEntries} month={month} year={year} settings={settings} />;
     const pdfBlob = await pdf(doc).toBlob();
     const fileName = `Almanaque-Roster-${MONTH_NAMES[month - 1]}-${year}.pdf`;
 
@@ -1824,7 +1865,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Mi Calendario</h1>
           </div>
           <div className="flex items-center gap-2">
-            {entries.length > 0 && (
+            {processedEntries.length > 0 && (
               <button
                 onClick={() => setShowExportMenu(true)}
                 className="flex items-center gap-1.5 px-3 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-full text-emerald-600 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 active:scale-[0.96] transition-all"
@@ -1872,7 +1913,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         {/* ── Calendario mensual ─────────────────────────────────────── */}
         <div className="bg-white dark:bg-[#0d1520] rounded-3xl p-4 border border-slate-200 dark:border-[#2d3748]/50 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
           <MonthlyCalendar
-            entries={entries}
+            entries={processedEntries}
             month={month}
             year={year}
             selectedDate={selectedDate}
@@ -2379,7 +2420,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       <AnimatePresence>
         {showICSExport && (
           <ExportICSModal
-            entries={entries}
+            entries={processedEntries}
             month={month}
             year={year}
             userId={userId}
