@@ -110,8 +110,13 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url }) => {
           const fitScale = (width / unscaledViewport.width) * scale;
           const viewport = page.getViewport({ scale: fitScale });
 
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
+          // Use devicePixelRatio to render crisp on HiDPI/Retina screens
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(viewport.width * dpr);
+          canvas.height = Math.floor(viewport.height * dpr);
+          canvas.style.width = viewport.width + 'px';
+          canvas.style.height = viewport.height + 'px';
+          context.scale(dpr, dpr);
 
           const renderContext = {
             canvasContext: context,
