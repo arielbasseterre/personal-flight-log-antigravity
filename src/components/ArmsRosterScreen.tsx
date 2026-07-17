@@ -1496,9 +1496,189 @@ function ExportICSModal({
   );
 }
 
+function ExportPDFModal({
+  entries,
+  month,
+  year,
+  userId,
+  onExport,
+  onClose,
+}: {
+  entries: ArmsDayEntry[];
+  month: number;
+  year: number;
+  userId: string;
+  onExport: (settings?: any) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [settings, setSettings] = useState<any>({
+    exportTodayOnwards: false,
+    excludeStandby: false,
+    excludeDayOff: false,
+    excludeLayover: false,
+    excludeLeave: false,
+    excludeNDA: false,
+    excludeGTR: false,
+    excludeOTH: false,
+    aggregateFlights: false,
+    postFlightMinutes: 0,
+    excludeCrew: false,
+    flightEventFormat: "route_flight_times",
+    reportEventFormat: "type_info",
+  });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('calendar_settings')
+          .eq('id', userId)
+          .single();
+        if (profile?.calendar_settings) {
+          setSettings((prev: any) => ({ ...prev, ...profile.calendar_settings }));
+        }
+      } catch (err) {
+        console.error("Error loading calendar settings for PDF modal:", err);
+      } finally {
+        setSettingsLoading(false);
+      }
+    }
+    loadSettings();
+  }, [userId]);
+
+  const handleUpdateSetting = (key: string, value: any) => {
+    setSettings((prev: any) => ({ ...prev, [key]: value }));
+  };
+
+  const handleExport = async () => {
+    if (entries.length === 0) return;
+    setExporting(true);
+    try {
+      await onExport(settings);
+      onClose();
+    } catch (err) {
+      console.error("Error exporting PDF:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-md bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] flex flex-col"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <div className="shrink-0">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white text-center">
+            Almanaque PDF
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-1">
+            Ajustá los filtros antes de exportar
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4 min-h-0 py-2 border-y border-slate-200 dark:border-[#2d3748]">
+          {settingsLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 size={24} className="text-[#1152d4] animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Filtros
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1">
+                  <Toggle label="Solo desde hoy" checked={settings.exportTodayOnwards} onChange={(v) => handleUpdateSetting('exportTodayOnwards', v)} />
+                  <Toggle label="Excluir Standby" checked={settings.excludeStandby} onChange={(v) => handleUpdateSetting('excludeStandby', v)} />
+                  <Toggle label="Excluir Day Off" checked={settings.excludeDayOff} onChange={(v) => handleUpdateSetting('excludeDayOff', v)} />
+                  <Toggle label="Excluir Leaves" checked={settings.excludeLeave} onChange={(v) => handleUpdateSetting('excludeLeave', v)} />
+                  <Toggle label="Excluir NDA" checked={settings.excludeNDA} onChange={(v) => handleUpdateSetting('excludeNDA', v)} />
+                  <Toggle label="Excluir GTR" checked={settings.excludeGTR} onChange={(v) => handleUpdateSetting('excludeGTR', v)} />
+                  <Toggle label="Excluir OTH" checked={settings.excludeOTH} onChange={(v) => handleUpdateSetting('excludeOTH', v)} />
+                  <Toggle label="Excluir tripulación" checked={settings.excludeCrew} onChange={(v) => handleUpdateSetting('excludeCrew', v)} />
+                  <Toggle label="Excluir Layover" checked={settings.excludeLayover} onChange={(v) => handleUpdateSetting('excludeLayover', v)} />
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Vista Previa
+                </h4>
+                <div className="bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-[#2d3748] rounded-xl p-3 space-y-1 mb-2">
+                  <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
+                    {formatReportPreview(settings.reportEventFormat).summary}
+                  </p>
+                  {formatReportPreview(settings.reportEventFormat).location && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {formatReportPreview(settings.reportEventFormat).location}
+                    </p>
+                  )}
+                  {formatReportPreview(settings.reportEventFormat).description && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {formatReportPreview(settings.reportEventFormat).description}
+                    </p>
+                  )}
+                  <p className="text-[9px] text-slate-400 dark:text-slate-600 mt-1 italic">
+                    Vista previa basada en datos de ejemplo.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-bold text-[#1152d4] dark:text-blue-400 uppercase tracking-widest border-b border-slate-200 dark:border-[#2d3748]/55 pb-1 mb-2">
+                  Formato de Reportes
+                </h4>
+                <div className="mt-2">
+                  <Select
+                    label="Formato de evento"
+                    value={settings.reportEventFormat}
+                    options={REPORT_EVENT_FORMATS.map(f => ({ value: f.value, label: f.label }))}
+                    onChange={(v) => handleUpdateSetting('reportEventFormat', v)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={handleExport}
+          disabled={exporting || entries.length === 0}
+          className="w-full py-3 text-sm font-bold bg-[#1152d4] text-white rounded-xl active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {exporting ? (
+            <><Loader2 size={14} className="animate-spin" /> Exportando...</>
+          ) : (
+            <><Download size={14} /> Descargar PDF</>
+          )}
+        </button>
+
+        <button
+          onClick={onClose}
+          className="w-full py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+        >
+          Cerrar
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 
-// ═══════════════════════════════════════════════════════════════════════════
 // SECCIÓN E: COMPONENTE ROOT — ArmsRosterScreen
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1550,6 +1730,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
   const [showICSExport, setShowICSExport] = useState(false);
+  const [showPDFExport, setShowPDFExport] = useState(false);
 
   // ── Estado de modal de enlaces de calendario ──────────────────────────
   const [showTokensModal, setShowTokensModal] = useState(false);
@@ -1895,21 +2076,23 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   // ╔═════════════════════════════════════════════════════════════════════╗
   // ║  EXPORTAR A PDF — Almanaque mensual vía @react-pdf/renderer       ║
   // ╚═════════════════════════════════════════════════════════════════════╝
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (customSettings?: any) => {
     if (processedEntries.length === 0) return;
 
-    let settings = {};
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('calendar_settings')
-        .eq('id', userId)
-        .single();
-      if (profile?.calendar_settings) {
-        settings = profile.calendar_settings;
+    let settings = customSettings;
+    if (!settings) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('calendar_settings')
+          .eq('id', userId)
+          .single();
+        if (profile?.calendar_settings) {
+          settings = profile.calendar_settings;
+        }
+      } catch (err) {
+        console.error("Error loading calendar settings for PDF:", err);
       }
-    } catch (err) {
-      console.error("Error loading calendar settings for PDF:", err);
     }
 
     const doc = <AlmanaquePDF entries={processedEntries} month={month} year={year} settings={settings} />;
@@ -2520,7 +2703,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       <AnimatePresence>
         {showExportMenu && (
           <ExportMenuModal
-            onPDF={handleExportPDF}
+            onPDF={() => setShowPDFExport(true)}
             onSubscribe={() => setShowTokensModal(true)}
             onICS={() => setShowICSExport(true)}
             onClose={() => setShowExportMenu(false)}
@@ -2558,6 +2741,17 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             year={year}
             userId={userId}
             onClose={() => setShowICSExport(false)}
+          />
+        )}
+
+        {showPDFExport && (
+          <ExportPDFModal
+            entries={processedEntries}
+            month={month}
+            year={year}
+            userId={userId}
+            onExport={handleExportPDF}
+            onClose={() => setShowPDFExport(false)}
           />
         )}
       </AnimatePresence>
