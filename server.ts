@@ -12,6 +12,7 @@ import nodemailer from "nodemailer";
 
 import crypto from "crypto";
 import helmet from "helmet";
+import { MercadoPagoConfig, PreApprovalPlan, PreApproval } from "mercadopago";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "./api/arms-scraper";
 
 // Fix for ENOTFOUND errors in some environments
@@ -1490,6 +1491,749 @@ app.use("/api/arms/sync-roster", authLimiter);
     }
   });
   // ── End calendar subscription tokens ────────────────────────────────
+
+  // ══════════════════════════════════════════════════════════════════════
+  // MERCADO PAGO — Suscripción anual (redirect checkout)
+  // ══════════════════════════════════════════════════════════════════════
+
+  const mpClient = new MercadoPagoConfig({
+    accessToken: process.env.MP_ACCESS_TOKEN || ""
+  });
+
+
+  let annualPlan: { id: string; initPoint: string; amount: number } | null = null;
+
+  const getOrCreateAnnualPlan = async (backUrl: string) => {
+    const { data: config, error: configError } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'subscription_amount')
+      .maybeSingle();
+    const amount = Number(config?.value) || 12000;
+
+    if (annualPlan && annualPlan.amount === amount) return annualPlan;
+    annualPlan = null;
+
+    try {
+      const plan = new PreApprovalPlan(mpClient);
+      const result = await plan.create({
+        body: {
+          reason: `Suscripción Anual Personal Flight Log - $${amount.toLocaleString('es-AR')} ARS`,
+          auto_recurring: {
+            frequency: 12,
+            frequency_type: "months",
+            transaction_amount: amount,
+            currency_id: "ARS"
+          },
+          back_url: backUrl
+        }
+      });
+      annualPlan = { id: result.id!, initPoint: result.init_point!, amount };
+      console.log(`[MERCADOPAGO] Plan anual creado: ${annualPlan.id}, monto: $${amount}`);
+      return annualPlan;
+    } catch (error: any) {
+      console.error("[MERCADOPAGO] Error al crear el plan:", error.response?.data || error.message);
+      throw error;
+    }
+  };
+
+  app.post("/api/mercadopago/register-with-trial", async (req, res) => {
+    const { email, password, firstName, lastName, license, dni, legajo, role } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email y contraseña son requeridos" });
+    }
+
+    try {
+      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { first_name: firstName, last_name: lastName }
+      });
+
+      if (authError) throw new Error(`Error creando usuario: ${authError.message}`);
+      if (!authUser?.user?.id) throw new Error("No se pudo crear el usuario");
+
+      const userId = authUser.user.id;
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 30);
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email,
+          first_name: firstName || "",
+          last_name: lastName || "",
+          license: license || "",
+          dni: dni || "",
+          legajo: legajo || "",
+          subscription_end_date: trialEnd.toISOString(),
+          subscription_status: 'trial',
+          subscription_id: null,
+          role: role || null
+        }, { onConflict: 'id' });
+
+      if (profileError) throw new Error(`Error guardando perfil: ${profileError.message}`);
+
+      console.log(`[TRIAL] Usuario creado: ${email}, vence: ${trialEnd.toISOString()}`);
+
+      const session = (authUser as any).session;
+      res.json({
+        success: true,
+        access_token: session?.access_token || null,
+        refresh_token: session?.refresh_token || null
+      });
+    } catch (error: any) {
+      console.error("[TRIAL] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/mercadopago/create-subscription", async (req, res) => {
+    const { userId, email, password, firstName, lastName, license, dni, legajo } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email y contraseña son requeridos" });
+    }
+
+    let backUrl = process.env.APP_URL || "http://localhost:5173";
+    const hostHeader = req.headers.origin || req.headers.referer;
+    if (hostHeader) {
+      try {
+        backUrl = new URL(hostHeader).origin;
+      } catch (e) {}
+    }
+
+    if (backUrl.includes("localhost") || backUrl.includes("127.0.0.1")) {
+      backUrl = process.env.VITE_API_URL || "https://personal-flight-log-antigravity-render.onrender.com";
+      backUrl = backUrl.replace(/\/api$/i, "");
+    }
+
+    try {
+      let externalRefId = userId;
+
+      if (!externalRefId) {
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('email', email)
+          .maybeSingle();
+
+        if (existingUser) {
+          externalRefId = existingUser.id;
+        }
+      }
+
+      const { data: config } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'subscription_amount')
+        .maybeSingle();
+      const amount = Number(config?.value) || 12000;
+
+      if (!externalRefId) {
+        const { data: pendingReg, error: pendingError } = await supabase
+          .from('pending_registrations')
+          .upsert({
+            email,
+            password_hash: password,
+            first_name: firstName || "",
+            last_name: lastName || "",
+            license: license || "",
+            dni: dni || "",
+            legajo: legajo || ""
+          }, { onConflict: 'email' })
+          .select('id')
+          .single();
+
+        if (pendingError) {
+          throw new Error(`Error guardando registro temporal: ${pendingError.message}`);
+        }
+        externalRefId = pendingReg.id;
+      }
+
+      const callbackUrl = `${backUrl}/api/mercadopago/subscription-callback?external_reference=${encodeURIComponent(externalRefId)}&frontend_url=${encodeURIComponent(backUrl)}`;
+
+      const dynamicPlan = new PreApprovalPlan(mpClient);
+      const planResult = await dynamicPlan.create({
+        body: {
+          reason: `Suscripción Anual Personal Flight Log - $${amount.toLocaleString('es-AR')} ARS`,
+          external_reference: externalRefId,
+          auto_recurring: {
+            frequency: 12,
+            frequency_type: "months",
+            transaction_amount: amount,
+            currency_id: "ARS"
+          },
+          back_url: callbackUrl
+        } as any
+      });
+
+      let checkoutUrl = planResult.init_point!;
+      checkoutUrl += `&external_reference=${encodeURIComponent(externalRefId)}&back_url=${encodeURIComponent(callbackUrl)}`;
+      console.log(`[MERCADOPAGO] Plan dinámico creado: ${planResult.id}, Checkout URL: ${checkoutUrl}`);
+
+      res.json({
+        success: true,
+        init_point: checkoutUrl
+      });
+
+    } catch (error: any) {
+      console.error("[MERCADOPAGO_SUBSCRIBE_ERR]", error.response?.data || error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/mercadopago/webhook", async (req, res) => {
+    const { action, data, type } = req.body;
+    console.log(`[MERCADOPAGO_WEBHOOK] Action: ${action}, Type: ${type}, Data ID: ${data?.id}`);
+
+    if (type === "subscription" || (action && action.includes("subscription")) || req.body.resource) {
+      try {
+        const subscriptionId = data?.id || req.body.resource?.split("/").pop();
+        if (!subscriptionId) {
+          return res.status(400).send("No subscription ID found");
+        }
+
+        const preApproval = new PreApproval(mpClient);
+        const subscription = await preApproval.get({ id: subscriptionId });
+
+        const status = subscription.status;
+        let pendingRegId = subscription.external_reference;
+        if (!pendingRegId && subscription.back_url) {
+          try {
+            const urlObj = new URL(subscription.back_url);
+            pendingRegId = urlObj.searchParams.get("external_reference") || undefined;
+            console.log(`[MERCADOPAGO_WEBHOOK] Ref de fallback obtenida de back_url: ${pendingRegId}`);
+          } catch (e) {}
+        }
+
+        console.log(`[MERCADOPAGO_WEBHOOK] Subscription: ${subscriptionId}, Status: ${status}, Ref: ${pendingRegId}`);
+
+        if ((status === "authorized" || status === "approved") && pendingRegId) {
+          let endDate: string;
+          const { data: existingProfileCheck } = await supabase
+            .from('profiles')
+            .select('subscription_end_date')
+            .eq('id', pendingRegId)
+            .maybeSingle();
+
+          if (existingProfileCheck?.subscription_end_date && new Date(existingProfileCheck.subscription_end_date) > new Date()) {
+            const existingEnd = new Date(existingProfileCheck.subscription_end_date);
+            existingEnd.setFullYear(existingEnd.getFullYear() + 1);
+            endDate = existingEnd.toISOString();
+            console.log(`[MERCADOPAGO_WEBHOOK] Stack: sumando 12 meses a end_date existente ${existingProfileCheck.subscription_end_date} → ${endDate}`);
+          } else {
+            endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+            const mpDate = subscription.next_payment_date || (subscription as any).end_date;
+            if (mpDate && new Date(mpDate) > new Date()) {
+              endDate = new Date(mpDate).toISOString();
+            }
+          }
+
+          let { data: updatedProfile, error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              subscription_id: subscription.id,
+              subscription_end_date: endDate,
+              subscription_status: status,
+              mp_payer_email: (subscription as any).payer_email || null
+            })
+            .eq('id', pendingRegId)
+            .select('id')
+            .maybeSingle();
+
+          if (updateError) {
+            console.error(`[MERCADOPAGO_WEBHOOK] Error al actualizar perfil: ${updateError.message}`);
+          }
+
+          if (updatedProfile) {
+            console.log(`[MERCADOPAGO_WEBHOOK] Suscripción renovada/actualizada para usuario existente: ${pendingRegId}`);
+          } else {
+            const { data: pendingReg, error: getError } = await supabase
+              .from('pending_registrations')
+              .select('*')
+              .eq('id', pendingRegId)
+              .maybeSingle();
+
+            if (getError) {
+              console.error(`[MERCADOPAGO_WEBHOOK] Error al buscar registro temporal: ${getError.message}`);
+              return res.status(500).send("DB Error");
+            }
+
+            if (pendingReg) {
+              const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+                email: pendingReg.email,
+                password: pendingReg.password_hash,
+                email_confirm: true,
+                user_metadata: {
+                  first_name: pendingReg.first_name,
+                  last_name: pendingReg.last_name,
+                  license: pendingReg.license,
+                  dni: pendingReg.dni,
+                  legajo: pendingReg.legajo
+                }
+              });
+
+              if (authError) {
+                console.error(`[MERCADOPAGO_WEBHOOK] Error al crear usuario: ${authError.message}`);
+              }
+
+              if (authUser?.user) {
+                const { error: profileUpdateError } = await supabase
+                  .from('profiles')
+                  .update({
+                    subscription_id: subscription.id,
+                    subscription_end_date: endDate,
+                    subscription_status: status,
+                    mp_payer_email: (subscription as any).payer_email || null
+                  })
+                  .eq('id', authUser.user.id)
+                  .select('id')
+                  .maybeSingle();
+
+                if (profileUpdateError) {
+                  console.error(`[MERCADOPAGO_WEBHOOK] Error al actualizar perfil: ${profileUpdateError.message}`);
+                }
+
+                const { data: checkProfile } = await supabase.from('profiles').select('id').eq('id', authUser.user.id).maybeSingle();
+                if (!checkProfile) {
+                   await supabase.from('profiles').insert({
+                     id: authUser.user.id,
+                     email: pendingReg.email,
+                     first_name: pendingReg.first_name,
+                     last_name: pendingReg.last_name,
+                     license: pendingReg.license,
+                     dni: pendingReg.dni,
+                     legajo: pendingReg.legajo,
+                     subscription_id: subscription.id,
+                     subscription_end_date: endDate,
+                     subscription_status: status,
+                     mp_payer_email: (subscription as any).payer_email || null
+                   });
+                }
+              }
+
+              await supabase
+                .from('pending_registrations')
+                .delete()
+                .eq('id', pendingRegId);
+
+              console.log(`[MERCADOPAGO_WEBHOOK] Registro completo exitosamente para nuevo usuario: ${pendingReg.email}`);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("[MERCADOPAGO_WEBHOOK_ERR]", err.stack || err.message);
+        return res.status(500).send(err.message);
+      }
+    } else if (type === "payment" || (action && action.includes("payment")) || req.body.resource) {
+      try {
+        const paymentId = data?.id || req.body.resource?.split("/").pop();
+        if (paymentId) {
+          const accessToken = process.env.MP_ACCESS_TOKEN;
+          const response = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          const payment = response.data;
+          const status = payment.status;
+          let externalRef = payment.external_reference;
+          let subscriptionId = payment.metadata?.preapproval_id || payment.subscription_id || payment.point_of_interaction?.transaction_data?.subscription_id || null;
+
+          if (!externalRef && subscriptionId) {
+            console.log(`[MERCADOPAGO_WEBHOOK_PAYMENT] Ref no encontrada en pago. Buscando en suscripción: ${subscriptionId}`);
+            try {
+              const preApproval = new PreApproval(mpClient);
+              const sub = await preApproval.get({ id: subscriptionId });
+              externalRef = sub.external_reference;
+              if (!externalRef && sub.back_url) {
+                const urlObj = new URL(sub.back_url);
+                externalRef = urlObj.searchParams.get("external_reference");
+                console.log(`[MERCADOPAGO_WEBHOOK_PAYMENT] Ref de fallback obtenida de back_url de suscripción: ${externalRef}`);
+              }
+            } catch (subErr: any) {
+              console.error(`[MERCADOPAGO_WEBHOOK_PAYMENT] Error al obtener detalles de suscripción para ref:`, subErr.message);
+            }
+          }
+
+          console.log(`[MERCADOPAGO_WEBHOOK_PAYMENT] Payment: ${paymentId}, Status: ${status}, Ref: ${externalRef}`);
+
+          if (status === "approved" && externalRef) {
+            let endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+            const payerEmail = (payment as any)?.payer?.email || null;
+
+            let { data: updatedProfile, error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                subscription_id: subscriptionId,
+                subscription_end_date: endDate,
+                subscription_status: "authorized",
+                mp_payer_email: payerEmail
+              })
+              .eq('id', externalRef)
+              .select('id')
+              .maybeSingle();
+
+            if (updateError) {
+              console.error(`[MERCADOPAGO_WEBHOOK_PAYMENT] Error al actualizar perfil: ${updateError.message}`);
+            }
+
+            if (updatedProfile) {
+              console.log(`[MERCADOPAGO_WEBHOOK_PAYMENT] Suscripción renovada/actualizada para usuario existente: ${externalRef}`);
+            } else {
+              const { data: pendingReg, error: getError } = await supabase
+                .from('pending_registrations')
+                .select('*')
+                .eq('id', externalRef)
+                .maybeSingle();
+
+              if (getError) {
+                console.error(`[MERCADOPAGO_WEBHOOK_PAYMENT] Error al buscar registro temporal: ${getError.message}`);
+                return res.status(500).send("DB Error");
+              }
+
+              if (pendingReg) {
+                const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+                  email: pendingReg.email,
+                  password: pendingReg.password_hash,
+                  email_confirm: true,
+                  user_metadata: {
+                    first_name: pendingReg.first_name,
+                    last_name: pendingReg.last_name,
+                    license: pendingReg.license,
+                    dni: pendingReg.dni,
+                    legajo: pendingReg.legajo
+                  }
+                });
+
+                if (authUser?.user) {
+                  const { error: profileUpdateError } = await supabase
+                    .from('profiles')
+                    .update({
+                      subscription_id: subscriptionId,
+                      subscription_end_date: endDate,
+                      subscription_status: "authorized",
+                      mp_payer_email: payerEmail
+                    })
+                    .eq('id', authUser.user.id);
+
+                  const { data: checkProfile } = await supabase.from('profiles').select('id').eq('id', authUser.user.id).maybeSingle();
+                  if (!checkProfile) {
+                     await supabase.from('profiles').insert({
+                       id: authUser.user.id,
+                       email: pendingReg.email,
+                       first_name: pendingReg.first_name,
+                       last_name: pendingReg.last_name,
+                       license: pendingReg.license,
+                       dni: pendingReg.dni,
+                       legajo: pendingReg.legajo,
+                       subscription_id: subscriptionId,
+                       subscription_end_date: endDate,
+                       subscription_status: "authorized",
+                       mp_payer_email: payerEmail
+                     });
+                  }
+                }
+
+                await supabase
+                  .from('pending_registrations')
+                  .delete()
+                  .eq('id', externalRef);
+
+                console.log(`[MERCADOPAGO_WEBHOOK_PAYMENT] Registro completo exitosamente para nuevo usuario: ${pendingReg.email}`);
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("[MERCADOPAGO_WEBHOOK_PAYMENT_ERR]", err.stack || err.message);
+      }
+    }
+
+    res.status(200).send("OK");
+  });
+
+  const cancelHandler = async (req: any, res: any) => {
+    const { user_id, subscription_id } = req.body;
+    if (!user_id || !subscription_id) {
+      return res.status(400).json({ error: "user_id y subscription_id son requeridos" });
+    }
+
+    try {
+      const preApproval = new PreApproval(mpClient);
+      await preApproval.update({
+        id: subscription_id,
+        body: {
+          status: "cancelled"
+        }
+      });
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          subscription_status: "cancelled"
+        })
+        .eq('id', user_id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[MERCADOPAGO_CANCEL_ERR]", error.response?.data || error.message);
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  app.post("/api/mercadopago/cancel-subscription", cancelHandler);
+  app.put("/api/mercadopago/cancel-subscription", cancelHandler);
+
+  app.get("/api/mercadopago/subscription-callback", async (req, res) => {
+    let preapproval_id = (req.query.preapproval_id || req.query.id) as string;
+    let external_reference = req.query.external_reference as string;
+    const status = req.query.status as string;
+
+    const urlStr = req.url || "";
+    console.log(`[MP_CALLBACK] Raw request URL: ${urlStr}`);
+
+    const resolveFrontendUrl = () => {
+      const frontendParam = req.query.frontend_url as string;
+      if (frontendParam) {
+        try { return new URL(frontendParam).origin; } catch (e) {}
+      }
+      let frontendUrl = process.env.VITE_API_URL || "https://personal-flight-log-antigravity-render.onrender.com";
+      return frontendUrl.replace(/\/api$/i, "");
+    };
+
+    if (!preapproval_id || !external_reference) {
+      const matchPreapproval = urlStr.match(/[?&](?:preapproval_id|id)=([^&?]+)/);
+      if (matchPreapproval) {
+        preapproval_id = decodeURIComponent(matchPreapproval[1]);
+      }
+      const matchExtRef = urlStr.match(/[?&]external_reference=([^&?]+)/);
+      if (matchExtRef) {
+        external_reference = decodeURIComponent(matchExtRef[1]);
+      }
+    }
+
+    console.log(`[MP_CALLBACK] Parsed params - preapproval: ${preapproval_id}, ref: ${external_reference}, status: ${status}`);
+
+    if (!preapproval_id) {
+      return res.redirect(resolveFrontendUrl() + "?payment=error&reason=missing_params");
+    }
+
+    try {
+      const preApproval = new PreApproval(mpClient);
+      const sub = await preApproval.get({ id: preapproval_id as string });
+
+      let finalExtRef = (external_reference as string) || sub.external_reference;
+        if (!finalExtRef && sub.back_url) {
+          try {
+            const urlObj = new URL(sub.back_url);
+            finalExtRef = urlObj.searchParams.get("external_reference") || undefined;
+            console.log(`[MP_CALLBACK] Ref de fallback obtenida de back_url de suscripción: ${finalExtRef}`);
+          } catch (e) {}
+        }
+
+        if (!finalExtRef) {
+          console.error(`[MP_CALLBACK] No se pudo encontrar el external_reference para preapproval: ${preapproval_id}`);
+          return res.redirect(resolveFrontendUrl() + "?payment=error&reason=missing_reference");
+        }
+
+        if (sub.status === "authorized" || sub.status === "approved") {
+          let endDate: string;
+          const { data: existingProfileCheck } = await supabase
+            .from('profiles')
+            .select('subscription_end_date')
+            .eq('id', finalExtRef)
+            .maybeSingle();
+
+          if (existingProfileCheck?.subscription_end_date && new Date(existingProfileCheck.subscription_end_date) > new Date()) {
+            const existingEnd = new Date(existingProfileCheck.subscription_end_date);
+            existingEnd.setFullYear(existingEnd.getFullYear() + 1);
+            endDate = existingEnd.toISOString();
+            console.log(`[MP_CALLBACK] Stack: sumando 12 meses a end_date existente ${existingProfileCheck.subscription_end_date} → ${endDate}`);
+          } else {
+            endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+            const mpDate = (sub as any).next_payment_date || (sub as any).end_date;
+            if (mpDate && new Date(mpDate) > new Date()) {
+              endDate = new Date(mpDate).toISOString();
+            }
+          }
+
+          let { data: updatedProfile, error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              subscription_id: sub.id,
+              subscription_end_date: endDate,
+              subscription_status: sub.status,
+              mp_payer_email: (sub as any).payer_email || null
+            })
+            .eq('id', finalExtRef)
+            .select('id')
+            .maybeSingle();
+
+          if (updateError) {
+            console.error(`[MP_CALLBACK] Error al actualizar perfil existente: ${updateError.message}`);
+          }
+
+          if (updatedProfile) {
+            try {
+              const preApproval = new PreApproval(mpClient);
+              await preApproval.update({
+                id: sub.id!,
+                body: {
+                  external_reference: finalExtRef
+                }
+              });
+              console.log(`[MP_CALLBACK] Asociado external_reference en MP para usuario existente: ${finalExtRef}`);
+            } catch (mpErr: any) {
+              console.error(`[MP_CALLBACK] Error al actualizar external_reference en MP para usuario existente:`, mpErr.response?.data || mpErr.message);
+            }
+
+            console.log(`[MP_CALLBACK] Suscripción renovada para: ${finalExtRef}`);
+            return res.redirect(resolveFrontendUrl() + "?payment=success&renewal=true");
+          }
+
+          const { data: pendingReg } = await supabase
+            .from('pending_registrations')
+            .select('email, password_hash, first_name, last_name, license, dni, legajo')
+            .eq('id', finalExtRef)
+            .single();
+
+          if (pendingReg) {
+            const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+              email: pendingReg.email,
+              password: pendingReg.password_hash,
+              email_confirm: true,
+              user_metadata: {
+                first_name: pendingReg.first_name || "",
+                last_name: pendingReg.last_name || "",
+                license: pendingReg.license || "",
+                dni: pendingReg.dni || "",
+                legajo: pendingReg.legajo || ""
+              }
+            });
+
+            if (authError) {
+              console.error(`[MP_CALLBACK] Error creando usuario: ${authError.message}`);
+            }
+
+            if (authUser?.user) {
+              const { error: profileUpdateError } = await supabase
+                .from('profiles')
+                .update({
+                  subscription_id: sub.id,
+                  subscription_end_date: endDate,
+                  subscription_status: sub.status,
+                  mp_payer_email: (sub as any).payer_email || null
+                })
+                .eq('id', authUser.user.id)
+                .select('id')
+                .maybeSingle();
+
+              if (profileUpdateError) {
+                console.error(`[MP_CALLBACK] Error al actualizar perfil post-creacion: ${profileUpdateError.message}`);
+              }
+
+              const { data: checkProfile } = await supabase.from('profiles').select('id').eq('id', authUser.user.id).maybeSingle();
+              if (!checkProfile) {
+                await supabase.from('profiles').insert({
+                  id: authUser.user.id,
+                  email: pendingReg.email,
+                  first_name: pendingReg.first_name,
+                  last_name: pendingReg.last_name,
+                  license: pendingReg.license,
+                  dni: pendingReg.dni,
+                  legajo: pendingReg.legajo,
+                  subscription_id: sub.id,
+                  subscription_end_date: endDate,
+                  subscription_status: sub.status,
+                  mp_payer_email: (sub as any).payer_email || null
+                });
+              }
+
+              try {
+                const preApproval = new PreApproval(mpClient);
+                await preApproval.update({
+                  id: sub.id!,
+                  body: {
+                    external_reference: authUser.user.id
+                  }
+                });
+                console.log(`[MP_CALLBACK] Actualizado external_reference en MP al UUID del nuevo usuario: ${authUser.user.id}`);
+              } catch (mpErr: any) {
+                console.error(`[MP_CALLBACK] Error al actualizar external_reference en MP para nuevo usuario:`, mpErr.response?.data || mpErr.message);
+              }
+            }
+
+            await supabase
+              .from('pending_registrations')
+              .delete()
+              .eq('id', finalExtRef);
+
+            console.log(`[MP_CALLBACK] Usuario creado: ${authUser.user?.id || 'error'}`);
+            return res.redirect(resolveFrontendUrl() + "?payment=success&newUser=true");
+          }
+
+          const { data: authUserCheck } = await supabase.auth.admin.getUserById(finalExtRef).catch(() => ({ data: null }));
+          if (authUserCheck?.user) {
+             try {
+                await supabase.from('profiles').insert({
+                   id: authUserCheck.user.id,
+                   email: authUserCheck.user.email,
+                   subscription_id: sub.id,
+                   subscription_end_date: endDate,
+                   subscription_status: sub.status,
+                   mp_payer_email: (sub as any).payer_email || null
+                });
+             } catch (e) {
+                console.error(e);
+             }
+
+             try {
+               const preApproval = new PreApproval(mpClient);
+               await preApproval.update({
+                 id: sub.id!,
+                 body: {
+                   external_reference: authUserCheck.user.id
+                 }
+               });
+               console.log(`[MP_CALLBACK] Actualizado external_reference en MP al UUID de authUserCheck: ${authUserCheck.user.id}`);
+             } catch (mpErr: any) {
+               console.error(`[MP_CALLBACK] Error al actualizar external_reference en MP para authUserCheck:`, mpErr.response?.data || mpErr.message);
+             }
+
+             return res.redirect(resolveFrontendUrl() + "?payment=success&renewal=true");
+          }
+
+          const { data: profileBySub } = await supabase
+            .from('profiles')
+            .select('id, email')
+            .eq('subscription_id', sub.id)
+            .maybeSingle();
+
+          if (profileBySub) {
+            console.log(`[MP_CALLBACK] Profile encontrado por subscription_id: ${profileBySub.id}`);
+            return res.redirect(resolveFrontendUrl() + "?payment=success&renewal=true");
+          }
+
+          return res.redirect(resolveFrontendUrl() + "?payment=error&reason=not_found");
+        } else {
+          return res.redirect(resolveFrontendUrl() + `?payment=error&reason=${sub.status}`);
+        }
+      } catch (error: any) {
+        console.error("[MP_CALLBACK_ERR]", error.message);
+        return res.redirect(resolveFrontendUrl() + "?payment=error&reason=server_error");
+      }
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
+  // FIN — Mercado Pago
+  // ══════════════════════════════════════════════════════════════════════
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

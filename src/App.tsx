@@ -30,7 +30,8 @@ import {
   CheckCircle,
   Loader2,
   Info,
-  LogOut
+  LogOut,
+  CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -356,7 +357,12 @@ const APP_VERSION = CHANGELOG_DATA[0].version;
 
 // --- Screens ---
 
-const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, onLogout, userEmail, darkMode, toggleDarkMode, role }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, onLogout: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void, role?: string }) => {
+const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, onLogout, userEmail, darkMode, toggleDarkMode, role, profile }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, onLogout: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void, role?: string, profile?: Profile | null }) => {
+  const daysRemaining = profile?.subscription_end_date
+    ? Math.ceil((new Date(profile.subscription_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const showRenewalWarning = daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 30;
+  const isTrial = !profile?.subscription_id && !!profile?.subscription_end_date;
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#101622] text-slate-900 dark:text-white transition-colors">
     <div className="flex items-center p-4 justify-between border-b border-slate-200 dark:border-[#2d3748]">
@@ -398,6 +404,39 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
         <p className="text-slate-400 text-base font-normal leading-relaxed max-w-md">
           Libro de vuelo y control de tiempos de Servicio y descansos mínimos según el Anexo I al Decreto 378/2025 (Arg.)
         </p>
+
+        {profile?.subscription_end_date && (
+          <button
+            onClick={() => {
+              localStorage.setItem('draft_flight_log_active_tab', 'perfil');
+              localStorage.setItem('draft_flight_log_scroll_to_subscription', 'true');
+              onGoToLibro();
+            }}
+            className={`w-full p-4 mt-6 rounded-2xl text-left flex items-start gap-3 shadow-sm cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all ${
+              showRenewalWarning
+                ? 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30'
+                : 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/30'
+            }`}>
+            {showRenewalWarning ? (
+              <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={18} />
+            ) : (
+              <svg className="text-green-500 shrink-0 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            )}
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <h4 className={`text-xs font-bold ${showRenewalWarning ? 'text-amber-800 dark:text-amber-400' : 'text-green-800 dark:text-green-400'}`}>
+                  {isTrial ? 'Período de prueba gratuito' : `Suscripción ${showRenewalWarning ? 'próxima a vencer' : 'activa'}`}
+                </h4>
+                <span className={`text-[10px] font-semibold ${showRenewalWarning ? 'text-amber-600' : 'text-green-600'}`}>
+                  {daysRemaining} días restantes
+                </span>
+              </div>
+              <p className="text-[11px] mt-0.5 text-slate-500 dark:text-slate-400">
+                Vence el {new Date(profile.subscription_end_date).toLocaleDateString()}
+              </p>
+            </div>
+          </button>
+        )}
 
         <div className="grid grid-cols-1 gap-4 mt-8 w-full">
           {/* Pilotos */}
@@ -1081,6 +1120,126 @@ const ChangelogScreen = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+const SubscriptionExpiredScreen = ({ profile, onLogout }: { profile: Profile | null, onLogout: () => void }) => {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
+
+  const handleRenew = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await fetch('/api/mercadopago/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: profile?.id,
+          email: profile?.email || '',
+          password: 'RENEWAL_DUMMY_PASSWORD',
+          firstName: profile?.first_name || '',
+          lastName: profile?.last_name || '',
+          license: profile?.license || '',
+          dni: profile?.dni || '',
+          legajo: profile?.legajo || ''
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error al renovar');
+      if (data.init_point) {
+        setPendingCheckoutUrl(data.init_point);
+      } else {
+        throw new Error('No se recibió la URL de pago');
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (pendingCheckoutUrl) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 h-full max-w-sm mx-auto text-center space-y-6">
+        <div className="mx-auto w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+          <CreditCard size={32} />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Confirmar pago</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Serás redirigido a Mercado Pago para realizar el pago de tu suscripción anual.
+          </p>
+        </div>
+
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/30 w-full text-left space-y-2">
+          <p className="text-xs text-amber-800 dark:text-amber-400 font-semibold">
+            Importante
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed">
+            Este es un pago único anual. Al finalizar el período de 12 meses deberás renovar manualmente la suscripción. No se realizarán cobros automáticos.
+          </p>
+        </div>
+
+        <div className="w-full space-y-3">
+          <Button
+            className="w-full h-11 bg-blue-600 hover:bg-blue-700"
+            onClick={() => { window.location.href = pendingCheckoutUrl; }}
+          >
+            <CreditCard className="mr-2" size={18} />
+            Ir a Pagar
+          </Button>
+          <button
+            onClick={() => setPendingCheckoutUrl(null)}
+            className="w-full h-11 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center p-6 h-full max-w-sm mx-auto text-center space-y-6">
+      <div className="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center">
+        <AlertTriangle size={32} />
+      </div>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          {!profile?.subscription_id && profile?.subscription_end_date ? 'Período de prueba vencido' : 'Suscripción Expirada'}
+        </h1>
+        <p className="text-sm text-slate-400 dark:text-slate-400">
+          {!profile?.subscription_id && profile?.subscription_end_date
+            ? 'Tu período de prueba gratuito de 30 días ha vencido. Suscribite para seguir usando la aplicación.'
+            : 'Tu suscripción anual ha vencido. Hacé click para renovar.'}
+        </p>
+      </div>
+
+      {profile?.subscription_end_date && (
+        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 w-full text-left space-y-2">
+          <p className="text-xs text-slate-500">Último Vencimiento: <span className="font-bold text-slate-800 dark:text-white">{new Date(profile.subscription_end_date).toLocaleDateString()}</span></p>
+          <p className="text-xs text-slate-500">Estado: <span className="font-bold text-red-500 capitalize">{profile.subscription_status}</span></p>
+        </div>
+      )}
+
+      {error && (
+        <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30 w-full">
+          {error}
+        </div>
+      )}
+
+      <div className="w-full space-y-3">
+        <Button className="w-full h-11 bg-blue-600 hover:bg-blue-700" onClick={handleRenew} disabled={loading}>
+          {loading ? <Loader2 className="animate-spin mr-2" /> : <CreditCard className="mr-2" size={18} />}
+          {loading ? 'Redirigiendo a Mercado Pago...' : 'Renovar Suscripción'}
+        </Button>
+        <button onClick={onLogout} className="w-full h-11 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium">
+          Cerrar Sesión
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -1105,6 +1264,17 @@ export default function App() {
     return window.location.hash.includes('type=recovery');
   });
   const [registerAlert, setRegisterAlert] = useState<{ show: boolean }>({ show: false });
+  const [paymentModal, setPaymentModal] = useState<{
+    show: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({
+    show: false,
+    type: 'success',
+    title: '',
+    message: ''
+  });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
@@ -1406,10 +1576,49 @@ export default function App() {
     await supabase!.auth.signOut();
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const newUser = params.get('newUser');
+    if (payment === 'success') {
+      if (newUser === 'true') {
+        setPaymentModal({
+          show: true,
+          type: 'success',
+          title: '¡Pago Exitoso!',
+          message: 'Tu cuenta ha sido creada con éxito. Por favor, inicia sesión con tu email y contraseña para continuar.'
+        });
+      } else {
+        setPaymentModal({
+          show: true,
+          type: 'success',
+          title: '¡Suscripción Activada!',
+          message: 'Tu pago fue procesado con éxito y tu suscripción anual ya se encuentra activa.'
+        });
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (payment === 'error') {
+      setPaymentModal({
+        show: true,
+        type: 'error',
+        title: 'Error en el Pago',
+        message: 'No pudimos procesar tu suscripción. Detalle: ' + (params.get('reason') || 'desconocido')
+      });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  const isSubscriptionActive = (() => {
+    if (!user) return true;
+    if (!profile) return true;
+    if (!profile.subscription_end_date) return false;
+    return new Date() < new Date(profile.subscription_end_date);
+  })();
+
   const renderScreen = () => {
     switch (screen) {
       case 'home':
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
@@ -1479,9 +1688,17 @@ export default function App() {
       case 'report':
         return <ReportScreen onBack={() => setScreen('home')} />;
       default:
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
     }
   };
+
+  if (user && !isSubscriptionActive) {
+    return (
+      <div className={`min-h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative font-sans transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
+        <SubscriptionExpiredScreen profile={profile} onLogout={handleLogout} />
+      </div>
+    );
+  }
 
   const content = (() => {
     if (showResetPassword) {
@@ -1644,6 +1861,61 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
-    </>
-  );
+
+      {/* Modal de Pago Exitoso / Fallido */}
+      <AnimatePresence>
+          {paymentModal.show && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="w-full max-w-sm overflow-hidden bg-white dark:bg-[#1a2233] border border-slate-200 dark:border-[#2d3748] rounded-2xl shadow-2xl p-6 text-center"
+              >
+                <div className="flex justify-center mb-4">
+                  {paymentModal.type === 'success' ? (
+                    <div className="w-16 h-16 rounded-full bg-green-500/10 dark:bg-green-500/20 text-green-500 flex items-center justify-center animate-bounce">
+                      <CheckCircle2 size={36} />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-red-500/10 dark:bg-red-500/20 text-red-500 flex items-center justify-center">
+                      <AlertTriangle size={36} />
+                    </div>
+                  )}
+                </div>
+
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                  {paymentModal.title}
+                </h3>
+
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+                  {paymentModal.message}
+                </p>
+
+                <button
+                  onClick={() => {
+                    setPaymentModal(prev => ({ ...prev, show: false }));
+                    if (paymentModal.type === 'success' && user) {
+                      window.location.reload();
+                    }
+                  }}
+                  className={`w-full py-3 px-4 rounded-xl font-semibold text-white transition-all transform active:scale-95 shadow-md ${
+                    paymentModal.type === 'success'
+                      ? 'bg-[#1152d4] hover:bg-[#1152d4]/90 shadow-blue-500/20'
+                      : 'bg-red-600 hover:bg-red-700 shadow-red-500/20'
+                  }`}
+                >
+                  Comenzar
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
+    );
 }

@@ -50,23 +50,34 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
       } else {
         if (!role) throw new Error("Debes seleccionar tu cargo (Pilotos FB / TCPs FB)");
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({ 
-          email, 
-          password,
-          options: {
-            emailRedirectTo: window.location.origin,
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              license: license,
-              dni: dni,
-              legajo: legajo,
-              role: role
-            }
-          }
+        const response = await fetch('/api/mercadopago/register-with-trial', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            firstName,
+            lastName,
+            license,
+            dni,
+            legajo,
+            role
+          })
         });
-        
-        if (authError) throw authError;
+        const resData = await response.json();
+        if (!response.ok) {
+          throw new Error(resData.error || 'Error al crear la cuenta');
+        }
+        if (resData.access_token && resData.refresh_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: resData.access_token,
+            refresh_token: resData.refresh_token
+          });
+          if (sessionError) throw sessionError;
+        } else {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) throw signInError;
+        }
 
         onRegisterSuccess?.();
       }

@@ -33,6 +33,10 @@ export interface Profile {
   grand_total_hours?: number | null;
   last_synced_flight_at?: string | null;
   role?: string;
+  subscription_id?: string | null;
+  subscription_end_date?: string | null;
+  subscription_status?: string | null;
+  mp_payer_email?: string | null;
 }
 
 export interface FlightLog {
