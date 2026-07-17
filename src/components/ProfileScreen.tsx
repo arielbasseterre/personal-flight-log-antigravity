@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   ArrowLeft,
@@ -82,6 +82,16 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
       confirmText: 'Entendido'
     });
   };
+
+  useEffect(() => {
+    const shouldScroll = localStorage.getItem('draft_flight_log_scroll_to_subscription');
+    if (shouldScroll) {
+      localStorage.removeItem('draft_flight_log_scroll_to_subscription');
+      setTimeout(() => {
+        document.getElementById('subscription-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, []);
 
   const handleProfileFieldChange = (field: keyof Profile, value: any) => {
     setProfile(prev => {

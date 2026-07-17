@@ -409,6 +409,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
         {profile?.subscription_end_date && (
           <button
             onClick={() => {
+              localStorage.setItem('draft_flight_log_scroll_to_subscription', 'true');
               onGoToPerfil();
             }}
             className={`w-full p-4 mt-6 rounded-2xl text-left flex items-start gap-3 shadow-sm cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all ${
