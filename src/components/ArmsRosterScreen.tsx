@@ -17,11 +17,11 @@
 //   E. Componente Root   — Orquestador principal
 // ═══════════════════════════════════════════════════════════════════════════
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
-  Shield, Home, AlertCircle, Briefcase, X, Eye, EyeOff, HelpCircle,
+  Shield, Home, AlertCircle, AlertTriangle, Briefcase, X, Eye, EyeOff, HelpCircle,
   Calendar, CalendarMinus, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2,
   FileText, Download, Settings
 } from 'lucide-react';
@@ -1734,6 +1734,11 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
 
   // ── Estado de modal de enlaces de calendario ──────────────────────────
   const [showTokensModal, setShowTokensModal] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(() => {
+    return localStorage.getItem('roster_disclaimer_accepted') !== 'true';
+  });
+  const disclaimerRef = useRef<HTMLDivElement>(null);
+  const [disclaimerScrollComplete, setDisclaimerScrollComplete] = useState(false);
 
   // ── Entrada seleccionada ──────────────────────────────────────────────
   const processedEntries = React.useMemo(() => {
@@ -2269,6 +2274,11 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
           </p>
         )}
 
+        {/* ── Recordatorio footer ───────────────────────────────────────── */}
+        <p className="text-[9px] text-slate-400/60 dark:text-slate-600/60 text-center leading-relaxed max-w-xs mx-auto">
+          Recordá que ante la duda, el portal de la compañía es el único medio oficial.
+        </p>
+
         {/* ── Error de sincronización ─────────────────────────────────── */}
         <AnimatePresence>
           {syncError && (
@@ -2719,6 +2729,100 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             onClose={() => setShowTokensModal(false)}
             onOpenPreferences={() => setShowPreferences(true)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Disclaimer (primera vez) */}
+      <AnimatePresence>
+        {showDisclaimer && (
+          <motion.div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div
+              className="relative w-full max-w-md bg-white dark:bg-[#0d1520] border border-slate-200 dark:border-[#2d3748] rounded-3xl overflow-hidden shadow-2xl"
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+            >
+              <div className="p-5 pb-0">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Descargo de Responsabilidad</h3>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Términos y Condiciones del Roster</p>
+                  </div>
+                </div>
+
+                <div
+                  ref={disclaimerRef}
+                  className="h-64 overflow-y-auto space-y-4 pr-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-4"
+                  onScroll={() => {
+                    const el = disclaimerRef.current;
+                    if (!el || disclaimerScrollComplete) return;
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 5) {
+                      setDisclaimerScrollComplete(true);
+                    }
+                  }}
+                >
+                  <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                    Importante: El canal oficial es siempre tu prioridad.
+                  </p>
+                  <p>
+                    Esta aplicación ha sido desarrollada como una herramienta de asistencia personal para facilitar la visualización de tu programación de vuelos. Si bien trabajamos de forma continua para garantizar que la sincronización de datos sea precisa y se actualice en tiempo real, esta plataforma no constituye un canal oficial de la línea aérea.
+                  </p>
+                  <p className="font-semibold text-slate-700 dark:text-slate-300">
+                    Al utilizar esta función, aceptas y reconoces que:
+                  </p>
+                  <div className="space-y-3 pl-3 border-l-2 border-amber-200 dark:border-amber-900/40">
+                    <div>
+                      <p className="font-semibold text-slate-700 dark:text-slate-300">Responsabilidad de Verificación:</p>
+                      <p>Es obligación exclusiva del usuario (tripulante) contrastar y verificar de manera regular su itinerario, cambios de guardia, asignaciones y notificaciones directamente en el portal oficial de la aerolínea.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-700 dark:text-slate-300">Exclusión de Responsabilidad:</p>
+                      <p>El desarrollador no se hace responsable por vuelos perdidos, presentaciones erróneas (no-show), penalizaciones, errores de interpretación o cualquier perjuicio derivado de discrepancias, fallas de conectividad, retrasos en la sincronización o desactualización de los datos mostrados en esta app.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-700 dark:text-slate-300">Prevalencia de Datos:</p>
+                      <p>Ante la más mínima duda, diferencia o conflicto entre la información mostrada aquí y el sistema de la compañía, prevalecerá siempre y sin excepción la información del portal oficial de la aerolínea.</p>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-amber-50/50 dark:bg-amber-900/10 rounded-xl border border-amber-200/50 dark:border-amber-900/30">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
+                      Al continuar utilizando esta sección, confirmas que comprendes que el portal de la aerolínea es la única fuente de verdad legal y operativa para tu actividad de vuelo.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  disabled={!disclaimerScrollComplete}
+                  onClick={() => {
+                    localStorage.setItem('roster_disclaimer_accepted', 'true');
+                    setShowDisclaimer(false);
+                  }}
+                  className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                    disclaimerScrollComplete
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 active:scale-[0.98]'
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  {disclaimerScrollComplete ? (
+                    <><CheckCircle2 size={16} /> He leído y acepto</>
+                  ) : (
+                    <><Shield size={16} /> Desplazate hasta el final para aceptar</>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
