@@ -2008,6 +2008,35 @@ app.use("/api/arms/sync-roster", authLimiter);
       return frontendUrl.replace(/\/api$/i, "");
     };
 
+    const userAgent = req.headers["user-agent"] || "";
+    const isAndroid = /android/i.test(userAgent);
+    const isIOS = /ipad|iphone|ipod/i.test(userAgent);
+    const isMobileParam = req.query.is_mobile === 'true';
+    const finalIsMobile = isMobileParam || isAndroid || isIOS;
+
+    const sendResponse = (paymentStatus: 'success' | 'error', params: Record<string, string>) => {
+      const frontendUrl = resolveFrontendUrl();
+      const queryParams = new URLSearchParams({ payment: paymentStatus, ...params }).toString();
+      
+      if (finalIsMobile) {
+        if (isAndroid) {
+          // Android Intent: Fuerza a abrir en el navegador predeterminado del sistema (Chrome/etc)
+          const cleanHost = frontendUrl.replace(/^https?:\/\//i, '');
+          const intentUrl = `intent://${cleanHost}/?${queryParams}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
+          console.log(`[MP_CALLBACK] Android detectado. Redirigiendo a intent: ${intentUrl}`);
+          return res.redirect(intentUrl);
+        } else {
+          // iOS / Otros dispositivos móviles:
+          // Redirigimos al frontend con el flag webview=true para mostrar la guía de escape en Safari
+          console.log(`[MP_CALLBACK] iOS/Móvil detectado. Redirigiendo a webview helper: ${frontendUrl}?${queryParams}&webview=true`);
+          return res.redirect(`${frontendUrl}?${queryParams}&webview=true`);
+        }
+      }
+      
+      console.log(`[MP_CALLBACK] Desktop detectado. Redirigiendo normalmente a: ${frontendUrl}?${queryParams}`);
+      return res.redirect(`${frontendUrl}?${queryParams}`);
+    };
+
     if (!preapproval_id || !external_reference) {
       const matchPreapproval = urlStr.match(/[?&](?:preapproval_id|id)=([^&?]+)/);
       if (matchPreapproval) {
@@ -2022,7 +2051,7 @@ app.use("/api/arms/sync-roster", authLimiter);
     console.log(`[MP_CALLBACK] Parsed params - preapproval: ${preapproval_id}, ref: ${external_reference}, status: ${status}`);
 
     if (!preapproval_id) {
-      return res.redirect(resolveFrontendUrl() + "?payment=error&reason=missing_params");
+      return sendResponse("error", { reason: "missing_params" });
     }
 
     try {
@@ -2040,7 +2069,7 @@ app.use("/api/arms/sync-roster", authLimiter);
 
         if (!finalExtRef) {
           console.error(`[MP_CALLBACK] No se pudo encontrar el external_reference para preapproval: ${preapproval_id}`);
-          return res.redirect(resolveFrontendUrl() + "?payment=error&reason=missing_reference");
+          return sendResponse("error", { reason: "missing_reference" });
         }
 
         if (sub.status === "authorized" || sub.status === "approved") {
@@ -2095,7 +2124,7 @@ app.use("/api/arms/sync-roster", authLimiter);
             }
 
             console.log(`[MP_CALLBACK] Suscripción renovada para: ${finalExtRef}`);
-            return res.redirect(resolveFrontendUrl() + "?payment=success&renewal=true");
+            return sendResponse("success", { renewal: "true" });
           }
 
           const { data: pendingReg } = await supabase
@@ -2176,7 +2205,7 @@ app.use("/api/arms/sync-roster", authLimiter);
               .eq('id', finalExtRef);
 
             console.log(`[MP_CALLBACK] Usuario creado: ${authUser.user?.id || 'error'}`);
-            return res.redirect(resolveFrontendUrl() + "?payment=success&newUser=true");
+            return sendResponse("success", { newUser: "true" });
           }
 
           const { data: authUserCheck } = await supabase.auth.admin.getUserById(finalExtRef).catch(() => ({ data: null }));
@@ -2207,7 +2236,7 @@ app.use("/api/arms/sync-roster", authLimiter);
                console.error(`[MP_CALLBACK] Error al actualizar external_reference en MP para authUserCheck:`, mpErr.response?.data || mpErr.message);
              }
 
-             return res.redirect(resolveFrontendUrl() + "?payment=success&renewal=true");
+             return sendResponse("success", { renewal: "true" });
           }
 
           const { data: profileBySub } = await supabase
@@ -2218,16 +2247,16 @@ app.use("/api/arms/sync-roster", authLimiter);
 
           if (profileBySub) {
             console.log(`[MP_CALLBACK] Profile encontrado por subscription_id: ${profileBySub.id}`);
-            return res.redirect(resolveFrontendUrl() + "?payment=success&renewal=true");
+            return sendResponse("success", { renewal: "true" });
           }
 
-          return res.redirect(resolveFrontendUrl() + "?payment=error&reason=not_found");
+          return sendResponse("error", { reason: "not_found" });
         } else {
-          return res.redirect(resolveFrontendUrl() + `?payment=error&reason=${sub.status}`);
+          return sendResponse("error", { reason: sub.status || "unknown" });
         }
       } catch (error: any) {
         console.error("[MP_CALLBACK_ERR]", error.message);
-        return res.redirect(resolveFrontendUrl() + "?payment=error&reason=server_error");
+        return sendResponse("error", { reason: "server_error" });
       }
   });
 

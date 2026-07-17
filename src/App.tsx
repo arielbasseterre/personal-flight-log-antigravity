@@ -1275,6 +1275,13 @@ export default function App() {
     title: '',
     message: ''
   });
+  const [webviewEscape, setWebviewEscape] = useState<{
+    show: boolean;
+    newUser: boolean;
+  }>({
+    show: false,
+    newUser: false
+  });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
@@ -1580,23 +1587,36 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
     const newUser = params.get('newUser');
+    const webview = params.get('webview') === 'true';
+
+    const isIOS = /ipad|iphone|ipod/i.test(window.navigator.userAgent);
+    const isStandalone = (window.navigator as any).standalone === true;
+
     if (payment === 'success') {
-      if (newUser === 'true') {
-        setPaymentModal({
+      if (webview && isIOS && !isStandalone) {
+        setWebviewEscape({
           show: true,
-          type: 'success',
-          title: '¡Pago Exitoso!',
-          message: 'Tu cuenta ha sido creada con éxito. Por favor, inicia sesión con tu email y contraseña para continuar.'
+          newUser: newUser === 'true'
         });
+        window.history.replaceState({}, '', window.location.pathname);
       } else {
-        setPaymentModal({
-          show: true,
-          type: 'success',
-          title: '¡Suscripción Activada!',
-          message: 'Tu pago fue procesado con éxito y tu suscripción anual ya se encuentra activa.'
-        });
+        if (newUser === 'true') {
+          setPaymentModal({
+            show: true,
+            type: 'success',
+            title: '¡Pago Exitoso!',
+            message: 'Tu cuenta ha sido creada con éxito. Por favor, inicia sesión con tu email y contraseña para continuar.'
+          });
+        } else {
+          setPaymentModal({
+            show: true,
+            type: 'success',
+            title: '¡Suscripción Activada!',
+            message: 'Tu pago fue procesado con éxito y tu suscripción anual ya se encuentra activa.'
+          });
+        }
+        window.history.replaceState({}, '', window.location.pathname);
       }
-      window.history.replaceState({}, '', window.location.pathname);
     } else if (payment === 'error') {
       setPaymentModal({
         show: true,
@@ -1929,6 +1949,72 @@ export default function App() {
                   }`}
                 >
                   Comenzar
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal de Escape de WebView en iOS */}
+        <AnimatePresence>
+          {webviewEscape.show && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="w-full max-w-sm overflow-hidden bg-white dark:bg-[#1a2233] border border-slate-200 dark:border-[#2d3748] rounded-2xl shadow-2xl p-6 text-center"
+              >
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 flex items-center justify-center animate-pulse">
+                    <Share2 size={36} />
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                  ¡Pago Confirmado!
+                </h3>
+
+                <p className="text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+                  Para ingresar a tu cuenta de <strong>Personal Flight Log</strong>, necesitas salir de Mercado Pago y abrir el sitio en el navegador de tu teléfono.
+                </p>
+
+                <div className="text-left bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3 mb-6">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Instrucciones para iPhone:</p>
+                  <div className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#1152d4] text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 text-left">
+                      Presiona el botón de <strong>Compartir / Opciones</strong> (abajo en tu pantalla o arriba a la derecha).
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#1152d4] text-white text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 text-left">
+                      Selecciona la opción <strong>"Abrir en Safari"</strong> de la lista.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.origin + "/?payment=success" + (webviewEscape.newUser ? "&newUser=true" : ""));
+                    alert("Enlace copiado al portapapeles. Puedes pegarlo en Safari.");
+                  }}
+                  className="w-full py-2.5 px-4 mb-3 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium text-sm transition-all"
+                >
+                  Copiar enlace para Safari
+                </button>
+
+                <button
+                  onClick={() => setWebviewEscape({ show: false, newUser: false })}
+                  className="text-xs text-slate-400 hover:text-slate-500 underline"
+                >
+                  Cerrar y continuar aquí (no recomendado)
                 </button>
               </motion.div>
             </motion.div>

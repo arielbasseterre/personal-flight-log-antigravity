@@ -114,6 +114,21 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
   - Detección de la pantalla de cambio obligatorio de contraseña en el portal ARMS, lanzando el error `ARMS_PASSWORD_EXPIRED`.
   - Creación del modal `PasswordExpiredAlert` indicando al usuario que debe renovar su clave desde el navegador web y volver a intentar.
   - Corrección de la lógica de alertas offline para que solo se muestren si `navigator.onLine === false`.
+- **MP Subscription portado desde v1 (17-Jul-2026)**:
+  - AuthScreen.tsx: registro envía datos a `POST /api/mercadopago/create-subscription`, redirige a `init_point` (sin Brick, sin Trial — Trial no se porta a v2)
+  - server.ts: endpoints `create-subscription`, `subscription-callback` (regex doble `?`), `webhook` (subscription_preapproval), `cancel-subscription`, función `getOrCreateAnnualPlan()` con lectura de `app_config`
+  - App.tsx: `SubscriptionExpiredScreen` con "Renovar Suscripción", manejo de `?payment=success|error`, overlay reset password
+  - HomeScreen: card suscripción con días restantes y fecha de expiración
+  - Supabase: columnas `subscription_id`, `subscription_end_date`, `subscription_status` en `profiles`, tabla `pending_registrations`, tabla `app_config`
+  - Render: `MP_ACCESS_TOKEN` seteado en dashboard + `VITE_API_URL`
+  - Webhook configurado en MP Dashboard → "Planes y suscripciones" → `https://personal-flight-log-antigravity-render.onrender.com/api/mercadopago/webhook`
+  - Pago real verificado en producción: renovación funcional
+- **Fix mpClient sin fallback TEST (17-Jul-2026)**: Eliminado `|| "TEST-..."` de `MercadoPagoConfig`. Solo usa `process.env.MP_ACCESS_TOKEN || ""`.
+- **Fix resolveFrontendUrl (17-Jul-2026)**: Ahora usa `req.query.frontend_url` como primera opción, fallback a `req.headers.origin/referer`, luego `VITE_API_URL`, luego URL hardcodeada. Aplicado en callback y webhook redirects en ambas versiones.
+- **Fix race condition webhook vs callback (17-Jul-2026)**: Cuando el webhook procesa al usuario antes que el callback, la búsqueda por email en `pending_registrations` falla. Agregado fallback: `profiles WHERE subscription_id = sub.id`.
+- **ProfileScreen.tsx (nuevo, 17-Jul-2026)**: Componente independiente para TODOS los roles (TCP y pilotos) con formulario de perfil + card suscripción + botón renovar + modal pago. HomeScreen ahora navega a ProfileScreen desde la card de suscripción. Incluye scroll automático a `#subscription-card` via localStorage flag.
+- **Disclaimer Roster (17-Jul-2026)**: Modal con scroll-to-accept + localStorage `roster_disclaimer_accepted` + footer recordatorio en ArmsRosterScreen. Botón "Aceptar" deshabilitado hasta completar scroll.
+- **Git v1 pusheado (17-Jul-2026)**: Token GitHub renovado, commit `beaff57` pusheado exitosamente a `main` de v1.
 
 - [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
@@ -122,11 +137,17 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 ## 5. Features a Desarrollar
 
 ### ✅ Completado — Mercado Pago (Suscripciones)
-Sistema de pagos por suscripción anual implementado con redirect checkout de MP. Copiar referencia de implementación desde v1 (`D:\app Antigravity\personal-flight-log sin roster\server.ts`).
+Sistema de pagos por suscripción anual implementado con redirect checkout de MP. Portado desde v1.
 
-**Referencia de implementación en v1:** Ver sección "Lecciones Aprendidas" y "Decisiones Técnicas" más abajo para evitar errores conocidos.
-
-- [x] Fix login intermitente (15-Jun-2026): `signOut({ scope: 'local' })` antes de `signInWithPassword` en AuthScreen
+- [x] **Backend**: `create-subscription`, `subscription-callback` (regex doble `?`), `webhook`, `cancel-subscription`, `getOrCreateAnnualPlan()`
+- [x] **Frontend**: AuthScreen (registro → MP redirect), SubscriptionExpiredScreen, HomeScreen card suscripción, manejo `?payment=success|error`
+- [x] **Infra**: Columnas Supabase, `pending_registrations`, `app_config`, `MP_ACCESS_TOKEN` en Render
+- [x] **Webhook MP Dashboard** configurado → suscripciones renovadas automáticamente
+- [x] **Pago real en producción** verificado (renovación funcional)
+- [x] Fix login intermitente: `signOut({ scope: 'local' })` antes de `signInWithPassword` en AuthScreen
+- [x] Fix resolveFrontendUrl: usa `frontend_url` query param en vez de referer/origin
+- [x] Fix race condition webhook vs callback: fallback search por `subscription_id`
+- [x] ProfileScreen independiente (TCP y pilotos) con card suscripción + renovar
 
 ### ✅ Completado — Compatibilidad con Navegadores/iOS Antiguos (Safari 15.8.7)
 - [x] Corrección de valores `oklch()` a Hexadecimal en `src/index.css` (temas claro y oscuro) para corregir recuadros transparentes.
@@ -155,36 +176,32 @@ Panel de estadísticas mensuales en `ArmsRosterScreen.tsx`, calculado dinámicam
 - [x] UI premium con tarjeta animada (framer-motion), dos columnas (tiempos + días), contadores en cero atenuados
 - [x] Compatible retroactivamente con todos los rosters previamente sincronizados
 
-### 🟡 Pendiente — Trial 30 días (implementado en v1)
-- [ ] Endpoint `POST /api/mercadopago/register-with-trial` — crea usuario con `admin.createUser()` + perfil con trial 30d, devuelve `access_token` + `refresh_token` para auto-login directo
-- [ ] En AuthScreen: llamar a `register-with-trial`, usar `setSession()` con tokens del server (no `signInWithPassword`)
-- [ ] HomeScreen: mostrar "Período de prueba gratuito" en card verde cuando `!subscription_id && subscription_end_date`
-- [ ] SubscriptionExpiredScreen: mensaje diferenciado "Período de prueba vencido" para trial vs "Suscripción Expirada" para pago
-- [ ] Columna `mp_payer_email TEXT` en `profiles` (ejecutar `scripts/add_mp_payer_email.sql`)
-- [ ] Los 8 puntos de callback/webhook guardan `mp_payer_email` en el perfil
+### ✅ Completado — Trial 30 días (solo en v1, no portado a v2)
+v1 tiene `register-with-trial` con creación directa de usuario + 30d trial. v2 no lo implementa — los nuevos usuarios deben pagar directamente.
 
-### 🟡 Pendiente — Renovación anticipada (implementado en v1)
-- [ ] LibroScreen: botón "Renovar Suscripción" azul cuando falten ≤ 30 días (reemplaza "Cancelar Suscripción" que se elimina)
-- [ ] `handleRenewSubscription()`: llama a `POST /api/mercadopago/create-subscription` y redirige a `init_point`
-- [ ] Callback y webhook: detectar si el usuario ya tiene `subscription_end_date` futura y sumarle 12 meses (stack) en vez de usar hoy + 365
-- [ ] El botón de cancelar se elimina completamente (ya no existe en v1)
+### ✅ Completado — Renovación anticipada
+- [x] ProfileScreen: botón "Renovar" azul cuando falten ≤ 30 días (reemplaza "Cancelar Suscripción")
+- [x] `handleRenewSubscription()`: llama a `create-subscription` y redirige a `init_point`
+- [x] Callback y webhook: detectan si el usuario ya tiene `subscription_end_date` futura y suman 12 meses (stack)
+- [x] El botón de cancelar se eliminó completamente
 
-### 🟡 Pendiente — Centrado vertical del login (implementado en v1)
-- [ ] AuthScreen: cambiar `h-full` → `flex-1` en el root div
-- [ ] AuthScreen: agregar `-mt-8` al `motion.div` del contenido para desplazar el formulario 32px arriba del centro
-- [ ] App.tsx (`case 'libro'`): cambiar `flex-1 overflow-y-auto` → `flex flex-col flex-1 overflow-y-auto` en el contenedor padre de AuthScreen
+### ✅ Completado — Centrado vertical del login
+- [x] AuthScreen: `h-full` → `flex-1` en root div
+- [x] AuthScreen: `-mt-8` en `motion.div`
+- [x] App.tsx (`case 'libro'`): `flex-1 overflow-y-auto` → `flex flex-col flex-1 overflow-y-auto`
 
-### 🟡 Pendiente — Navegación card suscripción → perfil (implementado en v1)
-- [ ] HomeScreen: la card de suscripción debe ser clickable, seteando `localStorage.setItem('draft_flight_log_active_tab', 'perfil')` + `localStorage.setItem('draft_flight_log_scroll_to_subscription', 'true')` y navegando a `'libro'`
-- [ ] LibroScreen: agregar `id="subscription-card"` al Card de suscripción
-- [ ] LibroScreen: en el `useEffect` de `activeTab === 'perfil'`, hacer `scrollIntoView` a `#subscription-card` solo si la flag `draft_flight_log_scroll_to_subscription` existe, limpiarla después (evita scroll al entrar al perfil por otros medios)
+### ✅ Completado — Navegación card suscripción → perfil
+- [x] HomeScreen: card suscripción clickable, setea localStorage flags y navega a `'perfil'`
+- [x] ProfileScreen: `id="subscription-card"` en Card de suscripción
+- [x] ProfileScreen: `useEffect` con scrollIntoView a `#subscription-card` y limpieza de flag
 
-### 🟡 Pendiente — MP callback redirect fix (implementado en v1)
-- [ ] En `server.ts`, callback `GET /api/mercadopago/subscription-callback`: agregar función `resolveFrontendUrl()` que use `req.headers.origin || req.headers.referer` como primera opción, luego `VITE_API_URL`, y fallback a la URL hardcodeada de Render. Reemplazar las 8 ocurrencias de `(process.env.VITE_API_URL || "http://localhost:5173")` por `resolveFrontendUrl()`.
+### ✅ Completado — MP callback redirect fix
+- [x] `resolveFrontendUrl()` en server.ts: usa `frontend_url` query param → origin/referer → VITE_API_URL → hardcodeada
+- [x] Reemplazadas las 8 ocurrencias de `(process.env.VITE_API_URL || "http://localhost:5173")` por `resolveFrontendUrl()`
 
-### 🟡 Pendiente — Payment confirmation modal (implementado en v1)
-- [ ] App.tsx (SubscriptionExpiredScreen): al recibir `init_point` de MP, no redirigir directo. Mostrar modal de confirmación con texto: "Este es un pago único anual. Al finalizar el período de 12 meses deberás renovar manualmente la suscripción. No se realizarán cobros automáticos." Botones "Ir a Pagar" → redirige a MP, "Cancelar" → vuelve atrás.
-- [ ] LibroScreen.tsx: mismo modal de confirmación antes de redirigir a MP desde `handleRenewSubscription`.
+### ✅ Completado — Payment confirmation modal
+- [x] ProfileScreen: modal de confirmación antes de redirigir a MP
+- [x] SubscriptionExpiredScreen: mismo modal
 
 ### 🟡 Media Prioridad
 - [ ] Monitorear la estabilidad de la sincronización con los endpoints de la ANAC (usando el fallback de `cadam.anac.gob.ar` cuando `cad.anac.gob.ar` falle).
@@ -195,7 +212,9 @@ Panel de estadísticas mensuales en `ArmsRosterScreen.tsx`, calculado dinámicam
 
 ---
 
-## 6. Implementación Futura: Mercado Pago (Referencia)
+## 6. Implementación Futura: Mercado Pago (Referencia — ya implementada en v2)
+
+> **NOTA**: Todo el sistema de suscripciones MP ya está implementado en v2. Esta sección se mantiene como referencia histórica y checklist de los pasos seguidos.
 
 ### Paquetes npm
 ```json
