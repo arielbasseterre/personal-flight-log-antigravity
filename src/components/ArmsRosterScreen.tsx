@@ -1440,6 +1440,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [rosterChanges, setRosterChanges]       = useState<RosterChange[] | null>(null);
   const [showOfflineAlert, setShowOfflineAlert] = useState(false);
   const [showNoChangesAlert, setShowNoChangesAlert] = useState(false);
+  const [showTimeoutAlert, setShowTimeoutAlert] = useState(false);
 
   // ── Estado del modal de tripulación ───────────────────────────────────
   const [crewModal, setCrewModal] = useState<{
@@ -1672,7 +1673,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     setSyncError(null);
 
     const abortController = new AbortController();
-    const abortTimeout = setTimeout(() => abortController.abort(), 25000);
+    const abortTimeout = setTimeout(() => abortController.abort(), 120000);
 
     try {
       const response = await fetch(getApiUrl('/api/arms/sync-roster'), {
@@ -1755,9 +1756,12 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       clearTimeout(abortTimeout);
       console.error('[ARMS_UI] Error en sincronización:', error.message);
       
-      // Network errors (fetch no llegó al servidor) — preservar credenciales
-      if (error instanceof TypeError || error.name === 'AbortError') {
+      if (error.name === 'AbortError') {
+        setShowTimeoutAlert(true);
+      } else if (error instanceof TypeError && !navigator.onLine) {
         setShowOfflineAlert(true);
+      } else if (error instanceof TypeError) {
+        setSyncError('No se pudo conectar con el servidor backend.');
       } else {
         const msg = error.message || '';
         // Error de autenticación con ARMS — limpiar credenciales y pedir reingreso
@@ -2389,6 +2393,13 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       <AnimatePresence>
         {showOfflineAlert && (
           <OfflineAlert onClose={() => setShowOfflineAlert(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Servidor Lento (Timeout) */}
+      <AnimatePresence>
+        {showTimeoutAlert && (
+          <TimeoutAlert onClose={() => setShowTimeoutAlert(false)} />
         )}
       </AnimatePresence>
 
