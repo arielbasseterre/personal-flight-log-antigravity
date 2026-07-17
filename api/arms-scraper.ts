@@ -145,6 +145,36 @@ export async function scrapeArmsRoster(
     }
     console.log('[ARMS_SCRAPER] Login exitoso. Dashboard URL:', postLoginUrl);
 
+    // ── Detección de página de cambio de contraseña obligatorio ────────
+    // ARMS redirige a ChangePassword.aspx cuando la contraseña está por
+    // expirar o ya expiró. Detectamos por URL y por contenido de la página.
+    const isPasswordChangePage =
+      postLoginUrl.toLowerCase().includes('changepassword') ||
+      postLoginUrl.toLowerCase().includes('change_password') ||
+      postLoginUrl.toLowerCase().includes('passwordexpir');
+
+    if (!isPasswordChangePage) {
+      // Verificar también por contenido de la página (por si la URL no es obvia)
+      const pageText = await page.textContent('body').catch(() => '');
+      const hasPasswordChangeContent =
+        /change\s*password/i.test(pageText) &&
+        (/password\s*(is\s*)?expir/i.test(pageText) || /old\s*password/i.test(pageText));
+
+      if (hasPasswordChangeContent) {
+        console.log('[ARMS_SCRAPER] Detectada página de cambio de contraseña por contenido.');
+        throw new Error(
+          'ARMS_PASSWORD_EXPIRED: Tu contraseña de ARMS está por expirar o ya expiró. ' +
+          'Ingresá al portal ARMS desde un navegador para actualizarla antes de sincronizar.'
+        );
+      }
+    } else {
+      console.log('[ARMS_SCRAPER] Detectada redirección a página de cambio de contraseña:', postLoginUrl);
+      throw new Error(
+        'ARMS_PASSWORD_EXPIRED: Tu contraseña de ARMS está por expirar o ya expiró. ' +
+        'Ingresá al portal ARMS desde un navegador para actualizarla antes de sincronizar.'
+      );
+    }
+
     // ── PASO 4: Navegar DIRECTAMENTE a CrewDailyRoster.aspx por URL ─────
     // En lugar de buscar el link del menú (que varía entre versiones de ARMS
     // y puede llevar a páginas incorrectas), construimos la URL directamente

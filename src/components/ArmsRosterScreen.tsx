@@ -771,6 +771,100 @@ function OfflineAlert({ onClose }: { onClose: () => void }) {
   );
 }
 
+function TimeoutAlert({ onClose }: { onClose: () => void }) {
+  const [countdown, setCountdown] = useState(6);
+  useEffect(() => {
+    const timer = setTimeout(onClose, 6000);
+    const interval = setInterval(() => setCountdown(c => c - 1), 1000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
+  }, [onClose]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-sm bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 text-center"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto">
+          <Clock size={24} className="text-amber-400" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">El servidor tardó demasiado</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            La sincronización con ARMS excedió el tiempo de espera. Esto puede pasar si el portal ARMS está lento. Intentá de nuevo en unos minutos.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-[#1152d4] hover:bg-[#0e47b5] text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
+        >
+          Entendido
+        </button>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500 text-right -mb-2">
+          cerrando ventana en... {countdown}
+        </p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function PasswordExpiredAlert({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-sm bg-slate-50 dark:bg-[#101622] border border-slate-200 dark:border-[#2d3748] rounded-3xl p-6 space-y-4 text-center"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        transition={SPRING_CONFIG}
+      >
+        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto">
+          <Shield size={24} className="text-amber-400" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Contraseña expirada en ARMS</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            El portal ARMS requiere que actualices tu contraseña antes de poder acceder al roster.
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            Ingresá a{' '}
+            <a
+              href="https://fbz.arms.aero/CREWPORTAL"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1152d4] font-semibold underline"
+            >
+              fbz.arms.aero/CREWPORTAL
+            </a>
+            {' '}desde un navegador, actualizá tu contraseña y luego volvé a sincronizar acá.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-[#1152d4] hover:bg-[#0e47b5] text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
+        >
+          Entendido
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function NoChangesAlert({ onClose }: { onClose: () => void }) {
   const [countdown, setCountdown] = useState(5);
   useEffect(() => {
@@ -1441,6 +1535,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [showOfflineAlert, setShowOfflineAlert] = useState(false);
   const [showNoChangesAlert, setShowNoChangesAlert] = useState(false);
   const [showTimeoutAlert, setShowTimeoutAlert] = useState(false);
+  const [showPasswordExpiredAlert, setShowPasswordExpiredAlert] = useState(false);
 
   // ── Estado del modal de tripulación ───────────────────────────────────
   const [crewModal, setCrewModal] = useState<{
@@ -1764,8 +1859,12 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
         setSyncError('No se pudo conectar con el servidor backend.');
       } else {
         const msg = error.message || '';
+        // Contraseña expirada en ARMS — mostrar modal específico
+        if (/ARMS_PASSWORD_EXPIRED/i.test(msg)) {
+          localStorage.removeItem('arms_saved_password');
+          setShowPasswordExpiredAlert(true);
         // Error de autenticación con ARMS — limpiar credenciales y pedir reingreso
-        if (/Login fallido|credenciales|password incorrect/i.test(msg)) {
+        } else if (/Login fallido|credenciales|password incorrect/i.test(msg)) {
           localStorage.removeItem('arms_saved_username');
           localStorage.removeItem('arms_saved_password');
           setShowCredentials(true);
@@ -2400,6 +2499,13 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       <AnimatePresence>
         {showTimeoutAlert && (
           <TimeoutAlert onClose={() => setShowTimeoutAlert(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Contraseña Expirada en ARMS */}
+      <AnimatePresence>
+        {showPasswordExpiredAlert && (
+          <PasswordExpiredAlert onClose={() => setShowPasswordExpiredAlert(false)} />
         )}
       </AnimatePresence>
 
