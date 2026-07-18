@@ -1324,20 +1324,26 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
       // ── ONLINE: guardar directo en Supabase ────────────────────────────
       try {
+        let updatedLogs: FlightLog[];
         if (editingId) {
           const { error } = await supabase.from('flight_logs').update(logToSave).eq('id', editingId);
           if (error) throw error;
+          updatedLogs = logs.map(l => l.id === editingId ? { ...l, ...logToSave } : l);
         } else {
-          const { error } = await supabase.from('flight_logs').insert([logToSave]);
+          const { data: insertedData, error } = await supabase.from('flight_logs').insert([logToSave]).select();
           if (error) throw error;
+          const newLog = (insertedData?.[0] || logToSave) as FlightLog;
+          updatedLogs = [newLog, ...logs];
         }
+        setLogs(updatedLogs);
+        await syncProfileTotal(updatedLogs);
+
         localStorage.setItem('saved_flight_purpose', formData.flight_purpose || '78');
         localStorage.setItem('saved_aircraft_model', formData.aircraft_model || '');
         localStorage.setItem('saved_power_rating', String(formData.power_rating || '0'));
         localStorage.setItem('saved_certifier_name', formData.certifier_name || '');
         localStorage.setItem('saved_certifier_role_id', formData.certifier_role_id || '2');
 
-        await refreshData();
         setFormData(getInitialFormState());
         setEditingId(null);
         setActiveTab('dashboard');
@@ -2250,10 +2256,12 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                             (profile?.total_cross_country_night_pilot || 0) + 
                             (profile?.total_cross_country_night_copilot || 0);
   
-  const totalDayHours = (totalDayHoursLogs + initialDayHours).toFixed(1);
-  const totalNightHours = (totalNightHoursLogs + initialNightHours).toFixed(1);
+  const totalDayHoursVal = totalDayHoursLogs + initialDayHours;
+  const totalNightHoursVal = totalNightHoursLogs + initialNightHours;
+  const totalDayHours = totalDayHoursVal.toFixed(1);
+  const totalNightHours = totalNightHoursVal.toFixed(1);
   
-  const grandTotalCalculated = (parseFloat(totalDayHours) + parseFloat(totalNightHours)).toFixed(1);
+  const grandTotalCalculated = (totalDayHoursVal + totalNightHoursVal).toFixed(1);
 
   const totalIfrHours = logs.reduce((acc, log) => acc + (Number(log.Discriminaciones?.find(d => d.tipoDiscriminacionID === 15)?.hora || 0)), 0);
 
