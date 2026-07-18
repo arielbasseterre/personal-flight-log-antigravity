@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0] — 18 de Julio, 2026
+- **Mercado Pago**: sistema de suscripciones anuales integrado. Registro y renovación con redirect checkout. Webhook y callback para actualización automática. Monto dinámico desde `app_config`.
+- **Perfil independiente**: nueva pantalla **ProfileScreen** para todos los roles (TCP y pilotos). Incluye formulario de datos personales, card de suscripción y renovación con modal de pago.
+- **Bug fix — redirect post-pago**: corregida la URL de redirección después de pagar en MP. Usa `frontend_url` query param explícito en vez de depender de cabeceras `referer/origin`.
+- **Bug fix — race condition callback/webhook**: cuando el webhook procesa el pago antes que el callback, busca al usuario por `subscription_id`.
+- **Disclaimer roster**: modal con scroll-to-accept y footer recordatorio.
+- **Validación email en restablecer contraseña**: antes de enviar el enlace, se verifica que el email esté registrado.
+- **Reporte de problemas**: validación visual de campos obligatorios (título y descripción) al enviar o al enfocar.
+- **Compatibilidad iOS PWA**: ajuste de safe area superior para que el botón de modo claro/oscuro no quede detrás del notch en iPhone.
+- **Registro simplificado**: se eliminaron los campos Licencia, Legajo y DNI del formulario de registro. Se completan después en el Perfil.
+- **Restauración de esquema Supabase**: recuperadas columnas y tablas faltantes tras restauración de backup (`calendar_settings`, `calendar_tokens`, `arms_sessions`, `arms_roster`).
+
 ## [1.4.4] — 23 de Junio, 2026
 - **Suscripción WebCal**: ahora podés suscribirte al calendario del roster con una URL única. Se actualiza automáticamente. Compatible con iOS Calendario y Google Calendar (solo desde PC).
 - **Roster ARMS**: exportá tu roster en tres formatos — ICS, Almanaque PDF, y suscripción WebCal.

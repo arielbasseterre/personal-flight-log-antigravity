@@ -172,7 +172,6 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
                       </div>
                     </div>
                   </div>
-                </>
               )}
 
               <div className="space-y-2">

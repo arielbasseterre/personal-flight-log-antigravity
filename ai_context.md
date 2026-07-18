@@ -129,6 +129,16 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **ProfileScreen.tsx (nuevo, 17-Jul-2026)**: Componente independiente para TODOS los roles (TCP y pilotos) con formulario de perfil + card suscripción + botón renovar + modal pago. HomeScreen ahora navega a ProfileScreen desde la card de suscripción. Incluye scroll automático a `#subscription-card` via localStorage flag.
 - **Disclaimer Roster (17-Jul-2026)**: Modal con scroll-to-accept + localStorage `roster_disclaimer_accepted` + footer recordatorio en ArmsRosterScreen. Botón "Aceptar" deshabilitado hasta completar scroll.
 - **Git v1 pusheado (17-Jul-2026)**: Token GitHub renovado, commit `beaff57` pusheado exitosamente a `main` de v1.
+- **Fix schema Supabase post-restore (18-Jul-2026)**: Se detectaron columnas/tablas faltantes por restauración de backup antiguo:
+  - `profiles` → agregada columna `calendar_settings JSONB`
+  - `bug_reports` → agregadas columnas `title TEXT` y `user_email TEXT`, eliminada `email`
+  - `arms_roster` → recreada con schema correcto (`user_id, month, year, roster_json, roster_hash, synced_at`)
+  - `calendar_tokens` → tabla creada (faltante)
+  - `arms_sessions` → tabla creada (faltante)
+- **Fix validación email en "Olvidé mi contraseña" (18-Jul-2026)**: Nuevo endpoint `POST /api/check-email-exists` en server.ts. Antes de enviar el email de reset, el frontend consulta si el email existe en `profiles`. Si no existe, muestra cartel rojo "Ese email no está registrado en la aplicación" en vez del mensaje genérico de "enlace enviado".
+- **Fix validación campos ReportScreen (18-Jul-2026)**: Agregado estado `submitted` que marca los campos como inválidos al presionar "Enviar". Agregado estado `titleTouched` que muestra el aviso de título obligatorio si el usuario enfoca la descripción primero. Avisos visibles para título (mín 5) y descripción (mín 10).
+- **Fix iOS safe area en PWA (18-Jul-2026)**: Los headers de HomeScreen y pantallas secundarias ahora usan `pt-safe-area-inset-top` para dejar espacio debajo del notch/dynamic island en iPhone. En Android es 0px (no afecta). La clase CSS ya existía en `index.css`.
+- **Simplificación registro (18-Jul-2026)**: Eliminados los campos `license`, `legajo` y `dni` del formulario de registro. Se mantienen editables en ProfileScreen.
 
 - [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
