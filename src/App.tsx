@@ -45,6 +45,7 @@ import {
 import { Screen, CalculationResult, FlightLog, Profile } from './types';
 import { LibroScreen } from './components/LibroScreen';
 import { ProfileScreen } from './components/ProfileScreen';
+import { SubscriptionScreen } from './components/SubscriptionScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { ReportScreen } from './components/ReportScreen';
 import { AnacAuth } from './components/AnacAuth';
@@ -375,7 +376,7 @@ const APP_VERSION = CHANGELOG_DATA[0].version;
 
 // --- Screens ---
 
-const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, onGoToPerfil, onLogout, userEmail, darkMode, toggleDarkMode, role, profile }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, onGoToPerfil: () => void, onLogout: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void, role?: string, profile?: Profile | null }) => {
+const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster, onChangelog, onGoToReport, onGoToSuscripcion, onLogout, userEmail, darkMode, toggleDarkMode, role, profile }: { onEnter: () => void, onGoToTcp: () => void, onViewNorms: () => void, onGoToLibro: () => void, onGoToRoster: () => void, onChangelog: () => void, onGoToReport: () => void, onGoToSuscripcion: () => void, onLogout: () => void, userEmail: string | null, darkMode: boolean, toggleDarkMode: () => void, role?: string, profile?: Profile | null }) => {
   const daysRemaining = profile?.subscription_end_date
     ? Math.ceil((new Date(profile.subscription_end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
     : null;
@@ -426,8 +427,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
         {profile?.subscription_end_date && (
           <button
             onClick={() => {
-              localStorage.setItem('draft_flight_log_scroll_to_subscription', 'true');
-              onGoToPerfil();
+              onGoToSuscripcion();
             }}
             className={`w-full p-4 mt-6 rounded-2xl text-left flex items-start gap-3 shadow-sm cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all ${
               showRenewalWarning
@@ -1655,7 +1655,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'home':
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onGoToPerfil={() => setScreen('perfil')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onGoToSuscripcion={() => setScreen('suscripcion')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
@@ -1720,6 +1720,7 @@ export default function App() {
                   refreshData={() => fetchData(user.id)}
                   loading={dataLoading}
                   userId={user.id}
+                  onGoToSuscripcion={() => setScreen('suscripcion')}
                 />
               )}
             </div>
@@ -1742,8 +1743,23 @@ export default function App() {
         return <ChangelogScreen onBack={() => setScreen('home')} />;
       case 'report':
         return <ReportScreen onBack={() => setScreen('home')} />;
+      case 'suscripcion':
+        return (
+          <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
+            {!user ? (
+              <AuthScreen onRegisterSuccess={() => setRegisterAlert({ show: true })} />
+            ) : (
+              <SubscriptionScreen
+                profile={profile}
+                setProfile={setProfile}
+                refreshData={() => fetchData(user.id)}
+                onBack={() => setScreen('home')}
+              />
+            )}
+          </div>
+        );
       default:
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onGoToPerfil={() => setScreen('perfil')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onGoToSuscripcion={() => setScreen('suscripcion')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
     }
   };
 

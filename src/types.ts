@@ -1,4 +1,4 @@
-export type Screen = 'home' | 'pilotos' | 'tcp' | 'normas' | 'perfil' | 'changelog' | 'libro' | 'sync' | 'roster' | 'report';
+export type Screen = 'home' | 'pilotos' | 'tcp' | 'normas' | 'perfil' | 'changelog' | 'libro' | 'sync' | 'roster' | 'report' | 'suscripcion';
 
 export interface Profile {
   id: string;
