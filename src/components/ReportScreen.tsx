@@ -16,6 +16,7 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [titleTouched, setTitleTouched] = useState(false);
   const [modal, setModal] = useState<{ show: boolean; title: string; message: string; type: 'info' | 'warning' | 'danger' }>({ show: false, title: '', message: '', type: 'info' });
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
               maxLength={100}
             />
             <p className="text-[10px] text-slate-400 text-right">{title.length}/100</p>
-            {submitted && title.trim().length < 5 && (
+            {(submitted || titleTouched) && title.trim().length < 5 && (
               <p className="text-[10px] text-amber-500">Mínimo 5 caracteres</p>
             )}
           </div>
@@ -91,6 +92,7 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
               className="flex min-h-[150px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
               placeholder="Describí el problema con el mayor detalle posible..."
               value={description}
+              onFocus={() => setTitleTouched(true)}
               onChange={e => setDescription(e.target.value)}
               maxLength={1000}
             />
