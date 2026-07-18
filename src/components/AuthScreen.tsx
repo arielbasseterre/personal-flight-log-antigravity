@@ -34,6 +34,17 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
 
     try {
       if (showForgot) {
+        const checkRes = await fetch('/api/check-email-exists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const checkData = await checkRes.json();
+        if (!checkData.exists) {
+          setError('Ese email no está registrado en la aplicación.');
+          setLoading(false);
+          return;
+        }
         const appUrl = import.meta.env.VITE_API_URL || window.location.origin;
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: appUrl,

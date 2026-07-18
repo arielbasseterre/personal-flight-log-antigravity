@@ -916,6 +916,25 @@ app.use("/api/arms/sync-roster", authLimiter);
     }
   });
 
+  // Verificar si un email existe en la base de datos
+  app.post("/api/check-email-exists", async (req, res) => {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: "Email requerido" });
+    }
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle();
+      res.json({ exists: !!data });
+    } catch (error: any) {
+      console.error("[CHECK_EMAIL]", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════
   // CALENDAR SUBSCRIPTION — WebCal endpoint para suscripción de roster
   // ═══════════════════════════════════════════════════════════════════════════

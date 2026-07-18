@@ -15,6 +15,7 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [modal, setModal] = useState<{ show: boolean; title: string; message: string; type: 'info' | 'warning' | 'danger' }>({ show: false, title: '', message: '', type: 'info' });
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
   const isValid = title.trim().length >= 5 && title.trim().length <= 100 && description.trim().length >= 10 && description.trim().length <= 1000;
 
   const handleSubmit = async () => {
+    setSubmitted(true);
     if (!isValid || loading) return;
     setLoading(true);
     try {
@@ -77,7 +79,7 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
               maxLength={100}
             />
             <p className="text-[10px] text-slate-400 text-right">{title.length}/100</p>
-            {title.length > 0 && title.length < 5 && (
+            {submitted && title.trim().length < 5 && (
               <p className="text-[10px] text-amber-500">Mínimo 5 caracteres</p>
             )}
           </div>
@@ -93,7 +95,7 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
               maxLength={1000}
             />
             <p className="text-[10px] text-slate-400 text-right">{description.length}/1000</p>
-            {description.length > 0 && description.length < 10 && (
+            {submitted && description.trim().length < 10 && (
               <p className="text-[10px] text-amber-500">Mínimo 10 caracteres</p>
             )}
           </div>
