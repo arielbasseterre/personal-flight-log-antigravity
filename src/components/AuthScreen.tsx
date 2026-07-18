@@ -14,9 +14,6 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [license, setLicense] = useState('');
-  const [dni, setDni] = useState('');
-  const [legajo, setLegajo] = useState('');
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +66,6 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
             password,
             firstName,
             lastName,
-            license,
-            dni,
-            legajo,
             role
           })
         });
@@ -159,44 +153,8 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
               )}
               
               {!isLogin && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="license">Licencia (Sigla)</Label>
-                    <Input 
-                      id="license" 
-                      placeholder="PTLA" 
-                      value={license}
-                      onChange={(e) => setLicense(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="legajo">Legajo Nº</Label>
-                    <Input 
-                      id="legajo" 
-                      placeholder="12345" 
-                      value={legajo}
-                      onChange={(e) => setLegajo(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
-              {!isLogin && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="dni">DNI / Pasaporte</Label>
-                    <Input 
-                      id="dni" 
-                      placeholder="12345678" 
-                      value={dni}
-                      onChange={(e) => setDni(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Cargo en Flybondi</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Cargo en Flybondi</Label>
                     <div className="relative">
                       <select
                         id="role"
