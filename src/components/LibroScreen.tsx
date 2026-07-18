@@ -1558,7 +1558,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     
     askConfirm(
       'Eliminar registro',
-      `Fecha: ${fecha} ${hora}\nRuta: ${route}\nMatrícula: ${log.matriculaAvion}\n\n¿Estás seguro? Esta acción no se puede deshacer.`,
+      `Fecha: ${fecha} ${hora}\nRuta: ${route}\nMatrícula: ${log.matriculaAvion}\n\n⚠️ Si el vuelo ya fue sincronizado con ANAC, deberás eliminar manualmente el registro en el portal de ANAC, ya que la app no elimina datos de ANAC.\n\n¿Estás seguro? Esta acción no se puede deshacer.`,
       async () => {
         if (!supabase) return;
         
