@@ -186,7 +186,7 @@ const BottomNav = ({ currentScreen, setScreen, role }: { currentScreen: Screen, 
 );
 
 const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, onBack?: () => void, darkMode: boolean, toggleDarkMode: () => void }) => (
-  <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#101622]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#2d3748] px-4 py-4 transition-colors">
+  <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#101622]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#2d3748] px-4 pb-4 pt-safe-area-inset-top transition-colors">
     <div className="flex items-center justify-between max-w-lg mx-auto">
       {onBack ? (
         <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
@@ -366,7 +366,7 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
   const isTrial = !profile?.subscription_id && !!profile?.subscription_end_date;
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#101622] text-slate-900 dark:text-white transition-colors">
-    <div className="flex items-center p-4 justify-between border-b border-slate-200 dark:border-[#2d3748]">
+    <div className="flex items-center px-4 pb-4 pt-safe-area-inset-top justify-between border-b border-slate-200 dark:border-[#2d3748]">
       <div className="flex items-center gap-2">
         <div className="text-[#1152d4] flex size-10 items-center justify-center">
           <PlaneTakeoff size={30} />
