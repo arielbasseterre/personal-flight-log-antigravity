@@ -413,7 +413,7 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
   );
 };
 
-export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, loading, userId }: LibroScreenProps) => {
+export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, loading, userId, onGoToSuscripcion }: LibroScreenProps) => {
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('draft_flight_log_active_tab') || 'dashboard';
   });
