@@ -1147,6 +1147,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
+      if (!isSim && !formData.registration) {
+        showAlert("Campo Obligatorio", "Por favor ingrese la matrícula de la aeronave.", 'warning');
+        return;
+      }
+
       if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
         showAlert("Horario Inválido", "Por favor ingrese un horario de salida válido (HH:MM).", 'warning');
         return;
@@ -1624,6 +1629,11 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     });
     setEditingId(log.id);
     setActiveTab('registrar');
+    showAlert(
+      "Precaución ANAC",
+      "Si modificás los datos de un vuelo que ya fue sincronizado con ANAC, se recomienda eliminar el registro original en el portal de ANAC antes de volver a sincronizar, para evitar vuelos duplicados.",
+      'info'
+    );
   };
 
   const cancelEdit = () => {
