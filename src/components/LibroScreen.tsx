@@ -1155,11 +1155,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
-      if (isSim && !formData.registration) {
-        showAlert("Campo Obligatorio", "Por favor seleccione un simulador.", 'warning');
-        return;
-      }
-
       if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
         showAlert("Horario Inválido", "Por favor ingrese un horario de salida válido (HH:MM).", 'warning');
         return;
