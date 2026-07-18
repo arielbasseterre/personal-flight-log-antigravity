@@ -352,18 +352,6 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Simulador / Entrenador</div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Instructor</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_sim_instructor ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_sim_instructor: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Alumno</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_sim_student ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_sim_student: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                  </div>
-
                   <div className="grid grid-cols-3 gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
                     <div className="col-span-3 text-[10px] font-bold text-blue-600/60 uppercase tracking-wider">IFR (Real / Capota)</div>
                     <div className="space-y-1">

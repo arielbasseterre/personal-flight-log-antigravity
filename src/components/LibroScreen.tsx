@@ -511,9 +511,7 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     is_capota: false,
     folio_number: 1,
     instruction_time: 0,
-    ifr_hood: 0,
-    sim_instructor: 0,
-    sim_student: 0
+    ifr_hood: 0
   });
 
   const initialFormState = getInitialFormState();
@@ -1152,6 +1150,16 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
+      if (!isSim && !formData.aircraft_model) {
+        showAlert("Campo Obligatorio", "Por favor ingrese la marca/modelo de la aeronave.", 'warning');
+        return;
+      }
+
+      if (isSim && !formData.registration) {
+        showAlert("Campo Obligatorio", "Por favor seleccione un simulador.", 'warning');
+        return;
+      }
+
       if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
         showAlert("Horario Inválido", "Por favor ingrese un horario de salida válido (HH:MM).", 'warning');
         return;
@@ -1181,9 +1189,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
       // 2. Cálculos de metadatos (Tipo de Vuelo, Cargo, etc.)
       let flight_type_id = "2"; // Travesia
-      const hasSimHours = Number(formData.sim_instructor || 0) > 0 || Number(formData.sim_student || 0) > 0;
       
-      if (isSim || hasSimHours) {
+      if (isSim) {
         flight_type_id = "3"; // Simulador
       } else {
         const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
@@ -1202,7 +1209,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           Number(formData.airfield_night_pilot || 0) > 0 ||
           Number(formData.cross_country_day_pilot || 0) > 0 ||
           Number(formData.cross_country_night_pilot || 0) > 0 ||
-          Number(formData.sim_instructor || 0) > 0 ||
           Number(formData.ifr_real_pilot || 0) > 0 ||
           Number(formData.ifr_hood || 0) > 0
         );
@@ -1616,8 +1622,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       ifr_real_copilot: Number(log.ifr_real_copilot || 0),
       ifr_hood: Number(log.ifr_hood || 0),
       instruction_time: Number(log.instruccion || 0),
-      sim_instructor: Number(log.sim_instructor || 0),
-      sim_student: Number(log.sim_student || 0),
       multi_engine: Number(log.multi_engine || 0),
       jet: Number(log.jet || 0),
       turboprop: Number(log.turboprop || 0),
@@ -3345,41 +3349,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         </div>
                       </div>
                     </div>
-
-                    {/* Simulator Section */}
-                    <div className="space-y-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg">
-                      <Label className="text-[10px] font-bold opacity-70">SIMULADOR / ADIESTRADOR</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Instructor hs</Label>
-                          <DecimalInput 
-                            id="sim_instructor"
-                            type="number" 
-                            step="0.1" 
-                            lang="en" 
-                            disabled={!isItineraryComplete}
-                            value={formData.sim_instructor ?? ''} 
-                            onChange={e => setFormData({...formData, sim_instructor: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                            onFocus={handleNumericFocus}
-                            onBlur={handleNumericBlur}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Piloto en Inst. hs</Label>
-                          <DecimalInput 
-                            id="sim_student"
-                            type="number" 
-                            step="0.1" 
-                            lang="en" 
-                            disabled={!isItineraryComplete}
-                            value={formData.sim_student ?? ''} 
-                            onChange={e => setFormData({...formData, sim_student: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                            onFocus={handleNumericFocus}
-                            onBlur={handleNumericBlur}
-                          />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 ) : (
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl space-y-2 mb-2">
@@ -3743,18 +3712,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     </div>
 
                     {/* Sim Carry-forward */}
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Simulador / Entrenador</div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Instructor</Label>
-                        <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_sim_instructor ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_sim_instructor: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">Alumno</Label>
-                        <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_sim_student ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_sim_student: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                      </div>
-                    </div>
-
                     {/* IFR Carry-forward */}
                     <div className="grid grid-cols-3 gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
                       <div className="col-span-3 text-[10px] font-bold text-blue-600/60 uppercase tracking-wider">IFR (Real / Capota)</div>

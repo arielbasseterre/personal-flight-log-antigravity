@@ -1422,8 +1422,6 @@ export default function App() {
           total_ifr_real_pilot: null,
           total_ifr_real_copilot: null,
           total_ifr_hood: null,
-          total_sim_instructor: null,
-          total_sim_student: null,
           initial_folio_number: null,
           grand_total_hours: null
         } as any;
