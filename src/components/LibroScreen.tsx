@@ -3455,7 +3455,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                           {(() => {
                             if (log.tipoVueloID === '3') {
                               const simHours = Number((log as any).sim_instructor || 0) + Number((log as any).sim_student || 0);
-                              return (simHours > 0 ? simHours.toFixed(1) : '0.0') + 'h';
+                              return (simHours > 0 ? simHours.toFixed(1) : '0.0');
                             }
                             const nH = (parseFloat(log.horasDia || '0') + parseFloat(log.horasNoche || '0'));
                             const oH = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).airfield_day_copilot) || 0) + (Number((log as any).airfield_night_pilot) || 0) + (Number((log as any).airfield_night_copilot) || 0) + (Number((log as any).cross_country_day_pilot) || 0) + (Number((log as any).cross_country_day_copilot) || 0) + (Number((log as any).cross_country_night_pilot) || 0) + (Number((log as any).cross_country_night_copilot) || 0);
