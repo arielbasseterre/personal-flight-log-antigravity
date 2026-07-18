@@ -139,6 +139,7 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
 - **Fix validación campos ReportScreen (18-Jul-2026)**: Agregado estado `submitted` que marca los campos como inválidos al presionar "Enviar". Agregado estado `titleTouched` que muestra el aviso de título obligatorio si el usuario enfoca la descripción primero. Avisos visibles para título (mín 5) y descripción (mín 10).
 - **Fix iOS safe area en PWA (18-Jul-2026)**: Los headers de HomeScreen y pantallas secundarias ahora usan `pt-safe-area-inset-top` para dejar espacio debajo del notch/dynamic island en iPhone. En Android es 0px (no afecta). La clase CSS ya existía en `index.css`.
 - **Simplificación registro (18-Jul-2026)**: Eliminados los campos `license`, `legajo` y `dni` del formulario de registro. Se mantienen editables en ProfileScreen.
+- **Refactor suscripción a pantalla independiente (18-Jul-2026)**: Se extrajo toda la card de suscripción (días restantes, ID, vencimiento, estado, botón renovar, modal de pago) de ProfileScreen (v2) y LibroScreen (v1) hacia un nuevo componente `SubscriptionScreen.tsx`. La card del dashboard ahora navega directamente a `'suscripcion'`. ProfileScreen y el tab perfil de LibroScreen muestran solo datos personales + link "Ver suscripción →". Se agregó `'suscripcion'` al type `Screen`. Builds exitosos, ambos repos pusheados.
 
 - [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
@@ -157,7 +158,8 @@ Sistema de pagos por suscripción anual implementado con redirect checkout de MP
 - [x] Fix login intermitente: `signOut({ scope: 'local' })` antes de `signInWithPassword` en AuthScreen
 - [x] Fix resolveFrontendUrl: usa `frontend_url` query param en vez de referer/origin
 - [x] Fix race condition webhook vs callback: fallback search por `subscription_id`
-- [x] ProfileScreen independiente (TCP y pilotos) con card suscripción + renovar
+- [x] ProfileScreen independiente (TCP y pilotos) con datos personales
+- [x] SubscriptionScreen independiente con card suscripción + renovar + modal pago
 
 ### ✅ Completado — Compatibilidad con Navegadores/iOS Antiguos (Safari 15.8.7)
 - [x] Corrección de valores `oklch()` a Hexadecimal en `src/index.css` (temas claro y oscuro) para corregir recuadros transparentes.
