@@ -1230,8 +1230,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
-      const resolvedOrigin = isSim ? "SIM" : resolveToAnac(formData.origin_ad, dbAirports);
-      const resolvedDest = isSim ? "SIM" : resolveToAnac(formData.destination_ad, dbAirports);
+      const resolvedOrigin = isSim ? (formData.registration ? "SIM" : "") : resolveToAnac(formData.origin_ad, dbAirports);
+      const resolvedDest = isSim ? (formData.registration ? "SIM" : "") : resolveToAnac(formData.destination_ad, dbAirports);
       const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
 
       const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
