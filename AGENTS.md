@@ -15,6 +15,15 @@ El agente **NUNCA** debe ejecutar SQL contra Supabase. El usuario es el **único
 
 - **Actualización del Changelog:** No realices cambios automáticos en la constante `CHANGELOG_DATA` en `src/App.tsx`. Antes de incorporar cualquier registro de cambios al historial, debes preguntar explícitamente al usuario si desea incluir los cambios realizados en dicha sección.
 
+## API Keys
+
+Las API keys no están documentadas en texto plano por seguridad.
+Están seteadas en:
+- **Render Dashboard** → Environment → cada servicio tiene sus variables de entorno
+- **Local**: en `.env` (gitignored)
+
+Si como modelo necesitás una key para proponer un cambio, indicá que el usuario debe copiarla desde Render Dashboard o el `.env` local. **Nunca** sugerir hardcodear keys en el código.
+
 ## Referencia Técnica del Proyecto
 
 Para entender la arquitectura, stack, estructura de directorios, cuentas de servicios externos y decisiones técnicas de esta app, consultar:

@@ -46,6 +46,15 @@ npm run build            # Build producción
 npm run lint             # tsc --noEmit
 ```
 
+## API Keys
+
+Las API keys no están documentadas en texto plano por seguridad.
+Están seteadas en:
+- **Render Dashboard** → Environment → cada servicio tiene sus variables de entorno
+- **Local**: en `.env` (gitignored)
+
+Si como modelo necesitás una key para proponer un cambio, indicá que el usuario debe copiarla desde Render Dashboard o el `.env` local. **Nunca** sugerir hardcodear keys en el código.
+
 ## Reglas de seguridad
 - NO hardcodear tokens en el código (usar env vars)
 - NO commitear `.env`
