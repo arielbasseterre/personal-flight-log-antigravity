@@ -132,6 +132,81 @@ app.use("/api/arms/sync-roster", authLimiter);
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const brevoApiKey = process.env.BREVO_API_KEY || "";
 
+  const sendBrevoEmail = async (to: { email: string, name: string }[], subject: string, htmlContent: string, attachment?: { name: string, content: string }[]) => {
+    await axios.post("https://api.brevo.com/v3/smtp/email", {
+      sender: { name: "Personal Flight Log", email: "gringo.soft.ar@gmail.com" },
+      to,
+      subject,
+      htmlContent,
+      ...(attachment ? { attachment } : {})
+    }, {
+      headers: { "api-key": brevoApiKey, "Content-Type": "application/json" }
+    });
+  };
+
+  const notifyNewUser = async (email: string, firstName: string, lastName?: string, record?: Record<string, any>) => {
+    try {
+      console.log(`[NOTIFY] Descargando guía PDF para ${email}...`);
+      const pdfUrl = "https://mexnmpbpqtccaulekupo.supabase.co/storage/v1/object/sign/guia/FlightLog_Guia_Usuario.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jMWFlYjExMS03NDk0LTQzOGItYWJhNy0wMDQ4NWRlMTJhNDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJndWlhL0ZsaWdodExvZ19HdWlhX1VzdWFyaW8ucGRmIiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4MjAyMzM2NCwiZXhwIjoxMTI0MjgyMzM2NH0.zvjW8ktswkOPuNOgZkezC-o-Ce_Q3URBziE-U5VCt-I";
+      const pdfResponse = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+      const pdfBase64 = Buffer.from(pdfResponse.data).toString('base64');
+
+      console.log(`[NOTIFY] Enviando welcome email a ${email}...`);
+      const userName = `${firstName}${lastName ? ' ' + lastName : ''}`;
+      await sendBrevoEmail(
+        [{ email, name: firstName }],
+        "¡Bienvenido a Personal Flight Log! ✈️",
+        `
+          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+            <div style="background-color: #2563eb; padding: 40px 20px; text-align: center;">
+              <img src="https://flightlog-sin-roster.onrender.com/icons/icon-512.png" alt="Personal Flight Log Logo" style="width: 80px; height: 80px; margin-bottom: 15px; border-radius: 20%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); background-color: white; padding: 10px;" />
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.5px;">Personal Flight Log</h1>
+            </div>
+            <div style="padding: 40px 30px; background-color: #ffffff;">
+              <h2 style="color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 20px;">¡Hola, ${firstName}! 👋</h2>
+              <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">Te damos una cálida bienvenida a <strong>Personal Flight Log</strong>, tu plataforma profesional para el registro y control de horas de vuelo.</p>
+              <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; color: #334155; font-size: 15px;">A partir de ahora podrás llevar un control detallado de tus actividades, consultar estadísticas y sincronizar todos tus datos en la nube.</p>
+              </div>
+              <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">Adjunto a este correo encontrarás la <strong>Guía del Usuario</strong> en formato PDF, la cual te ayudará a dar tus primeros pasos y sacarle el máximo provecho a la aplicación.</p>
+              <div style="text-align: center; margin: 35px 0;">
+                <a href="https://flightlog-sin-roster.onrender.com" style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; display: inline-block;">Ingresar a la plataforma</a>
+              </div>
+              <p style="color: #475569; font-size: 15px; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">Si tienes alguna consulta o necesitas soporte, no dudes en responder este correo o escribirnos a <a href="mailto:gringo.soft.ar@gmail.com" style="color: #2563eb; text-decoration: none;">gringo.soft.ar@gmail.com</a>.</p>
+            </div>
+            <div style="background-color: #f1f5f9; padding: 20px; text-align: center; color: #64748b; font-size: 14px;">
+              <p style="margin: 0;">¡Buenos vuelos! ✈️</p>
+              <p style="margin: 5px 0 0 0;">El equipo de Personal Flight Log</p>
+            </div>
+          </div>
+        `,
+        [{ name: "FlightLog_Guia_Usuario.pdf", content: pdfBase64 }]
+      );
+
+      console.log(`[NOTIFY] Enviando notificación a admin para ${firstName}...`);
+      const safeRecord = record || {};
+      await sendBrevoEmail(
+        [{ email: "gringo.soft.ar@gmail.com", name: "Admin" }],
+        `Nuevo usuario registrado: ${firstName}`,
+        `
+          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h2 style="color:#2563eb;">Nuevo registro en Personal Flight Log</h2>
+            <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+              <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Nombre</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${firstName} ${lastName || safeRecord?.last_name || ''}</td></tr>
+              <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Email</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${email}</td></tr>
+              <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">ID</td><td style="padding:8px 12px; border:1px solid #e2e8f0; font-size:12px;">${safeRecord?.id || ''}</td></tr>
+            </table>
+            <p style="margin-top:20px; color:#64748b; font-size:13px;">Notificación automática del sistema.</p>
+          </div>
+        `
+      );
+
+      console.log(`[NOTIFY] Notificaciones completadas para ${email}.`);
+    } catch (err: any) {
+      console.error(`[NOTIFY] Error al notificar a ${email}:`, err.response?.data || err.message);
+    }
+  };
+
   // --- Connectivity Test API ---
   app.get("/ping", (req, res) => res.send("pong"));
 
@@ -795,92 +870,7 @@ app.use("/api/arms/sync-roster", authLimiter);
         return res.status(400).json({ error: "No email found in record" });
       }
 
-      console.log(`[WELCOME-EMAIL] Descargando la guía del usuario en PDF para ${email}...`);
-      const pdfUrl = "https://mexnmpbpqtccaulekupo.supabase.co/storage/v1/object/sign/guia/FlightLog_Guia_Usuario.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jMWFlYjExMS03NDk0LTQzOGItYWJhNy0wMDQ4NWRlMTJhNDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJndWlhL0ZsaWdodExvZ19HdWlhX1VzdWFyaW8ucGRmIiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4MjAyMzM2NCwiZXhwIjoxMTI0MjgyMzM2NH0.zvjW8ktswkOPuNOgZkezC-o-Ce_Q3URBziE-U5VCt-I";
-      const pdfResponse = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
-      const pdfBase64 = Buffer.from(pdfResponse.data).toString('base64');
-
-      console.log(`[WELCOME-EMAIL] Enviando correo de bienvenida a ${email} vía Brevo...`);
-      await axios.post("https://api.brevo.com/v3/smtp/email", {
-        sender: {
-          name: "Personal Flight Log",
-          email: "gringo.soft.ar@gmail.com"
-        },
-        to: [{ email: email, name: firstName }],
-        subject: "¡Bienvenido a Personal Flight Log! ✈️",
-        htmlContent: `
-          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-            
-            <div style="background-color: #2563eb; padding: 40px 20px; text-align: center;">
-              <img src="https://flightlog-sin-roster.onrender.com/icons/icon-512.png" alt="Personal Flight Log Logo" style="width: 80px; height: 80px; margin-bottom: 15px; border-radius: 20%; box-shadow: 0 4px 6px rgba(0,0,0,0.1); background-color: white; padding: 10px;" />
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.5px;">Personal Flight Log</h1>
-            </div>
-
-            <div style="padding: 40px 30px; background-color: #ffffff;">
-              <h2 style="color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 20px;">¡Hola, ${firstName}! 👋</h2>
-              <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">Te damos una cálida bienvenida a <strong>Personal Flight Log</strong>, tu plataforma profesional para el registro y control de horas de vuelo.</p>
-              
-              <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
-                <p style="margin: 0; color: #334155; font-size: 15px;">A partir de ahora podrás llevar un control detallado de tus actividades, consultar estadísticas y sincronizar todos tus datos en la nube.</p>
-              </div>
-
-              <p style="color: #475569; font-size: 16px; margin-bottom: 20px;">Adjunto a este correo encontrarás la <strong>Guía del Usuario</strong> en formato PDF, la cual te ayudará a dar tus primeros pasos y sacarle el máximo provecho a la aplicación.</p>
-
-              <div style="text-align: center; margin: 35px 0;">
-                <a href="https://flightlog-sin-roster.onrender.com" style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; display: inline-block;">Ingresar a la plataforma</a>
-              </div>
-
-              <p style="color: #475569; font-size: 15px; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">Si tienes alguna consulta o necesitas soporte, no dudes en responder este correo o escribirnos a <a href="mailto:gringo.soft.ar@gmail.com" style="color: #2563eb; text-decoration: none;">gringo.soft.ar@gmail.com</a>.</p>
-            </div>
-
-            <div style="background-color: #f1f5f9; padding: 20px; text-align: center; color: #64748b; font-size: 14px;">
-              <p style="margin: 0;">¡Buenos vuelos! ✈️</p>
-              <p style="margin: 5px 0 0 0;">El equipo de Personal Flight Log</p>
-            </div>
-          </div>
-        `,
-        attachment: [{ name: "FlightLog_Guia_Usuario.pdf", content: pdfBase64 }]
-      }, {
-        headers: {
-          "api-key": brevoApiKey,
-          "Content-Type": "application/json"
-        }
-      });
-
-      console.log(`[WELCOME-EMAIL] Correo enviado con éxito a ${email} vía Brevo.`);
-
-      // Notificar al administrador
-      try {
-        console.log(`[WELCOME-EMAIL] Enviando notificación de nuevo registro al administrador...`);
-        await axios.post("https://api.brevo.com/v3/smtp/email", {
-          sender: {
-            name: "Personal Flight Log",
-            email: "gringo.soft.ar@gmail.com"
-          },
-          to: [{ email: "gringo.soft.ar@gmail.com", name: "Admin" }],
-          subject: `Nuevo usuario registrado: ${firstName}`,
-          htmlContent: `
-            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
-              <h2 style="color:#2563eb;">Nuevo registro en Personal Flight Log</h2>
-              <table style="width:100%; border-collapse:collapse; margin-top:16px;">
-                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Nombre</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${firstName} ${record?.last_name || ''}</td></tr>
-                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Email</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${email}</td></tr>
-                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">ID</td><td style="padding:8px 12px; border:1px solid #e2e8f0; font-size:12px;">${record?.id || ''}</td></tr>
-              </table>
-              <p style="margin-top:20px; color:#64748b; font-size:13px;">Recibido automáticamente desde el webhook de Supabase.</p>
-            </div>
-          `
-        }, {
-          headers: {
-            "api-key": brevoApiKey,
-            "Content-Type": "application/json"
-          }
-        });
-        console.log(`[WELCOME-EMAIL] Notificación al administrador enviada con éxito.`);
-      } catch (adminErr: any) {
-        console.error("[WELCOME-EMAIL] Error al notificar al administrador:", adminErr.response?.data || adminErr.message);
-      }
-
+      await notifyNewUser(email, firstName, record?.last_name, record);
       return res.json({ success: true, message: "Correo enviado con éxito" });
 
     } catch (error: any) {
@@ -909,6 +899,29 @@ app.use("/api/arms/sync-roster", authLimiter);
         throw insertError;
       }
       console.log("[REPORT] Reporte insertado correctamente");
+
+      try {
+        const safeTitle = title.trim();
+        const safeDesc = description.trim().substring(0, 500);
+        await sendBrevoEmail(
+          [{ email: "gringo.soft.ar@gmail.com", name: "Admin" }],
+          `Bug Report: ${safeTitle}`,
+          `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <h2 style="color:#dc2626;">Nuevo reporte de error</h2>
+              <table style="width:100%; border-collapse:collapse; margin-top:16px;">
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Título</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${safeTitle}</td></tr>
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Descripción</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${safeDesc}${description.trim().length > 500 ? '...' : ''}</td></tr>
+                <tr><td style="padding:8px 12px; background:#f8fafc; font-weight:bold; border:1px solid #e2e8f0;">Usuario</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">${userEmail || 'No especificado'}</td></tr>
+              </table>
+            </div>
+          `
+        );
+        console.log("[REPORT] Notificación enviada al admin");
+      } catch (notifyErr: any) {
+        console.error("[REPORT] Error enviando notificación:", notifyErr.response?.data || notifyErr.message);
+      }
+
       res.json({ success: true });
     } catch (error: any) {
       console.error("[REPORT_ERR]", error.message);
@@ -1597,6 +1610,8 @@ app.use("/api/arms/sync-roster", authLimiter);
 
       console.log(`[TRIAL] Usuario creado: ${email}, vence: ${trialEnd.toISOString()}`);
 
+      notifyNewUser(email, firstName || "", lastName);
+
       const session = (authUser as any).session;
       res.json({
         success: true,
@@ -1839,6 +1854,7 @@ app.use("/api/arms/sync-roster", authLimiter);
                 .eq('id', pendingRegId);
 
               console.log(`[MERCADOPAGO_WEBHOOK] Registro completo exitosamente para nuevo usuario: ${pendingReg.email}`);
+              notifyNewUser(pendingReg.email, pendingReg.first_name || "", pendingReg.last_name);
             }
           }
         }
@@ -1962,6 +1978,7 @@ app.use("/api/arms/sync-roster", authLimiter);
                   .eq('id', externalRef);
 
                 console.log(`[MERCADOPAGO_WEBHOOK_PAYMENT] Registro completo exitosamente para nuevo usuario: ${pendingReg.email}`);
+                notifyNewUser(pendingReg.email, pendingReg.first_name || "", pendingReg.last_name);
               }
             }
           }
@@ -2224,6 +2241,7 @@ app.use("/api/arms/sync-roster", authLimiter);
               .eq('id', finalExtRef);
 
             console.log(`[MP_CALLBACK] Usuario creado: ${authUser.user?.id || 'error'}`);
+            notifyNewUser(pendingReg.email, pendingReg.first_name || "", pendingReg.last_name);
             return sendResponse("success", { newUser: "true" });
           }
 
