@@ -703,8 +703,8 @@ function extractFlightLegFromCells(cells: any[], rawTask: string): ArmsFlightLeg
 
   for (let i = 0; i < cells.length; i++) {
     const text = cells[i].innerText.trim();
-    // Patrón flexible: "FO5210 AEP-TUC" o "AR1234 SABE-SAEZ" o "FO5210 AEP TUC"
-    const routeMatch = text.match(/([A-Z]{2}\d{3,5})\s+([A-Z]{3,4})[\s\-]+([A-Z]{3,4})/);
+    // Patrón flexible: "FO5210 AEP-TUC", "AR1234 SABE-SAEZ", "FOLV-KEF EZE-AEP"
+    const routeMatch = text.match(/([A-Z0-9\-]+)\s+([A-Z]{3,4})[\s\-]+([A-Z]{3,4})/);
     if (routeMatch) {
       flightNumber = routeMatch[1];
       origin       = routeMatch[2];
@@ -714,9 +714,13 @@ function extractFlightLegFromCells(cells: any[], rawTask: string): ArmsFlightLeg
     }
   }
 
-  // Si no encontramos la ruta con el patrón, usar texto del índice 2
+  // Si no encontramos la ruta con el patrón, usar texto del índice dinámico según la celda de tarea
   if (!flightNumber) {
-    const fallback = getText(2);
+    const taskCell = findCellContaining(cells, /\b(OP|DH|OFF|STB|STBY|NDA|OTH|GTR|LEAVE)\b/i);
+    const taskCellIdx = taskCell ? cells.indexOf(taskCell) : -1;
+    // La celda de detalles de vuelo está inmediatamente después de la de tarea (Type of Duty)
+    const fallbackIdx = taskCellIdx >= 0 ? taskCellIdx + 1 : 2;
+    const fallback = getText(fallbackIdx);
     const parts = fallback.split(/[\s\-]+/).filter(Boolean);
     flightNumber = parts[0] || rawTask;
     origin       = parts[1] || '';
