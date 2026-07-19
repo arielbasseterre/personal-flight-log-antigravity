@@ -147,7 +147,7 @@ app.use("/api/arms/sync-roster", authLimiter);
   const notifyNewUser = async (email: string, firstName: string, lastName?: string, record?: Record<string, any>) => {
     try {
       console.log(`[NOTIFY] Descargando guía PDF para ${email}...`);
-      const pdfUrl = "https://mexnmpbpqtccaulekupo.supabase.co/storage/v1/object/sign/guia/FlightLog_Guia_Usuario.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jMWFlYjExMS03NDk0LTQzOGItYWJhNy0wMDQ4NWRlMTJhNDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJndWlhL0ZsaWdodExvZ19HdWlhX1VzdWFyaW8ucGRmIiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4MjAyMzM2NCwiZXhwIjoxMTI0MjgyMzM2NH0.zvjW8ktswkOPuNOgZkezC-o-Ce_Q3URBziE-U5VCt-I";
+      const pdfUrl = "https://mexnmpbpqtccaulekupo.supabase.co/storage/v1/object/sign/guia/Guia%20final%20Web%20App%20Flightlog%20con%20roster%20ARMS.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jMWFlYjExMS03NDk0LTQzOGItYWJhNy0wMDQ4NWRlMTJhNDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJndWlhL0d1aWEgZmluYWwgV2ViIEFwcCBGbGlnaHRsb2cgY29uIHJvc3RlciBBUk1TLnBkZiIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3ODQ0MjE1NDYsImV4cCI6MjUwOTc0OTU0Nn0.Yps1PExzFPsFnecSGoyphtOL3Q5BacFkml76-cptgaU";
       const pdfResponse = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
       const pdfBase64 = Buffer.from(pdfResponse.data).toString('base64');
 
