@@ -75,7 +75,7 @@ Si como modelo necesitás una key para proponer un cambio, indicá que el usuari
 
 ## Detalles críticos para evitar errores recurrentes
 1. **MP callback**: MP concatena `?preapproval_id=X` con `?` en vez de `&` — usar regex sobre `req.url`, no `req.query`
-2. **Brevo IP**: Render IP `74.220.48.29` debe estar autorizada en Brevo → Security → Authorised IPs
+2. **Brevo IP**: Render IP `74.220.48.29` + 7 rangos CIDR de Render deben estar autorizados en Brevo → Security → Authorised IPs. Los CIDR se agregan manualmente (la importación CSV solo acepta IPs individuales). Ver rangos en `ERRORES_CONOCIDOS.md` sección 1.
 3. **Playwright**: Usar `ignoreHTTPSErrors: true` en Render por clock drift
 4. **Webhooks MP**: Siempre responder 200 aunque haya error (MP reintenta si ve error)
 5. **Trial**: Solo V1 tiene trial. V2 requiere pago directo.

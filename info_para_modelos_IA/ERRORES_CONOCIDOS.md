@@ -7,7 +7,19 @@
 **Solución**:
 1. Ir a https://app.brevo.com/security/authorised_ips
 2. Agregar `74.220.48.29` (la IP actual de Render)
-3. Si Render cambia la IP, repetir el proceso
+3. **Para cubrir todo Render**, agregar manualmente estos rangos CIDR (la importación CSV **no** acepta CIDR, solo IPs individuales):
+
+   ```
+   52.3.128.0/17
+   52.0.128.0/17
+   54.88.0.0/17
+   54.208.0.0/17
+   44.192.0.0/16
+   44.194.0.0/16
+   44.196.0.0/16
+   ```
+
+4. Si Render cambia la IP, repetir el proceso
 
 ## 2. MP callback URL malformada (doble `?`)
 
