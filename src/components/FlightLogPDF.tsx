@@ -12,7 +12,10 @@ import { FlightLog, Profile } from '@/src/types';
 // OACI / ANAC 290/2012 Exact Format
 const styles = StyleSheet.create({
   page: {
-    padding: 30, // Increase padding to avoid bleed
+    paddingTop: 30,
+    paddingBottom: 30,
+    paddingLeft: 50, // At least 17mm (~48.2pt) for hole punches
+    paddingRight: 35, // Safe right margin for printers
     backgroundColor: '#fff',
     fontFamily: 'Helvetica',
   },
@@ -191,7 +194,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
     dia: 20,
     mes: 20,
     salida: 35,
-    desdeh: 110,
+    desdeh: 95,
     llegada: 35,
     finalidad: 25,
     marca: 60,
@@ -208,7 +211,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
     ag: 25,
     ifr: 22,
     sim: 25,
-    cert: 165,
+    cert: 155,
   };
 
   const renderHeader = () => {

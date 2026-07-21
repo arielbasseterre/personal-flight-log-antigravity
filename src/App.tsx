@@ -206,6 +206,13 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "21 de Julio, 2026",
+    version: "1.5.1",
+    items: [
+      "Exportación PDF Libro de Vuelo: ampliado el margen izquierdo a 17 mm para orificios de encuadernación sin alterar la escala ni cortar el contenido del documento."
+    ]
+  },
+  {
     date: "18 de Julio, 2026",
     version: "1.5.0",
     items: [
