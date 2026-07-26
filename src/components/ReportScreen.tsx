@@ -135,7 +135,12 @@ export const ReportScreen = ({ onBack }: ReportScreenProps) => {
               </div>
               <Button
                 className="w-full h-9 text-xs"
-                onClick={() => setModal(prev => ({ ...prev, show: false }))}
+                onClick={() => {
+                  setModal(prev => ({ ...prev, show: false }));
+                  if (modal.type !== 'danger') {
+                    onBack();
+                  }
+                }}
               >
                 Entendido
               </Button>
