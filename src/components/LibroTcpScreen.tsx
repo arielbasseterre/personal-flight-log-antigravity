@@ -501,38 +501,8 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
   };
 
   const syncProfileTotals = async () => {
-    if (!supabase || !profile) return;
-    try {
-      const logsSumDia = logs.reduce((acc, log) => acc + parseFloat(log.horasDia || '0'), 0);
-      const logsSumNoche = logs.reduce((acc, log) => acc + parseFloat(log.horasNoche || '0'), 0);
-      const logsSumLandings = logs.reduce((acc, log) => acc + Number(log.aterrizajes || 0), 0);
-      const logsSumInstructor = logs.reduce((acc, log) => {
-        if (log.tcp_instructor) return acc + parseFloat(log.horasDia || '0') + parseFloat(log.horasNoche || '0');
-        return acc;
-      }, 0);
-
-      const initialDia = Number(profile.tcp_total_dia || 0);
-      const initialNoche = Number(profile.tcp_total_noche || 0);
-      const initialLandings = Number(profile.total_landings || 0);
-      const initialInstructor = Number(profile.tcp_horas_instructor || 0);
-
-      await supabase.from('profiles').update({
-        tcp_total_dia: parseFloat((initialDia + logsSumDia).toFixed(1)),
-        tcp_total_noche: parseFloat((initialNoche + logsSumNoche).toFixed(1)),
-        total_landings: parseFloat((initialLandings + logsSumLandings).toFixed(1)),
-        tcp_horas_instructor: parseFloat((initialInstructor + logsSumInstructor).toFixed(1)),
-      }).eq('id', profile.id);
-
-      setProfile(prev => prev ? {
-        ...prev,
-        tcp_total_dia: parseFloat((initialDia + logsSumDia).toFixed(1)),
-        tcp_total_noche: parseFloat((initialNoche + logsSumNoche).toFixed(1)),
-        total_landings: parseFloat((initialLandings + logsSumLandings).toFixed(1)),
-        tcp_horas_instructor: parseFloat((initialInstructor + logsSumInstructor).toFixed(1)),
-      } : null);
-    } catch (e) {
-      console.error("Error syncing TCP totals:", e);
-    }
+    // No-op: initial totals must remain static and are calculated dynamically in the UI.
+    // They are only accumulated and updated when the database is reset or manually updated by the user.
   };
 
   const saveLog = async () => {
