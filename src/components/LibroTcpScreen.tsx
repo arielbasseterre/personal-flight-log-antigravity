@@ -1777,7 +1777,12 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...tcpLogs].sort((a, b) => new Date(b.fechaHoraSalida).getTime() - new Date(a.fechaHoraSalida).getTime()).map((log) => {
+                    {[...tcpLogs].sort((a, b) => {
+                      const dateA = new Date(a.fechaHoraSalida).getTime();
+                      const dateB = new Date(b.fechaHoraSalida).getTime();
+                      if (dateA !== dateB) return dateB - dateA;
+                      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+                    }).map((log) => {
                       const isPending = (log as any)._pending === true;
                       const d = new Date(log.fechaHoraSalida);
                       return (

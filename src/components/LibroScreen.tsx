@@ -415,6 +415,14 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
 
 export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, loading, userId, onGoToSuscripcion }: LibroScreenProps) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const sortedLogs = useMemo(() => {
+    return [...logs].sort((a, b) => {
+      const dateA = new Date(a.fechaHoraSalida || 0).getTime();
+      const dateB = new Date(b.fechaHoraSalida || 0).getTime();
+      if (dateA !== dateB) return dateB - dateA;
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
+  }, [logs]);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [dbAirports, setDbAirports] = useState<any[]>([]);
   const [confirmModal, setConfirmModal] = useState<{
@@ -2649,7 +2657,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">Últimos Registros</h3>
-              {logs.slice(0, 3).map((log) => (
+              {sortedLogs.slice(0, 3).map((log) => (
                 <Card key={log.id} className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -3414,7 +3422,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logs.map((log) => {
+                    {sortedLogs.map((log) => {
                       const isPending = (log as any)._pending === true;
                       return (
                       <TableRow key={log.id} className={isPending ? 'opacity-60' : ''}>
