@@ -622,6 +622,15 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         sim_student: 0,
       };
 
+      try {
+        localStorage.setItem('tcp_saved_aircraft_model', formData.aircraft_model || '');
+        localStorage.setItem('tcp_saved_flight_purpose', formData.flight_purpose || '79');
+        localStorage.setItem('tcp_saved_certifier_role_id', formData.certifier_role_id || '15');
+        localStorage.setItem('tcp_saved_certifier_name', formData.certifier_name || '');
+      } catch (e) {
+        console.error("Error saving autocomplete fields:", e);
+      }
+
       if (editingId) {
         const { error } = await supabase.from('flight_logs').update(logToSave).eq('id', editingId);
         if (error) throw error;
@@ -641,9 +650,136 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     };
 
     if (!navigator.onLine) {
-      addToQueue({ type: editingId ? 'update' : 'insert', table: 'flight_logs', data: formData, userId });
+      try {
+        localStorage.setItem('tcp_saved_aircraft_model', formData.aircraft_model || '');
+        localStorage.setItem('tcp_saved_flight_purpose', formData.flight_purpose || '79');
+        localStorage.setItem('tcp_saved_certifier_role_id', formData.certifier_role_id || '15');
+        localStorage.setItem('tcp_saved_certifier_name', formData.certifier_name || '');
+      } catch {}
+
+      // Validation and build logic for offline queue payload
+      if (!formData.year || !formData.month || !formData.day) {
+        showAlert("Campos Incompletos", "Por favor ingrese una fecha válida.", 'warning');
+        return;
+      }
+      if (!formData.origin_ad || !formData.destination_ad) {
+        showAlert("Ruta Incompleta", "Por favor ingrese aeródromo de origen y destino.", 'warning');
+        return;
+      }
+      if (!formData.registration) {
+        showAlert("Campo Obligatorio", "Por favor ingrese la matrícula de la aeronave.", 'warning');
+        return;
+      }
+      if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
+        showAlert("Horario Inválido", "Por favor ingrese un horario de salida válido (HH:MM).", 'warning');
+        return;
+      }
+      if (!formData.arrival_time_utc || formData.arrival_time_utc.length < 5) {
+        showAlert("Horario Inválido", "Por favor ingrese un horario de llegada válido (HH:MM).", 'warning');
+        return;
+      }
+
+      const resolvedOrigin = resolveToAnac(formData.origin_ad, dbAirports);
+      const resolvedDest = resolveToAnac(formData.destination_ad, dbAirports);
+      if (!resolvedOrigin || !resolvedDest) {
+        showAlert("Aeródromo Inválido", "No se pudo resolver el código del aeródromo.", 'warning');
+        return;
+      }
+
+      const totalRef = parseFloat(calculateDecimalDuration(formData.departure_time_utc, formData.arrival_time_utc) || '0');
+      const currentSum = Number(formData.horas_dia || 0) + Number(formData.horas_noche || 0);
+      if (currentSum > (totalRef + 0.01)) {
+        showAlert("Error de Tiempos", `Las horas (${currentSum.toFixed(1)}) exceden el tiempo del vuelo (${totalRef.toFixed(1)}).`, 'danger');
+        return;
+      }
+
+      if (!userId) {
+        showAlert("Sesión Expirada", "Por favor inicie sesión nuevamente.", 'danger');
+        return;
+      }
+
+      const buildISO = (y: number, mon: number, d: number, timeStr: string, isNextDay: boolean = false) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        const date = new Date(Date.UTC(y, mon - 1, d, h || 0, m || 0));
+        if (isNextDay) date.setUTCDate(date.getUTCDate() + 1);
+        return date.toISOString();
+      };
+
+      const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
+      const checkSalida = buildISO(formData.year, formData.month, formData.day, formData.departure_time_utc);
+      const checkLlegada = buildISO(formData.year, formData.month, formData.day, formData.arrival_time_utc, crossesMidnight);
+
+      const maxFolio = logs.reduce((max, l) => Math.max(max, Number(l.folio_number || 0)), 0);
+      const nextFolio = Math.max(maxFolio + 1, Number(profile?.initial_folio_number || 1));
+
+      const logToSave: any = {
+        user_id: userId,
+        fechaHoraSalida: checkSalida,
+        fechaHoraLlegada: checkLlegada,
+        origenID: resolvedOrigin,
+        destinoID: resolvedDest,
+        finalidadID: formData.flight_purpose || '79',
+        clase: '',
+        matriculaAvion: (formData.registration || '').toUpperCase(),
+        Marca_Modelo: formData.aircraft_model || '',
+        potencia: 0,
+        aterrizajes: Number(formData.landings || 1),
+        horasDia: String(Number(formData.horas_dia || 0).toFixed(1)),
+        horasNoche: String(Number(formData.horas_noche || 0).toFixed(1)),
+        tipoVueloID: '2',
+        cargoID: '5',
+        autoridadCertificanteID: formData.certifier_role_id || '15',
+        observaciones: formData.certifier_name || '',
+        ifr_instrument: 0,
+        instruccion: 0,
+        multi_engine: 0,
+        jet: 0,
+        turboprop: 0,
+        ag_application: 0,
+        folio_number: nextFolio,
+        folio_rva: formData.folio_rva ? Number(formData.folio_rva) : null,
+        tcp_instructor: formData.tcp_instructor || false,
+        airfield_day_pilot: 0,
+        airfield_day_copilot: 0,
+        airfield_night_pilot: 0,
+        airfield_night_copilot: 0,
+        cross_country_day_pilot: 0,
+        cross_country_day_copilot: 0,
+        cross_country_night_pilot: 0,
+        cross_country_night_copilot: 0,
+        ifr_real_pilot: 0,
+        ifr_real_copilot: 0,
+        ifr_hood: 0,
+        sim_instructor: 0,
+        sim_student: 0,
+      };
+
+      if (editingId) {
+        addToQueue({
+          type: 'update',
+          logId: editingId,
+          data: logToSave,
+          createdAt: new Date().toISOString(),
+          retryCount: 0
+        });
+        setLogs(prev => prev.map(l => l.id === editingId ? { ...l, ...logToSave, id: editingId } : l));
+      } else {
+        const localId = `local_${Date.now()}`;
+        addToQueue({
+          type: 'insert',
+          localId,
+          data: logToSave,
+          createdAt: new Date().toISOString(),
+          retryCount: 0
+        });
+        setLogs(prev => [...prev, { ...logToSave, id: localId }]);
+      }
+      
       setPendingOps(getQueue());
       showAlert("Guardado Offline", "El vuelo se agregó a la cola de sincronización.", 'info');
+      setEditingId(null);
+      setFormData(getInitialFormState());
+      setActiveTab('historial');
       return;
     }
 
@@ -1492,7 +1628,19 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">MATRÍCULA</Label>
-                    <Input className="h-8 text-xs uppercase" placeholder="LV-KCE" maxLength={10} value={formData.registration} onChange={e => setFormData({ ...formData, registration: e.target.value.toUpperCase() })} />
+                    <Input 
+                      className="h-8 text-xs uppercase" 
+                      placeholder="LV-KCE" 
+                      maxLength={10} 
+                      list="tcp-registrations-list"
+                      value={formData.registration} 
+                      onChange={e => setFormData({ ...formData, registration: e.target.value.toUpperCase() })} 
+                    />
+                    <datalist id="tcp-registrations-list">
+                      {Array.from(new Set(tcpLogs.map(log => log.matriculaAvion || (log as any).registration).filter(Boolean))).sort().map(reg => (
+                        <option key={reg} value={reg} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">MARCA / MODELO</Label>
