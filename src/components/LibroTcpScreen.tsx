@@ -626,12 +626,12 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         const { error } = await supabase.from('flight_logs').update(logToSave).eq('id', editingId);
         if (error) throw error;
         setLogs(prev => prev.map(l => l.id === editingId ? { ...l, ...logToSave, id: editingId } : l));
-        showAlert("Vuelo Actualizado", "El registro ha sido actualizado correctamente." + (!formData.folio_rva ? " Nota: no ingresó ningún número de FOLIO RVA, puede continuar pero ese campo quedará vacío en el PDF exportado." : ""), 'info');
+        showAlert("Vuelo Actualizado", "El registro ha sido actualizado correctamente." + (!formData.folio_rva ? " Nota: no ingresó ningún número de FOLIO RAV, puede continuar pero ese campo quedará vacío en el PDF exportado." : ""), 'info');
       } else {
         const { data, error } = await supabase.from('flight_logs').insert(logToSave).select().single();
         if (error) throw error;
         if (data) setLogs(prev => [...prev, data]);
-        showAlert("Vuelo Guardado", "El registro se ha guardado correctamente." + (!formData.folio_rva ? " Nota: no ingresó ningún número de FOLIO RVA, puede continuar pero ese campo quedará vacío en el PDF exportado." : ""), 'info');
+        showAlert("Vuelo Guardado", "El registro se ha guardado correctamente." + (!formData.folio_rva ? " Nota: no ingresó ningún número de FOLIO RAV, puede continuar pero ese campo quedará vacío en el PDF exportado." : ""), 'info');
       }
 
       setEditingId(null);
@@ -1079,7 +1079,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           { label: 'HORA DE LLEGADA', col: 6, medRight: false },
           { label: 'MARCA', col: 8, medRight: false },
           { label: 'MATRÍCULA', col: 9, medRight: false },
-          { label: 'FOLIO RVA', col: 10, medRight: true },
+          { label: 'FOLIO RAV', col: 10, medRight: true },
           { label: 'DE DÍA', col: 11, medRight: false },
           { label: 'NOCHE', col: 12, medRight: true },
           { label: 'INSTRUCTOR DE TCP', col: 14, medRight: false },
@@ -1502,7 +1502,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">FOLIO RVA</Label>
+                    <Label className="text-xs">FOLIO RAV</Label>
                     <Input type="text" inputMode="numeric" className="h-8 text-xs" placeholder="N° del otro libro" value={formData.folio_rva ?? ''} onChange={e => {
                       const val = e.target.value.replace(/[^0-9]/g, '');
                       setFormData({ ...formData, folio_rva: val === '' ? null : parseInt(val) });

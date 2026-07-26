@@ -114,7 +114,7 @@ const col = {
   finalidad: 32,
   marca: 80,
   matr: 50,
-  folioRva: 33,
+  folioRav: 33,
   dia_h: 30,
   noche: 30,
   aterr: 24,
@@ -136,7 +136,7 @@ const FLIGHT_PURPOSES: Record<string, string> = {
 const renderHeader = (pageYear: number) => {
   const bodyHeight = 45 + 12;
   const finalidadLeft = col.dia + col.mes + col.salida + col.desde + col.hasta + col.llegada;
-  const aterrizajesLeft = finalidadLeft + col.finalidad + col.marca + col.matr + col.folioRva + col.dia_h + col.noche;
+  const aterrizajesLeft = finalidadLeft + col.finalidad + col.marca + col.matr + col.folioRav + col.dia_h + col.noche;
   const certLeft = aterrizajesLeft + col.aterr + col.instTcp + col.tipoAero;
   const renderDeepColumn = (width: number, label: string | string[], fontSize = 5, rightWidth = 0.5) => (
     <View style={[styles.cell, { width, height: bodyHeight, borderRightWidth: rightWidth, borderColor: '#000', padding: 0 }]}>
@@ -161,7 +161,7 @@ const renderHeader = (pageYear: number) => {
           <Text style={styles.headerTitle}>ITINERARIO</Text>
         </View>
         <View style={[styles.cell, { width: col.finalidad, borderRightWidth: 1.5, borderBottomWidth: 0 }]} />
-        <View style={[styles.cell, { width: col.marca + col.matr + col.folioRva, borderRightWidth: 1.5, borderBottomWidth: 1.5 }]}>
+        <View style={[styles.cell, { width: col.marca + col.matr + col.folioRav, borderRightWidth: 1.5, borderBottomWidth: 1.5 }]}>
           <Text style={styles.headerTitle}>AERONAVES UTILIZADAS</Text>
         </View>
         <View style={[styles.cell, { width: col.dia_h + col.noche, borderRightWidth: 1.5, borderBottomWidth: 1.5 }]}>
@@ -183,7 +183,7 @@ const renderHeader = (pageYear: number) => {
         <View style={[styles.cell, { width: col.finalidad, borderRightWidth: 1.5, borderBottomWidth: 0 }]} />
         <View style={[styles.cell, { width: col.marca, borderRightWidth: 0.5, borderBottomWidth: 0 }]}><Text style={styles.cellText}>MARCA</Text></View>
         <View style={[styles.cell, { width: col.matr, borderRightWidth: 0.5, borderBottomWidth: 0 }]}><Text style={styles.cellText}>MATRÍCULA</Text></View>
-        <View style={[styles.cell, { width: col.folioRva, borderRightWidth: 1.5, borderBottomWidth: 0 }]}><Text style={styles.cellText}>FOLIO RVA</Text></View>
+        <View style={[styles.cell, { width: col.folioRav, borderRightWidth: 1.5, borderBottomWidth: 0 }]}><Text style={styles.cellText}>FOLIO RAV</Text></View>
         <View style={[styles.cell, { width: col.dia_h, borderRightWidth: 0.5, borderBottomWidth: 0 }]}><Text style={styles.cellText}>DE DÍA</Text></View>
         <View style={[styles.cell, { width: col.noche, borderRightWidth: 1.5, borderBottomWidth: 0 }]}><Text style={styles.cellText}>NOCHE</Text></View>
         <View style={[styles.cell, { width: col.aterr, borderRightWidth: 1.5, borderBottomWidth: 0 }]} />
@@ -279,7 +279,7 @@ export const FlightLogTcpPDF = ({ logs, profile }: { logs: FlightLog[]; profile?
               {renderHeader(pageYear)}
               <View style={[styles.row, { height: 14, borderBottomWidth: 1.5 }]}>
                 <View style={{
-                  width: col.dia + col.mes + col.salida + col.desde + col.hasta + col.llegada + col.finalidad + col.marca + col.matr + col.folioRva,
+                  width: col.dia + col.mes + col.salida + col.desde + col.hasta + col.llegada + col.finalidad + col.marca + col.matr + col.folioRav,
                   borderRightWidth: 1.5, borderBottomWidth: 0, borderColor: '#000',
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 5,
                   backgroundColor: '#fff'
@@ -317,7 +317,7 @@ export const FlightLogTcpPDF = ({ logs, profile }: { logs: FlightLog[]; profile?
                     <View style={[styles.cell, { width: col.finalidad }]}><Text style={styles.cellText}>{finSigla}</Text></View>
                     <View style={[styles.cell, { width: col.marca }]}><Text style={[styles.cellText, { fontSize: 5 }]}>{log.Marca_Modelo || ''}</Text></View>
                     <View style={[styles.cell, { width: col.matr }]}><Text style={styles.cellText}>{log.matriculaAvion}</Text></View>
-                    <View style={[styles.cell, { width: col.folioRva }]}><Text style={styles.cellText}>{log.folio_rva ?? ''}</Text></View>
+                    <View style={[styles.cell, { width: col.folioRav }]}><Text style={styles.cellText}>{log.folio_rva ?? ''}</Text></View>
                     <View style={[styles.cell, { width: col.dia_h }]}><Text style={styles.cellText}>{hDia.toFixed(1)}</Text></View>
                     <View style={[styles.cell, { width: col.noche }]}><Text style={styles.cellText}>{hNoche.toFixed(1)}</Text></View>
                     <View style={[styles.cell, { width: col.aterr }]}><Text style={styles.cellText}>{log.aterrizajes}</Text></View>
@@ -342,7 +342,7 @@ export const FlightLogTcpPDF = ({ logs, profile }: { logs: FlightLog[]; profile?
                   <View style={[styles.cell, { width: col.finalidad }]}><Text style={styles.cellText}></Text></View>
                   <View style={[styles.cell, { width: col.marca }]}><Text style={styles.cellText}></Text></View>
                   <View style={[styles.cell, { width: col.matr }]}><Text style={styles.cellText}></Text></View>
-                  <View style={[styles.cell, { width: col.folioRva }]}><Text style={styles.cellText}></Text></View>
+                  <View style={[styles.cell, { width: col.folioRav }]}><Text style={styles.cellText}></Text></View>
                   <View style={[styles.cell, { width: col.dia_h }]}><Text style={styles.cellText}></Text></View>
                   <View style={[styles.cell, { width: col.noche }]}><Text style={styles.cellText}></Text></View>
                   <View style={[styles.cell, { width: col.aterr }]}><Text style={styles.cellText}></Text></View>
@@ -353,7 +353,7 @@ export const FlightLogTcpPDF = ({ logs, profile }: { logs: FlightLog[]; profile?
               ))}
               <View style={[styles.row, { minHeight: 14, backgroundColor: '#f5f5f5', borderTopWidth: 1.5 }]}>
                 <View style={{
-                  width: col.dia + col.mes + col.salida + col.desde + col.hasta + col.llegada + col.finalidad + col.marca + col.matr + col.folioRva,
+                  width: col.dia + col.mes + col.salida + col.desde + col.hasta + col.llegada + col.finalidad + col.marca + col.matr + col.folioRav,
                   borderRightWidth: 1.5, borderBottomWidth: 0, borderTopWidth: 0, borderColor: '#000',
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 5
                 }}>
