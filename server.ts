@@ -83,6 +83,8 @@ const syncLimiter = rateLimit({
 app.use("/api/auth-anac", authLimiter);
 app.use("/api/sync-anac", syncLimiter);
 app.use("/api/arms/sync-roster", authLimiter);
+app.use("/api/sync-anac-tcp", syncLimiter);
+app.use("/api/get-anac-logs-tcp", syncLimiter);
 
   // --- Instancia global de Playwright para evitar cold-starts ---
   let globalBrowser: any = null;
@@ -691,6 +693,227 @@ app.use("/api/arms/sync-roster", authLimiter);
       res.json(anacResponse.data);
     } catch (error: any) {
       console.error("[GET_ANAC_LOGS] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ANAC TCP Sincronización API ---
+  app.post("/api/sync-anac-tcp", async (req, res) => {
+    const { user_id, anac_token, storageState, logs_to_sync } = req.body;
+
+    if (!user_id || (!anac_token && !storageState)) {
+      return res.status(400).json({ error: "user_id y sesión son requeridos" });
+    }
+
+    try {
+      const results = [];
+      const logs = logs_to_sync || [];
+
+      let cookieHeader = "";
+      if (storageState && storageState.cookies) {
+        cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      } else {
+        cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
+      }
+
+      console.log(`[SYNC_ANAC_TCP] Iniciando sincronización TCP con ${storageState ? 'sesión completa' : 'token simple'}`);
+
+      const sortedLogs = [...logs].sort((a: any, b: any) => {
+        return new Date(a.fechaHoraSalida || 0).getTime() - new Date(b.fechaHoraSalida || 0).getTime();
+      });
+
+      for (const log of sortedLogs) {
+        try {
+          const mapAirportCode = (code: string) => {
+            const c = code.trim().toUpperCase();
+            const ANAC_MAPPINGS: Record<string, string> = {
+              "AEP": "AER", "SABE": "AER",
+              "EZE": "EZE", "SAEZ": "EZE",
+              "COR": "CBA", "SACO": "CBA",
+              "MDZ": "DOZ", "SAMM": "DOZ",
+              "BRC": "BAR", "SAZS": "BAR",
+              "IGR": "IGU", "SARI": "IGU",
+              "SLA": "SAL", "SASA": "SAL",
+              "NQN": "NEU", "SAZN": "NEU",
+              "TUC": "TUC", "SANT": "TUC",
+              "USH": "USU", "SAWH": "USU",
+              "FTE": "CAL", "SAWC": "CAL",
+              "JUJ": "JUJ", "SASJ": "JUJ",
+              "PSS": "POS", "SARP": "POS",
+              "CNQ": "CRR", "SARC": "CRR",
+              "RES": "SIS", "SARE": "SIS",
+              "UAQ": "JUA", "SANU": "JUA",
+              "LUQ": "UIS", "SAOU": "UIS",
+              "CTC": "CAT", "SANC": "CAT",
+              "IRJ": "LAR", "SANL": "LAR",
+              "SFN": "SVO", "SAAV": "SVO",
+              "PRA": "PAR", "SAAP": "PAR",
+              "ROS": "ROS", "SAAR": "ROS",
+              "VDM": "VIE", "SAVN": "VIE",
+              "BHI": "BAI", "SAZB": "BAI",
+              "MDQ": "MDP", "SAZM": "MDP",
+              "REL": "TRW", "SAVT": "TRW",
+              "PMY": "MAD", "SAVY": "MAD",
+              "CRV": "CRV", "SAVC": "CRV",
+              "RGL": "GAL", "SAWG": "GAL",
+              "RGA": "GRA", "SAWE": "GRA",
+              "CPC": "CHA", "SAZY": "CHA",
+              "EQS": "ESQ", "SAVV": "ESQ",
+              "LGS": "MAL", "SAMO": "MAL",
+              "AFA": "SRA", "SAMR": "SRA",
+              "RSA": "OSA", "SAWR": "OSA",
+              "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
+              "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
+              "SSA": "SBSV", "MCZ": "SBMO", "REC": "SBRF", "FOR": "SBFZ",
+              "LIM": "SPJC", "BOG": "SKBO", "UIO": "SEQM", "PTY": "MPTO",
+              "CUN": "MMUN", "MEX": "MMMX", "PUJ": "MDPC", "HAV": "MUHA",
+              "MIA": "KMIA", "JFK": "KJFK", "MAD": "LEMD", "FCO": "LIRF",
+            };
+            return ANAC_MAPPINGS[c] || c;
+          };
+
+          const oriID = mapAirportCode(String(log.origenID || ""));
+          const destID = mapAirportCode(String(log.destinoID || ""));
+
+          let obs = log.observaciones || "";
+          let authId = String(log.autoridadCertificanteID || "15");
+          if (authId && isNaN(Number(authId))) {
+            obs = authId + (obs ? " - " + obs : "");
+            authId = "15";
+          }
+
+          const dSalida = new Date(log.fechaHoraSalida);
+          const dLlegada = new Date(log.fechaHoraLlegada);
+          if (dLlegada < dSalida) {
+            dLlegada.setDate(dLlegada.getDate() + 1);
+          }
+
+          const payload = {
+            Discriminaciones: [],
+            discriminaciones: [],
+            horasDia: String(parseFloat(log.horasDia || "0")),
+            horasNoche: String(parseFloat(log.horasNoche || "0")),
+            cargoID: 5,
+            origenID: oriID,
+            destinoID: destID,
+            origenPersonalizado: "",
+            destinoPersonalizado: "",
+            fechaHoraSalida: dSalida.toISOString(),
+            fechaHoraLlegada: dLlegada.toISOString(),
+            aterrizajes: parseInt(log.aterrizajes || "1"),
+            autoridadCertificanteID: String(authId),
+            observaciones: obs,
+            matriculaAvion: log.matriculaAvion,
+            finalidadID: String(log.finalidadID || "79")
+          };
+
+          console.log("[SYNC_ANAC_TCP] Payload:", JSON.stringify(payload));
+
+          let anacResponse;
+          try {
+            anacResponse = await axios.post(
+              "https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/Create",
+              payload,
+              {
+                headers: {
+                  "Cookie": cookieHeader,
+                  "Content-Type": "application/json; charset=utf-8",
+                  "X-Requested-With": "XMLHttpRequest",
+                  "Accept": "application/json, text/plain, */*",
+                  "Origin": "https://cad.anac.gob.ar",
+                  "Referer": "https://cad.anac.gob.ar/vuelotripulantetcp/create",
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+                },
+                timeout: 15000
+              }
+            );
+          } catch (err: any) {
+            if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+              anacResponse = await axios.post(
+                "https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/Create",
+                payload,
+                {
+                  headers: {
+                    "Cookie": cookieHeader,
+                    "Content-Type": "application/json; charset=utf-8",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Origin": "https://cadam.anac.gob.ar",
+                    "Referer": "https://cadam.anac.gob.ar/Cadam/vuelotripulantetcp/create",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/150.0.0.0 Safari/537.36"
+                  },
+                  timeout: 15000
+                }
+              );
+            } else {
+              throw err;
+            }
+          }
+
+          results.push({ id: log.id, status: "success", data: anacResponse.data });
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (itemError: any) {
+          results.push({ id: log.id, status: "error", error: itemError.response?.data || itemError.message });
+        }
+      }
+
+      res.json({ results });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ANAC TCP Get Logs API ---
+  app.post("/api/get-anac-logs-tcp", async (req, res) => {
+    const { anac_token, storageState, pageNumber = 1, rowsPerPage = 50 } = req.body;
+
+    if (!anac_token && !storageState) {
+      return res.status(400).json({ error: "Sesión de ANAC es requerida" });
+    }
+
+    try {
+      let cookieHeader = "";
+      if (storageState && storageState.cookies) {
+        cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      } else {
+        cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
+      }
+
+      console.log(`[GET_ANAC_LOGS_TCP] Solicitando página ${pageNumber} de ANAC TCP...`);
+
+      const url = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TCP&sortField=fechaSalida&sortDirection=DESC&pageNumber=${pageNumber}&rowsPerPage=${rowsPerPage}&mostrarIngresados=true&solicitudFoliadoId=null`;
+
+      let anacResponse;
+      try {
+        anacResponse = await axios.get(url, {
+          headers: {
+            "Cookie": cookieHeader,
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json, text/plain, */*",
+            "Origin": "https://cad.anac.gob.ar",
+            "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+          },
+          timeout: 15000
+        });
+      } catch (err: any) {
+        if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+          const fallbackUrl = `https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TCP&sortField=fechaSalida&sortDirection=DESC&pageNumber=${pageNumber}&rowsPerPage=${rowsPerPage}&mostrarIngresados=true&solicitudFoliadoId=null`;
+          anacResponse = await axios.get(fallbackUrl, {
+            headers: {
+              "Cookie": cookieHeader,
+              "X-Requested-With": "XMLHttpRequest",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/150.0.0.0 Safari/537.36"
+            },
+            timeout: 15000
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      res.json(anacResponse.data);
+    } catch (error: any) {
+      console.error("[GET_ANAC_LOGS_TCP] Error:", error);
       res.status(500).json({ error: error.message });
     }
   });

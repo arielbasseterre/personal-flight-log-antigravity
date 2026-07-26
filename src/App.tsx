@@ -51,6 +51,7 @@ import { ReportScreen } from './components/ReportScreen';
 import { AnacAuth } from './components/AnacAuth';
 import { ArmsRosterScreen } from './components/ArmsRosterScreen';
 import { PdfViewer } from './components/PdfViewer';
+import { LibroTcpScreen } from './components/LibroTcpScreen';
 
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
@@ -168,16 +169,14 @@ const BottomNav = ({ currentScreen, setScreen, role }: { currentScreen: Screen, 
         <PilotIcon size={24} active={currentScreen === 'pilotos'} />
         <span className="text-[10px] font-medium">Pilotos</span>
       </button>
-      <button onClick={() => setScreen('tcp')} className={`nav-item ${currentScreen === 'tcp' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
+      <button onClick={() => { try { localStorage.removeItem('tcp_flight_log_active_tab'); } catch {} setScreen('tcp'); }} className={`nav-item ${currentScreen === 'tcp' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
         <TcpIcon size={24} active={currentScreen === 'tcp'} />
         <span className="text-[10px] font-medium">TCP</span>
       </button>
-      {role !== 'tcp_fb' && (
-        <button onClick={() => setScreen('libro')} className={`nav-item ${currentScreen === 'libro' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
-          <Plane size={24} className={currentScreen === 'libro' ? 'fill-[#1152d4]/20' : ''} />
-          <span className="text-[10px] font-medium">Libro</span>
-        </button>
-      )}
+      <button onClick={() => { try { localStorage.removeItem('draft_flight_log_active_tab'); } catch {} setScreen('libro'); }} className={`nav-item ${currentScreen === 'libro' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
+        <Plane size={24} className={currentScreen === 'libro' ? 'fill-[#1152d4]/20' : ''} />
+        <span className="text-[10px] font-medium">Libro</span>
+      </button>
       <button onClick={() => setScreen('roster')} className={`nav-item ${currentScreen === 'roster' ? 'text-[#1152d4]' : 'text-slate-500 dark:text-slate-400'}`}>
         <Calendar size={24} />
         <span className="text-[10px] font-medium">Roster</span>
@@ -493,21 +492,19 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
             <ChevronRight size={18} className="text-slate-300 group-hover:text-emerald-500" />
           </button>
 
-          {role !== 'tcp_fb' && (
-            <button
-              onClick={onGoToLibro}
-              className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-amber-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
-            >
-              <div className="bg-amber-500/10 p-3 rounded-xl group-hover:bg-amber-500/20 transition-colors">
-                <BookOpen className="text-amber-500" size={24} />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Libro de Vuelo Digital</h3>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">Registros y exportación</p>
-              </div>
-              <ChevronRight size={18} className="text-slate-300 group-hover:text-amber-500" />
-            </button>
-          )}
+          <button
+            onClick={onGoToLibro}
+            className="group relative bg-slate-50 dark:bg-[#1a2233] p-5 rounded-2xl border border-slate-200 dark:border-[#2d3748] text-left hover:border-amber-500/50 hover:bg-slate-100 dark:hover:bg-[#2d3748]/80 transition-all flex items-center gap-4 active:scale-95 shadow-sm"
+          >
+            <div className="bg-amber-500/10 p-3 rounded-xl group-hover:bg-amber-500/20 transition-colors">
+              <BookOpen className="text-amber-500" size={24} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Libro de Vuelo Digital</h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Registros y exportación</p>
+            </div>
+            <ChevronRight size={18} className="text-slate-300 group-hover:text-amber-500" />
+          </button>
 
           {/* Roster de Vuelo ARMS */}
           <button
@@ -1275,7 +1272,6 @@ export default function App() {
 
   const setScreen = useCallback((s: Screen) => {
     setScreen_(prev => {
-      if (s === 'libro' && profile?.role === 'tcp_fb') return prev;
       return s;
     });
   }, [profile?.role]);
@@ -1660,7 +1656,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'home':
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onGoToSuscripcion={() => setScreen('suscripcion')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => { try { localStorage.removeItem('tcp_flight_log_active_tab'); } catch {} setScreen('tcp'); }} onGoToLibro={() => { try { localStorage.removeItem('draft_flight_log_active_tab'); } catch {} setScreen('libro'); }} onGoToRoster={() => setScreen('roster')} onGoToSuscripcion={() => setScreen('suscripcion')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
@@ -1700,6 +1696,39 @@ export default function App() {
           </div>
         );
       case 'libro':
+        if (profile?.role === 'tcp_fb') {
+          return (
+            <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
+              <Header 
+                title="Libro de Vuelo TCP" 
+                onBack={() => {
+                  localStorage.removeItem('draft_flight_log_form');
+                  localStorage.removeItem('draft_flight_log_editing_id');
+                  localStorage.removeItem('draft_flight_log_active_tab');
+                  setScreen('home');
+                }} 
+                darkMode={darkMode} 
+                toggleDarkMode={toggleDarkMode} 
+              />
+              <div className="flex flex-col flex-1 overflow-y-auto">
+                {!user ? (
+                  <AuthScreen onRegisterSuccess={() => setRegisterAlert({ show: true })} />
+                ) : (
+                  <LibroTcpScreen
+                    logs={logs}
+                    setLogs={setLogs}
+                    profile={profile}
+                    setProfile={setProfile}
+                    refreshData={() => fetchData(user.id)}
+                    loading={dataLoading}
+                    userId={user.id}
+                    onGoToSuscripcion={() => setScreen('suscripcion')}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
             <Header 
@@ -1764,7 +1793,7 @@ export default function App() {
           </div>
         );
       default:
-        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => setScreen('tcp')} onGoToLibro={() => setScreen('libro')} onGoToRoster={() => setScreen('roster')} onGoToSuscripcion={() => setScreen('suscripcion')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
+        return <HomeScreen onEnter={() => setScreen('pilotos')} onGoToTcp={() => { try { localStorage.removeItem('tcp_flight_log_active_tab'); } catch {} setScreen('tcp'); }} onGoToLibro={() => { try { localStorage.removeItem('draft_flight_log_active_tab'); } catch {} setScreen('libro'); }} onGoToRoster={() => setScreen('roster')} onGoToSuscripcion={() => setScreen('suscripcion')} onViewNorms={() => setScreen('normas')} onChangelog={() => setScreen('changelog')} onGoToReport={() => setScreen('report')} onLogout={handleLogout} userEmail={user?.email || null} darkMode={darkMode} toggleDarkMode={toggleDarkMode} role={profile?.role} profile={profile} />;
     }
   };
 

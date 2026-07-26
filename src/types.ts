@@ -18,6 +18,10 @@ export interface Profile {
   total_cross_country_night_pilot?: number | null;
   total_cross_country_night_copilot?: number | null;
   total_landings?: number | null;
+  // TCP carry-forward totals
+  tcp_total_dia?: number | null;
+  tcp_total_noche?: number | null;
+  tcp_horas_instructor?: number | null;
   total_instruction_time?: number | null;
   total_multi_engine?: number | null;
   total_jet?: number | null;
@@ -105,6 +109,10 @@ export interface FlightLog {
   ag_application?: number;
   sim_instructor?: number;
   sim_student?: number;
+
+  // TCP fields
+  tcp_instructor?: boolean;
+  folio_rva?: number | null;
 
   // Logic helpers
   flight_type?: string;
