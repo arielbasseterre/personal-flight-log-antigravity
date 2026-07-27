@@ -1757,6 +1757,13 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     return `${letters.slice(0, 2)}-${letters.slice(2)}`;
   };
 
+  const elapsedToOACI = (totalMinutes: number): number => {
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    if (mins === 0) return hours;
+    return hours + Math.ceil(mins / 6) * 0.1;
+  };
+
   const validateImportLog = (log: any, mode: string): string[] => {
     const errs: string[] = [];
     if (!log.fechaHoraSalida) errs.push('Fecha de salida requerida');
@@ -1766,8 +1773,21 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       const lle = new Date(log.fechaHoraLlegada);
       if (isNaN(sal.getTime())) errs.push('Fecha de salida inválida');
       if (isNaN(lle.getTime())) errs.push('Fecha de llegada inválida');
-      if (!isNaN(sal.getTime()) && !isNaN(lle.getTime()) && sal >= lle)
-        errs.push('Salida debe ser anterior a llegada');
+      if (!isNaN(sal.getTime()) && !isNaN(lle.getTime())) {
+        let diffMin = (lle.getTime() - sal.getTime()) / 60000;
+        const hDia = Number(log.horasDia) || 0;
+        const hNoche = Number(log.horasNoche) || 0;
+        const totalH = hDia + hNoche;
+        if (diffMin <= 0) {
+          if (totalH > 0) diffMin += 1440;
+          else errs.push('Salida debe ser anterior a llegada');
+        }
+        if (diffMin > 0 && totalH > 0) {
+          const totalRef = elapsedToOACI(diffMin);
+          if (totalH > totalRef + 0.01)
+            errs.push(`Horas (${totalH.toFixed(1)}) exceden tiempo del vuelo (${totalRef.toFixed(1)})`);
+        }
+      }
       if (sal > new Date()) errs.push('Fecha de salida futura');
     } catch { errs.push('Fechas inválidas'); }
     if (!log.origenID) errs.push('Origen requerido');

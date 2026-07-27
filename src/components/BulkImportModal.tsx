@@ -62,6 +62,13 @@ const COLUMN_RULES: { pattern: RegExp; field: string; group: 'date' | 'time' | '
   { pattern: /travesia de noche.*copiloto/i, field: 'cross_country_night_copilot', group: 'times' },
 ];
 
+const elapsedToOACI = (totalMinutes: number): number => {
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  if (mins === 0) return hours;
+  return hours + Math.ceil(mins / 6) * 0.1;
+};
+
 const normalizeMatricula = (input: string): string => {
   const letters = (input || '').replace(/[^a-zA-Z]/g, '').toUpperCase();
   if (letters.length !== 5) return letters;
@@ -283,8 +290,24 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
           if (!fechaSalida.getTime()) errors.push('Fecha salida inválida');
           if (!fechaLlegada.getTime()) errors.push('Fecha llegada inválida');
-          if (fechaSalida.getTime() && fechaLlegada.getTime() && fechaSalida >= fechaLlegada)
-            errors.push('Salida posterior a llegada');
+
+          const totalHoras = hDia + hNoche;
+          if (fechaSalida.getTime() && fechaLlegada.getTime()) {
+            let diffMin = (fechaLlegada.getTime() - fechaSalida.getTime()) / 60000;
+            if (diffMin <= 0) {
+              if (totalHoras > 0) {
+                diffMin += 1440;
+                warnings.push('Posible cruce de medianoche');
+              } else {
+                errors.push('Salida posterior a llegada');
+              }
+            }
+            if (diffMin > 0 && totalHoras > 0) {
+              const totalRef = elapsedToOACI(diffMin);
+              if (totalHoras > totalRef + 0.01)
+                errors.push(`Horas (${totalHoras.toFixed(1)}) exceden tiempo del vuelo (${totalRef.toFixed(1)})`);
+            }
+          }
           if (!origenID) errors.push('Origen requerido');
           if (!destinoID) errors.push('Destino requerido');
           const matriculaLetters = (matriculaRaw || '').replace(/[^a-zA-Z]/g, '');
