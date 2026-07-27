@@ -205,6 +205,13 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "26 de Julio, 2026",
+    version: "1.6.0",
+    items: [
+      "Libro de Vuelo para personal T.C.P.: nueva pantalla de registro de vuelos para Tripulantes de Cabina de Pasajeros con formulario completo, historial, exportación PDF y Excel con formato oficial A4 landscape (16 columnas, 15 registros por hoja, totales acumulados), sincronización con ANAC y restablecimiento de registros."
+    ]
+  },
+  {
     date: "21 de Julio, 2026",
     version: "1.5.1",
     items: [
@@ -450,9 +457,14 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
                 <h4 className={`text-xs font-bold ${showRenewalWarning ? 'text-amber-800 dark:text-amber-400' : 'text-green-800 dark:text-green-400'}`}>
                   {isTrial ? 'Período de prueba gratuito' : `Suscripción ${showRenewalWarning ? 'próxima a vencer' : 'activa'}`}
                 </h4>
-                <span className={`text-[10px] font-semibold ${showRenewalWarning ? 'text-amber-600' : 'text-green-600'}`}>
-                  {daysRemaining} días restantes
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className={`text-[10px] font-semibold ${showRenewalWarning ? 'text-amber-600' : 'text-green-600'}`}>
+                    {daysRemaining} días restantes
+                  </span>
+                  {showRenewalWarning && (
+                    <span className="text-[9px] text-amber-500 mt-0.5">click para renovar</span>
+                  )}
+                </div>
               </div>
               <p className="text-[11px] mt-0.5 text-slate-500 dark:text-slate-400">
                 Vence el {new Date(profile.subscription_end_date).toLocaleDateString()}

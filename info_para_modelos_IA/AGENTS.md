@@ -73,6 +73,17 @@ Si como modelo necesitás una key para proponer un cambio, indicá que el usuari
 | Render V1 | `flightlog-sin-roster.onrender.com` |
 | Admin email | `gringo.soft.ar@gmail.com` |
 
+## TCP Flight Log (Tripulante de Cabina de Pasajeros)
+- `src/components/FlightLogTcpPDF.tsx` — PDF 16 col, A4 landscape, 15 reg/pág, paginación con acumulación
+- `src/components/LibroTcpScreen.tsx` — Full TCP screen (~1947 líneas): Excel, ANAC sync, historial, reset
+- `LibroScreen.tsx` es referencia para lógica de sync ANAC y paginación
+- `rowsPerPage = 15`, `getCumulativeTotals(pageIndex)` para totales acumulados
+- Excel layout referenciado de `planilla modelo tcp.xlsx` (merged cells, row heights, borders, textRotation 90° solo FINALIDAD/ATERRIZAJES)
+- Total rows: `parseFloat(...toFixed(1))` (número, no string)
+- Top border row 2: medium edge-to-edge 16 cols
+- Post-save → `setActiveTab('historial')`, tab state hardcodeado, sin localStorage
+- FOLIO RVA opcional con warning; reset registros suma totales e incrementa folio
+
 ## Detalles críticos para evitar errores recurrentes
 1. **MP callback**: MP concatena `?preapproval_id=X` con `?` en vez de `&` — usar regex sobre `req.url`, no `req.query`
 2. **Brevo IP**: Render IP `74.220.48.29` + 7 rangos CIDR de Render deben estar autorizados en Brevo → Security → Authorised IPs. Los CIDR se agregan manualmente (la importación CSV solo acepta IPs individuales). Ver rangos en `ERRORES_CONOCIDOS.md` sección 1.
