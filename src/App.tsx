@@ -205,6 +205,17 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "27 de Julio, 2026",
+    version: "1.7.0",
+    items: [
+      "Importación masiva desde Excel: nueva ventana de importación con detección inteligente de columnas, previsualización editable, validación OACI de horas vs tiempo transcurrido, auto-normalización de matrículas, detección de vuelos duplicados y exportación de errores a CSV.",
+      "Suscripción mejorada: los usuarios de prueba pueden cargar y previsualizar archivos Excel; la suscripción se requiere solo al editar celdas o confirmar la importación.",
+      "Validación OACI aplicada en toda la app (formulario manual, importación Excel y servidor) usando la tabla oficial de conversión minutos a decimal (1-2 min→0.0, 3-8→0.1, 9-14→0.2, etc.).",
+      "Perfil TCP: ahora muestra el email de autenticación y botón Cerrar Sesión, al igual que el perfil de Pilotos.",
+      "Suscripción siempre fresca: los datos de suscripción (subscription_id, end_date, status) se obtienen siempre de la base de datos al iniciar sesión, sin depender del caché local."
+    ]
+  },
+  {
     date: "26 de Julio, 2026",
     version: "1.6.0",
     items: [
@@ -1295,6 +1306,7 @@ export default function App() {
   const [showResetPassword, setShowResetPassword] = useState(() => {
     return window.location.hash.includes('type=recovery');
   });
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [registerAlert, setRegisterAlert] = useState<{ show: boolean }>({ show: false });
   const [paymentModal, setPaymentModal] = useState<{
     show: boolean;
@@ -1518,6 +1530,12 @@ export default function App() {
     };
     refreshSub();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || authLoading) return;
+    const lastVersion = localStorage.getItem('last_changelog_version');
+    if (lastVersion !== APP_VERSION) setShowWhatsNew(true);
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (darkMode) {
@@ -2114,6 +2132,42 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+      {showWhatsNew && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#1a2233] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-[#2d3748]">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Novedades v{CHANGELOG_DATA[0].version}</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">{CHANGELOG_DATA[0].date}</p>
+            <ul className="space-y-2 mb-6">
+              {CHANGELOG_DATA[0].items.map((item, i) => (
+                <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex gap-2">
+                  <span className="text-blue-500 shrink-0 mt-0.5">•</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="w-full rounded-xl h-12 font-bold"
+              onClick={() => {
+                localStorage.setItem('last_changelog_version', APP_VERSION);
+                setShowWhatsNew(false);
+              }}
+            >
+              Entendido
+            </Button>
+            <button
+              onClick={() => {
+                localStorage.setItem('last_changelog_version', APP_VERSION);
+                setShowWhatsNew(false);
+                setScreen('changelog');
+              }}
+              className="w-full text-center text-xs text-blue-500 hover:text-blue-600 mt-3 underline underline-offset-2"
+            >
+              Ver historial completo de versiones
+            </button>
+          </div>
+        </div>
+      )}
       </>
     );
 }
