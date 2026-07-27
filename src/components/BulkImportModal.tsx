@@ -305,7 +305,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
             if (diffMin > 0 && totalHoras > 0) {
               const totalRef = elapsedToOACI(diffMin);
               if (totalHoras > totalRef + 0.01)
-                errors.push(`Horas (${totalHoras.toFixed(1)}) exceden tiempo del vuelo (${totalRef.toFixed(1)})`);
+                errors.push(`Horas exceden el vuelo. Máximo: ${totalRef.toFixed(1)}h (declaraste ${totalHoras.toFixed(1)}h)`);
             }
           }
           if (!origenID) errors.push('Origen requerido');
@@ -399,6 +399,22 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
       if (field === 'origenID' && !value) errs.push('Origen requerido');
       if (field === 'destinoID' && !value) errs.push('Destino requerido');
       if (mode === 'tcp' && field === 'folio_rva' && !value) warns.push('FOLIO RVA vacío');
+      const hDia = Number(norm.horasDia) || 0;
+      const hNoche = Number(norm.horasNoche) || 0;
+      const totalH = hDia + hNoche;
+      if (totalH > 0 && norm.fechaHoraSalida && norm.fechaHoraLlegada) {
+        const sal = new Date(norm.fechaHoraSalida);
+        const lle = new Date(norm.fechaHoraLlegada);
+        if (sal.getTime() && lle.getTime()) {
+          let diffMin = (lle.getTime() - sal.getTime()) / 60000;
+          if (diffMin <= 0) diffMin += 1440;
+          if (diffMin > 0) {
+            const totalRef = elapsedToOACI(diffMin);
+            if (totalH > totalRef + 0.01)
+              errs.push(`Horas exceden el vuelo. Máximo: ${totalRef.toFixed(1)}h (declaraste ${totalH.toFixed(1)}h)`);
+          }
+        }
+      }
       return { ...r, normalized: norm, errors: errs, warnings: warns, selected: errs.length === 0 };
     }));
   }, [mode, isPaidSubscriber]);
@@ -601,8 +617,24 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                               const fp = FLIGHT_PURPOSES.find(p => p.key === fid);
                               return fp ? fp.sigla : (fid || '');
                             })()}</td>
-                            <td className="p-2 text-right font-mono">{r.normalized.horasDia.toFixed(1)}</td>
-                            <td className="p-2 text-right font-mono">{r.normalized.horasNoche.toFixed(1)}</td>
+                            <td className="p-2">
+                              <input className="w-14 bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 focus:border-blue-500 outline-none text-right font-mono"
+                                value={r.normalized.horasDia ?? ''}
+                                onChange={e => {
+                                  const v = e.target.value.replace(/[^0-9.,-]/g, '').replace(',', '.');
+                                  updateCell(r.id, 'horasDia', v);
+                                }}
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input className="w-14 bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 focus:border-blue-500 outline-none text-right font-mono"
+                                value={r.normalized.horasNoche ?? ''}
+                                onChange={e => {
+                                  const v = e.target.value.replace(/[^0-9.,-]/g, '').replace(',', '.');
+                                  updateCell(r.id, 'horasNoche', v);
+                                }}
+                              />
+                            </td>
                             <td className="p-2 text-right font-mono">{r.normalized.aterrizajes}</td>
                             <td className="p-2 text-center">
                               {hasErr ? <span title={r.errors.join(', ')}><XCircle size={14} className="text-red-500 mx-auto" /></span>

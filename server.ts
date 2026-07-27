@@ -1785,7 +1785,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         if (diffMin > 0 && totalH > 0) {
           const totalRef = elapsedToOACI(diffMin);
           if (totalH > totalRef + 0.01)
-            errs.push(`Horas (${totalH.toFixed(1)}) exceden tiempo del vuelo (${totalRef.toFixed(1)})`);
+            errs.push(`Horas exceden el vuelo. Máximo: ${totalRef.toFixed(1)}h (declaraste ${totalH.toFixed(1)}h)`);
         }
       }
       if (sal > new Date()) errs.push('Fecha de salida futura');

@@ -1881,6 +1881,15 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                 <CardDescription>Totales iniciales que aparecerán en el encabezado de los folios PDF</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="prof_email">Email (Autenticación)</Label>
+                  <Input
+                    id="prof_email"
+                    value={profile?.email || ''}
+                    disabled
+                    className="bg-slate-50 dark:bg-slate-800 text-slate-500"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Total Inicial Horas Día</Label>
