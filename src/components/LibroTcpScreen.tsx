@@ -507,7 +507,20 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     let arrMin = ah * 60 + am;
     if (arrMin <= depMin) arrMin += 1440;
     const diffMin = arrMin - depMin;
-    return (diffMin / 60).toFixed(1);
+    const hours = Math.floor(diffMin / 60);
+    const minutes = diffMin % 60;
+    let decimalMinutes = 0;
+    if (minutes >= 3 && minutes <= 8) decimalMinutes = 0.1;
+    else if (minutes >= 9 && minutes <= 14) decimalMinutes = 0.2;
+    else if (minutes >= 15 && minutes <= 20) decimalMinutes = 0.3;
+    else if (minutes >= 21 && minutes <= 26) decimalMinutes = 0.4;
+    else if (minutes >= 27 && minutes <= 33) decimalMinutes = 0.5;
+    else if (minutes >= 34 && minutes <= 39) decimalMinutes = 0.6;
+    else if (minutes >= 40 && minutes <= 45) decimalMinutes = 0.7;
+    else if (minutes >= 46 && minutes <= 51) decimalMinutes = 0.8;
+    else if (minutes >= 52 && minutes <= 57) decimalMinutes = 0.9;
+    else if (minutes >= 58) decimalMinutes = 1.0;
+    return (hours + decimalMinutes).toFixed(1);
   };
 
   const syncProfileTotals = async () => {

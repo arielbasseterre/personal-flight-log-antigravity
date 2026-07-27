@@ -62,11 +62,28 @@ const COLUMN_RULES: { pattern: RegExp; field: string; group: 'date' | 'time' | '
   { pattern: /travesia de noche.*copiloto/i, field: 'cross_country_night_copilot', group: 'times' },
 ];
 
+const minutesToOACI = (m: number): number => {
+  if (m <= 2) return 0;
+  if (m <= 8) return 0.1;
+  if (m <= 14) return 0.2;
+  if (m <= 20) return 0.3;
+  if (m <= 26) return 0.4;
+  if (m <= 33) return 0.5;
+  if (m <= 39) return 0.6;
+  if (m <= 45) return 0.7;
+  if (m <= 51) return 0.8;
+  if (m <= 57) return 0.9;
+  return 1.0;
+};
+
 const elapsedToOACI = (totalMinutes: number): number => {
   const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  if (mins === 0) return hours;
-  return hours + Math.ceil(mins / 6) * 0.1;
+  return hours + minutesToOACI(totalMinutes % 60);
+};
+
+const rawToOACI = (hours: number): number => {
+  const totalMinutes = Math.round(hours * 60);
+  return Math.floor(totalMinutes / 60) + minutesToOACI(totalMinutes % 60);
 };
 
 const normalizeMatricula = (input: string): string => {
@@ -271,8 +288,8 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
           const matriculaNorm = normalizeMatricula(matriculaRaw);
           const finalidadVal = resolveFinalidad(getCell(row, 'finalidadID'));
-          const hDia = parseFloat(getCell(row, 'horasDia')) || 0;
-          const hNoche = parseFloat(getCell(row, 'horasNoche')) || 0;
+          const hDia = rawToOACI(parseFloat(getCell(row, 'horasDia')) || 0);
+          const hNoche = rawToOACI(parseFloat(getCell(row, 'horasNoche')) || 0);
           const aterrizajes = parseInt(getCell(row, 'aterrizajes')) || 0;
           const folioRva = getCell(row, 'folio_rva') || '';
 
@@ -395,6 +412,9 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
         norm.matriculaAvion = normed;
         const letters = (value || '').replace(/[^a-zA-Z]/g, '');
         if (letters.length !== 5) errs.push('Matrícula inválida');
+      }
+      if (field === 'horasDia' || field === 'horasNoche') {
+        norm[field] = rawToOACI(parseFloat(value) || 0);
       }
       if (field === 'origenID' && !value) errs.push('Origen requerido');
       if (field === 'destinoID' && !value) errs.push('Destino requerido');
