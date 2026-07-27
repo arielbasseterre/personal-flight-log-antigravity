@@ -1757,11 +1757,23 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     return `${letters.slice(0, 2)}-${letters.slice(2)}`;
   };
 
+  const minutesToOACI = (m: number): number => {
+    if (m <= 2) return 0;
+    if (m <= 8) return 0.1;
+    if (m <= 14) return 0.2;
+    if (m <= 20) return 0.3;
+    if (m <= 26) return 0.4;
+    if (m <= 33) return 0.5;
+    if (m <= 39) return 0.6;
+    if (m <= 45) return 0.7;
+    if (m <= 51) return 0.8;
+    if (m <= 57) return 0.9;
+    return 1.0;
+  };
+
   const elapsedToOACI = (totalMinutes: number): number => {
     const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    if (mins === 0) return hours;
-    return hours + Math.ceil(mins / 6) * 0.1;
+    return hours + minutesToOACI(totalMinutes % 60);
   };
 
   const validateImportLog = (log: any, mode: string): string[] => {
