@@ -25,6 +25,7 @@ import {
   LogOut,
   WifiOff,
   CloudOff,
+  Upload,
   Clock as ClockIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -63,6 +64,7 @@ import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { FlightLogPDF } from './FlightLogPDF';
 import { AnacAuth } from './AnacAuth';
 import { SIMULATOR_LIST } from './simulatorsData';
+import BulkImportModal from './BulkImportModal';
 import { supabase } from '@/src/utils/supabase/client';
 import { getApiUrl } from '@/src/utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -441,6 +443,15 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     message: '',
     onConfirm: () => {},
   });
+
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const isPaidSubscriber = !!(profile?.subscription_id && profile?.subscription_end_date && new Date(profile.subscription_end_date) > new Date());
+
+  const handleImportClick = () => {
+    setShowImportModal(true);
+  };
 
   // Helper para mostrar alertas estilizadas
   const showAlert = (title: string, message: string, type: 'info' | 'warning' | 'danger' = 'info') => {
@@ -3407,6 +3418,9 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 <Button variant="outline" size="sm" className="h-8 gap-2" onClick={exportToExcel}>
                   <FileDown size={14} /> EXCEL
                 </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-2" onClick={handleImportClick}>
+                  <Upload size={14} /> Importar Excel
+                </Button>
               </div>
             </div>
             
@@ -3991,6 +4005,54 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   onClick={confirmModal.onConfirm}
                 >
                   {confirmModal.confirmText || 'Aceptar'}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Import Modal */}
+      <BulkImportModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        mode="piloto"
+        userId={userId}
+        isPaidSubscriber={isPaidSubscriber}
+        onGoToSuscripcion={onGoToSuscripcion}
+        onImportComplete={() => { refreshData(); setShowImportModal(false); }}
+      />
+
+      {/* Upgrade Modal */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUpgradeModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 p-6 text-center"
+            >
+              <div className="mx-auto w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-4">
+                <Upload size={28} className="text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Importación masiva</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                La importación masiva de vuelos está disponible solo para suscriptores. Click aquí para adquirir la suscripción.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl h-12 font-semibold" onClick={() => setShowUpgradeModal(false)}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 rounded-xl h-12 font-bold bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 text-white" onClick={() => { setShowUpgradeModal(false); onGoToSuscripcion?.(); }}>
+                  Adquirir Suscripción
                 </Button>
               </div>
             </motion.div>

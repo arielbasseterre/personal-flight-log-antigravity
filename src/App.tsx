@@ -1396,7 +1396,6 @@ export default function App() {
       // console.log("Profile data to be used:", profileData);
 
       if (profileData && Object.keys(profileData).length > 0) {
-        // Record found in profiles table. Merging...
         finalProfile = {
           ...profileData,
           id: userId,
@@ -1407,7 +1406,6 @@ export default function App() {
           first_name: profileData.first_name || authUser?.user_metadata?.first_name || authUser?.user_metadata?.full_name?.split(' ')[0] || '',
           last_name: profileData.last_name || authUser?.user_metadata?.last_name || authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
         };
-        // console.log("Final merged profile with folio:", finalProfile.initial_folio_number);
       } else if (!profileError) {
         console.log("No record found in profiles table. Using auth metadata as fallback.");
         // Initialize from auth if no DB record exists yet
@@ -1503,6 +1501,23 @@ export default function App() {
       window.removeEventListener('open-arms-roster', handleOpenRoster);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || !supabase) return;
+    const refreshSub = async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('subscription_id, subscription_end_date, subscription_status')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (data) {
+          setProfile(prev => prev ? { ...prev, ...data } : null);
+        }
+      } catch { /* silent */ }
+    };
+    refreshSub();
+  }, [user?.id]);
 
   useEffect(() => {
     if (darkMode) {

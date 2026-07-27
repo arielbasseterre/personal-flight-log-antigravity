@@ -1748,6 +1748,168 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
   // ── End calendar subscription tokens ────────────────────────────────
 
   // ══════════════════════════════════════════════════════════════════════
+  // IMPORTACION MASIVA DE VUELOS
+  // ══════════════════════════════════════════════════════════════════════
+
+  const normalizeMatricula = (input: string): string => {
+    const letters = (input || '').replace(/[^a-zA-Z]/g, '').toUpperCase();
+    if (letters.length !== 5) return letters;
+    return `${letters.slice(0, 2)}-${letters.slice(2)}`;
+  };
+
+  const validateImportLog = (log: any, mode: string): string[] => {
+    const errs: string[] = [];
+    if (!log.fechaHoraSalida) errs.push('Fecha de salida requerida');
+    if (!log.fechaHoraLlegada) errs.push('Fecha de llegada requerida');
+    try {
+      const sal = new Date(log.fechaHoraSalida);
+      const lle = new Date(log.fechaHoraLlegada);
+      if (isNaN(sal.getTime())) errs.push('Fecha de salida inválida');
+      if (isNaN(lle.getTime())) errs.push('Fecha de llegada inválida');
+      if (!isNaN(sal.getTime()) && !isNaN(lle.getTime()) && sal >= lle)
+        errs.push('Salida debe ser anterior a llegada');
+      if (sal > new Date()) errs.push('Fecha de salida futura');
+    } catch { errs.push('Fechas inválidas'); }
+    if (!log.origenID) errs.push('Origen requerido');
+    if (!log.destinoID) errs.push('Destino requerido');
+    if (!log.matriculaAvion) errs.push('Matrícula requerida');
+    const matriculaLetters = (log.matriculaAvion || '').replace(/[^a-zA-Z]/g, '');
+    if (log.matriculaAvion && matriculaLetters.length !== 5)
+      errs.push('Matrícula inválida (debe tener 5 letras, ej: LVABC)');
+    if (isNaN(Number(log.horasDia)) || Number(log.horasDia) < 0) errs.push('Horas día inválidas');
+    if (isNaN(Number(log.horasNoche)) || Number(log.horasNoche) < 0) errs.push('Horas noche inválidas');
+    if (isNaN(Number(log.aterrizajes)) || Number(log.aterrizajes) < 0) errs.push('Aterrizajes inválidos');
+    return errs;
+  };
+
+  app.post("/api/import-flight-logs", async (req, res) => {
+    try {
+      const { user_id, logs, mode } = req.body;
+      if (!user_id || !logs || !Array.isArray(logs)) {
+        return res.status(400).json({ success: false, error: "user_id y logs son requeridos" });
+      }
+
+      // 1. Verificar suscripción de pago
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('subscription_id, subscription_end_date')
+        .eq('id', user_id)
+        .single();
+
+      if (profileError) throw profileError;
+      if (!profile?.subscription_id || !profile?.subscription_end_date || new Date(profile.subscription_end_date) <= new Date()) {
+        return res.status(403).json({ success: false, error: "Se requiere suscripción activa de pago" });
+      }
+
+      // 2. Re-validar cada log
+      const validated: any[] = [];
+      const errors: { index: number; messages: string[] }[] = [];
+      logs.forEach((log: any, i: number) => {
+        const fieldErrs = validateImportLog(log, mode);
+        if (fieldErrs.length > 0) {
+          errors.push({ index: i, messages: fieldErrs });
+        } else {
+          validated.push({ ...log });
+        }
+      });
+
+      // 3. Obtener max folio_number
+      const { data: maxFolioData } = await supabase
+        .from('flight_logs')
+        .select('folio_number')
+        .eq('user_id', user_id)
+        .order('folio_number', { ascending: false })
+        .limit(1);
+
+      let nextFolio = (maxFolioData?.[0]?.folio_number || 0) + 1;
+
+      // 4. Normalizar y asignar folio_numbers
+      validated.forEach(log => {
+        log.matriculaAvion = normalizeMatricula(log.matriculaAvion);
+        log.horasDia = String(Number(log.horasDia).toFixed(1));
+        log.horasNoche = String(Number(log.horasNoche).toFixed(1));
+        log.aterrizajes = Number(log.aterrizajes);
+        log.potencia = Number(log.potencia || 0);
+        log.folio_number = nextFolio++;
+        log.user_id = user_id;
+        log.created_at = new Date().toISOString();
+        // Ensure defaults
+        if (mode === 'tcp') {
+          log.cargoID = '5';
+          log.tipoVueloID = '2';
+          log.clase = log.clase || '';
+          log.airfield_day_pilot = 0;
+          log.airfield_day_copilot = 0;
+          log.airfield_night_pilot = 0;
+          log.airfield_night_copilot = 0;
+          log.cross_country_day_pilot = 0;
+          log.cross_country_day_copilot = 0;
+          log.cross_country_night_pilot = 0;
+          log.cross_country_night_copilot = 0;
+          log.ifr_real_pilot = 0;
+          log.ifr_real_copilot = 0;
+          log.ifr_hood = 0;
+          log.sim_instructor = 0;
+          log.sim_student = 0;
+          log.instruccion = 0;
+          log.ifr_instrument = 0;
+          log.multi_engine = 0;
+          log.jet = 0;
+          log.turboprop = 0;
+          log.ag_application = 0;
+        } else {
+          log.cargoID = log.cargoID || '1';
+          log.tipoVueloID = log.tipoVueloID || '2';
+          log.clase = log.clase || 'D';
+        }
+      });
+
+      // 5. Detectar duplicados
+      const { data: existingLogs } = await supabase
+        .from('flight_logs')
+        .select('fechaHoraSalida, matriculaAvion, origenID, destinoID')
+        .eq('user_id', user_id);
+
+      const existingSet = new Set(
+        (existingLogs || []).map(l => `${l.fechaHoraSalida}|${l.matriculaAvion}|${l.origenID}|${l.destinoID}`)
+      );
+
+      const toInsert: any[] = [];
+      validated.forEach((log, i) => {
+        const key = `${log.fechaHoraSalida}|${log.matriculaAvion}|${log.origenID}|${log.destinoID}`;
+        if (existingSet.has(key)) {
+          errors.push({ index: logs.indexOf(log), messages: ['Duplicado (misma fecha+matrícula+origen+destino)'] });
+        } else {
+          toInsert.push(log);
+          existingSet.add(key);
+        }
+      });
+
+      if (toInsert.length === 0) {
+        return res.json({ success: true, inserted: 0, errors, total: logs.length });
+      }
+
+      // 6. Batch insert (max 500 por lote)
+      const BATCH_SIZE = 500;
+      let inserted = 0;
+      for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+        const batch = toInsert.slice(i, i + BATCH_SIZE);
+        const { error: insertError } = await supabase.from('flight_logs').insert(batch);
+        if (insertError) {
+          errors.push({ index: -1, messages: [`Error de base de datos en lote: ${insertError.message}`] });
+        } else {
+          inserted += batch.length;
+        }
+      }
+
+      res.json({ success: true, inserted, errors, total: logs.length });
+    } catch (error: any) {
+      console.error("[IMPORT_LOGS_ERR]", error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════════════
   // MERCADO PAGO — Suscripción anual (redirect checkout)
   // ══════════════════════════════════════════════════════════════════════
 

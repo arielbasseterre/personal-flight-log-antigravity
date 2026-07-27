@@ -48,6 +48,7 @@ interface ProfileScreenProps {
 }
 
 export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading, userId, onBack }: ProfileScreenProps) => {
+  const isTcp = profile?.role === 'tcp_fb';
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
@@ -82,6 +83,10 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
     setProfile(prev => {
       if (!prev) return null;
       const updated = { ...prev, [field]: value };
+      if (isTcp) {
+        const tcpTotal = (Number(updated.tcp_total_dia || 0) + Number(updated.tcp_total_noche || 0));
+        return { ...updated, grand_total_hours: parseFloat((tcpTotal + logs.reduce((a, l) => a + parseFloat(l.horasDia || '0') + parseFloat(l.horasNoche || '0'), 0)).toFixed(1)) };
+      }
       const logsSum = logs.reduce((acc, log) => {
         const newVal = parseFloat(log.horasDia || '0') + parseFloat(log.horasNoche || '0');
         const oldVal = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).airfield_day_copilot) || 0) +
@@ -114,32 +119,45 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
       const { ...toSave } = profile;
       const logsSum = logs.reduce((acc, log) => {
         const newVal = parseFloat(log.horasDia || '0') + parseFloat(log.horasNoche || '0');
+        if (isTcp) return acc + newVal;
         const oldVal = (Number((log as any).airfield_day_pilot) || 0) + (Number((log as any).airfield_day_copilot) || 0) +
           (Number((log as any).airfield_night_pilot) || 0) + (Number((log as any).airfield_night_copilot) || 0) +
           (Number((log as any).cross_country_day_pilot) || 0) + (Number((log as any).cross_country_day_copilot) || 0) +
           (Number((log as any).cross_country_night_pilot) || 0) + (Number((log as any).cross_country_night_copilot) || 0);
         return acc + (newVal > 0 ? newVal : oldVal);
       }, 0);
-      const initialTotal = (
-        Number(profile.total_airfield_day_pilot || 0) +
-        Number(profile.total_airfield_day_copilot || 0) +
-        Number(profile.total_airfield_night_pilot || 0) +
-        Number(profile.total_airfield_night_copilot || 0) +
-        Number(profile.total_cross_country_day_pilot || 0) +
-        Number(profile.total_cross_country_day_copilot || 0) +
-        Number(profile.total_cross_country_night_pilot || 0) +
-        Number(profile.total_cross_country_night_copilot || 0)
-      );
-      const grandTotal = initialTotal + logsSum;
 
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
+      let payload: any;
+      if (isTcp) {
+        const tcpTotal = Number(profile.tcp_total_dia || 0) + Number(profile.tcp_total_noche || 0);
+        payload = {
+          ...toSave,
+          id: authUser.id,
+          grand_total_hours: parseFloat((tcpTotal + logsSum).toFixed(1))
+        };
+      } else {
+        const initialTotal = (
+          Number(profile.total_airfield_day_pilot || 0) +
+          Number(profile.total_airfield_day_copilot || 0) +
+          Number(profile.total_airfield_night_pilot || 0) +
+          Number(profile.total_airfield_night_copilot || 0) +
+          Number(profile.total_cross_country_day_pilot || 0) +
+          Number(profile.total_cross_country_day_copilot || 0) +
+          Number(profile.total_cross_country_night_pilot || 0) +
+          Number(profile.total_cross_country_night_copilot || 0)
+        );
+        const grandTotal = initialTotal + logsSum;
+        payload = {
           ...toSave,
           id: authUser.id,
           initial_total_hours: parseFloat(initialTotal.toFixed(1)),
           grand_total_hours: parseFloat(grandTotal.toFixed(1))
-        }, { onConflict: 'id' });
+        };
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(payload, { onConflict: 'id' });
 
       if (error) throw error;
       await refreshData();
@@ -181,7 +199,7 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
               <CardTitle className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2">
                   <User size={20} className="text-blue-600" />
-                  Perfil del Piloto
+                  {isTcp ? 'Perfil TCP' : 'Perfil del Piloto'}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button 
@@ -192,7 +210,7 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
                       try {
                         const fresh = await refreshData();
                         if (fresh) {
-                          const hasData = fresh.license || fresh.legajo || fresh.dni;
+                          const hasData = isTcp ? (fresh.tcp_total_dia != null || fresh.tcp_total_noche != null) : (fresh.license || fresh.legajo || fresh.dni);
                           if (hasData) {
                             alert("Datos sincronizados desde la base de datos.");
                           } else {
@@ -241,27 +259,29 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="prof_licencia">Tipo de Licencia</Label>
-                  <div className="relative">
-                    <select 
-                      id="prof_licencia"
-                      className="flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 py-1 pr-2 pl-2.5 text-sm transition-colors outline-none appearance-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white"
-                      value={profile?.license || ''} 
-                      onChange={(e) => setProfile(prev => prev ? {...prev, license: e.target.value} : null)}
-                    >
-                      <option value="" disabled className="text-slate-400">Seleccionar licencia</option>
-                      {LICENSE_TYPES.map(type => (
-                        <option key={type.sigla} value={type.sigla} className="bg-white dark:bg-[#1a2233]">
-                          {type.sigla} - {type.label}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                      <ChevronRight className="rotate-90 size-4 text-slate-400" />
+                {!isTcp && (
+                  <div className="space-y-2">
+                    <Label htmlFor="prof_licencia">Tipo de Licencia</Label>
+                    <div className="relative">
+                      <select 
+                        id="prof_licencia"
+                        className="flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 py-1 pr-2 pl-2.5 text-sm transition-colors outline-none appearance-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white"
+                        value={profile?.license || ''} 
+                        onChange={(e) => setProfile(prev => prev ? {...prev, license: e.target.value} : null)}
+                      >
+                        <option value="" disabled className="text-slate-400">Seleccionar licencia</option>
+                        {LICENSE_TYPES.map(type => (
+                          <option key={type.sigla} value={type.sigla} className="bg-white dark:bg-[#1a2233]">
+                            {type.sigla} - {type.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                        <ChevronRight className="rotate-90 size-4 text-slate-400" />
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="prof_legajo">Legajo Nº</Label>
                   <Input id="prof_legajo" value={profile?.legajo || ''} onChange={e => setProfile(prev => prev ? {...prev, legajo: e.target.value} : null)} />
@@ -284,89 +304,114 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
                 </p>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sobre Aeródromo</div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Día Piloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_day_pilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_day_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Día Copiloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_day_copilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_day_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Noche Piloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_night_pilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_night_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Noche Copiloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_night_copilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_night_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                  </div>
+                  {isTcp ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Total Inicial Horas Día</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.tcp_total_dia ?? 0} onChange={e => setProfile(prev => prev ? { ...prev, tcp_total_dia: e.target.value === '' ? null : (parseFloat(e.target.value) || 0) } : null)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Total Inicial Horas Noche</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.tcp_total_noche ?? 0} onChange={e => setProfile(prev => prev ? { ...prev, tcp_total_noche: e.target.value === '' ? null : (parseFloat(e.target.value) || 0) } : null)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Total Inicial Aterrizajes</Label>
+                          <Input type="number" className="h-8 text-xs" value={profile?.total_landings ?? 0} onChange={e => setProfile(prev => prev ? { ...prev, total_landings: e.target.value === '' ? null : (parseInt(e.target.value) || 0) } : null)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Total Inicial Instructor TCP</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.tcp_horas_instructor ?? 0} onChange={e => setProfile(prev => prev ? { ...prev, tcp_horas_instructor: e.target.value === '' ? null : (parseFloat(e.target.value) || 0) } : null)} />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sobre Aeródromo</div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Día Piloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_day_pilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_day_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Día Copiloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_day_copilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_day_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Noche Piloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_night_pilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_night_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Noche Copiloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_airfield_night_copilot ?? ''} onChange={e => handleProfileFieldChange('total_airfield_night_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Travesía</div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Día Piloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_day_pilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_day_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Día Copiloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_day_copilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_day_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Noche Piloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_night_pilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_night_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Noche Copiloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_night_copilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_night_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Travesía</div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Día Piloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_day_pilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_day_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Día Copiloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_day_copilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_day_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Noche Piloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_night_pilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_night_pilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Noche Copiloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_cross_country_night_copilot ?? ''} onChange={e => handleProfileFieldChange('total_cross_country_night_copilot', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50/30 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20">
-                    <div className="col-span-2 text-[10px] font-bold text-amber-600/60 uppercase tracking-wider">Discriminación</div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Instrucción Hs</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_instruction_time ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_instruction_time: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Aterrizajes (Cant.)</Label>
-                      <Input type="number" className="h-8 text-xs" value={profile?.total_landings ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_landings: e.target.value === '' ? null : (parseInt(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Multimotor</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_multi_engine ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_multi_engine: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Reactor / Jet</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_jet ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_jet: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Turbo Hélice</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_turboprop ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_turboprop: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Aeroapl.</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ag_application ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ag_application: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50/30 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20">
+                        <div className="col-span-2 text-[10px] font-bold text-amber-600/60 uppercase tracking-wider">Discriminación</div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Instrucción Hs</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_instruction_time ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_instruction_time: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Aterrizajes (Cant.)</Label>
+                          <Input type="number" className="h-8 text-xs" value={profile?.total_landings ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_landings: e.target.value === '' ? null : (parseInt(e.target.value) || 0)} : null)}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Multimotor</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_multi_engine ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_multi_engine: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Reactor / Jet</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_jet ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_jet: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Turbo Hélice</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_turboprop ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_turboprop: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Aeroapl.</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ag_application ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ag_application: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-3 gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
-                    <div className="col-span-3 text-[10px] font-bold text-blue-600/60 uppercase tracking-wider">IFR (Real / Capota)</div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Real Piloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ifr_real_pilot ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ifr_real_pilot: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Real Copiloto</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ifr_real_copilot ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ifr_real_copilot: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Capota</Label>
-                      <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ifr_hood ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ifr_hood: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-3 gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                        <div className="col-span-3 text-[10px] font-bold text-blue-600/60 uppercase tracking-wider">IFR (Real / Capota)</div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Real Piloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ifr_real_pilot ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ifr_real_pilot: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Real Copiloto</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ifr_real_copilot ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ifr_real_copilot: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Capota</Label>
+                          <Input type="number" step="0.1" className="h-8 text-xs" value={profile?.total_ifr_hood ?? ''} onChange={e => setProfile(prev => prev ? {...prev, total_ifr_hood: e.target.value === '' ? null : (parseFloat(e.target.value) || 0)} : null)}/>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="p-3 bg-slate-900 dark:bg-slate-800 rounded-lg border border-slate-700">
                     <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2">Configuración de Folio</div>
@@ -378,19 +423,21 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
                   </div>
 
                   <div className="space-y-3 pt-4">
-                    <div className="p-4 bg-emerald-600/10 border border-emerald-600/30 rounded-xl flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <History size={20} className="text-emerald-600" />
-                        <div>
-                          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">HORAS DE INICIO</p>
-                          <p className="text-[10px] text-emerald-500/70">Suma de los tiempos del ultimo foliado cargado</p>
+                    {!isTcp && (
+                      <div className="p-4 bg-emerald-600/10 border border-emerald-600/30 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <History size={20} className="text-emerald-600" />
+                          <div>
+                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">HORAS DE INICIO</p>
+                            <p className="text-[10px] text-emerald-500/70">Suma de los tiempos del ultimo foliado cargado</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-black text-emerald-600">{profile?.initial_total_hours?.toFixed(1) || '0.0'}</span>
+                          <span className="text-xs font-bold text-emerald-600 ml-1">hs</span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-2xl font-black text-emerald-600">{profile?.initial_total_hours?.toFixed(1) || '0.0'}</span>
-                        <span className="text-xs font-bold text-emerald-600 ml-1">hs</span>
-                      </div>
-                    </div>
+                    )}
 
                     <div className="p-4 bg-blue-600/10 border border-blue-600/30 rounded-xl flex items-center justify-between">
                       <div className="flex items-center gap-2">

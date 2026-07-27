@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, History, BarChart3, FileDown, Calendar as CalendarIcon, Clock, MapPin, PlaneTakeoff, Save, Trash2, ChevronRight, Info, Edit2, FileText, ArrowLeft, User, X, AlertTriangle, AlertCircle, CheckCircle2, Globe, RefreshCw, LogOut, WifiOff, CloudOff } from 'lucide-react';
+import { Plus, History, BarChart3, FileDown, Calendar as CalendarIcon, Clock, MapPin, PlaneTakeoff, Save, Trash2, ChevronRight, Info, Edit2, FileText, ArrowLeft, User, X, AlertTriangle, AlertCircle, CheckCircle2, Globe, RefreshCw, LogOut, WifiOff, CloudOff, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +18,7 @@ import { saveAs } from 'file-saver';
 import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { FlightLogTcpPDF } from './FlightLogTcpPDF';
 import { AnacAuth } from './AnacAuth';
+import BulkImportModal from './BulkImportModal';
 import { supabase } from '@/src/utils/supabase/client';
 import { getApiUrl } from '@/src/utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -393,6 +394,15 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
 
   const askConfirm = (title: string, message: string, onConfirm: () => void, type: 'warning' | 'danger' | 'info' = 'warning') => {
     setConfirmModal({ show: true, title, message, onConfirm: () => { setConfirmModal(prev => ({ ...prev, show: false })); onConfirm(); }, onCancel: () => setConfirmModal(prev => ({ ...prev, show: false })), type, isAlert: false, confirmText: 'Confirmar', cancelText: 'Cancelar' });
+  };
+
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const isPaidSubscriber = !!(profile?.subscription_id && profile?.subscription_end_date && new Date(profile.subscription_end_date) > new Date());
+
+  const handleImportClick = () => {
+    setShowImportModal(true);
   };
 
   const getSavedField = (key: string, defaultVal: string) => {
@@ -1441,6 +1451,10 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     return data;
   }, [tcpLogs]);
 
+  const handleLogout = async () => {
+    await supabase?.auth.signOut();
+  };
+
   const updateProfile = async () => {
     if (!supabase || !profile) return;
     setIsSavingProfile(true);
@@ -1762,6 +1776,9 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                 <Button variant="outline" size="sm" className="h-8 gap-2" onClick={exportExcel} disabled={tcpLogs.length === 0}>
                   <FileDown size={14} /> EXCEL
                 </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-2" onClick={handleImportClick}>
+                  <Upload size={14} /> Importar Excel
+                </Button>
               </div>
             </div>
 
@@ -1934,6 +1951,17 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                       <FileDown size={18} className="mr-2" />Excel
                     </Button>
                   </div>
+                  <Separator />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-[10px] uppercase tracking-wider text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-900/10"
+                    onClick={handleLogout}
+                    disabled={loading}
+                  >
+                    <LogOut size={14} className="mr-1" />
+                    Cerrar Sesión
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -2060,6 +2088,52 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                   setShowSyncDialog(false);
                   compareWithAnac(undefined, session);
                 }} />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <BulkImportModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        mode="tcp"
+        userId={userId}
+        isPaidSubscriber={isPaidSubscriber}
+        onGoToSuscripcion={onGoToSuscripcion}
+        onImportComplete={() => { refreshData(); setShowImportModal(false); }}
+      />
+
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUpgradeModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 p-6 text-center"
+            >
+              <div className="mx-auto w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-4">
+                <Upload size={28} className="text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Importación masiva</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                La importación masiva de vuelos está disponible solo para suscriptores. Click aquí para adquirir la suscripción.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl h-12 font-semibold" onClick={() => setShowUpgradeModal(false)}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 rounded-xl h-12 font-bold bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 text-white" onClick={() => { setShowUpgradeModal(false); onGoToSuscripcion?.(); }}>
+                  Adquirir Suscripción
+                </Button>
               </div>
             </motion.div>
           </div>
