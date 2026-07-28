@@ -416,26 +416,36 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         return;
       }
 
+      const ANAC_TO_IATA: Record<string, string> = {
+        "AER":"AEP","BAI":"BHI","BAR":"BRC","CAL":"FTE","CAT":"CTC",
+        "CBA":"COR","CHA":"CPC","CRR":"CNQ","DOZ":"MDZ","ESQ":"EQS",
+        "GAL":"RGL","GIC":"GPO","GRA":"RGA","IGU":"IGR","JUA":"UAQ",
+        "LAR":"IRJ","MAD":"PMY","MAL":"LGS","MDP":"MDQ","NEU":"NQN",
+        "OSA":"RSA","PAR":"PRA","POS":"PSS","SAL":"SLA","SIS":"RES",
+        "SRA":"AFA","SVO":"SFN","TRH":"TMM","TRW":"REL","UIS":"LUQ",
+        "USU":"USH","VIE":"VDM",
+      };
+
       const resolveToIATA = (code: string): string => {
         if (!code) return code;
         const c = code.trim().toUpperCase();
+        if (ANAC_TO_IATA[c]) return ANAC_TO_IATA[c];
         const found = dbAirports.find((a: any) =>
           a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c
         );
         if (found?.iata_code) return found.iata_code;
-        const local = localAirportsList.find(a =>
-          a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c
-        );
-        return local?.iata_code || c;
+        return c;
       };
 
       const originIATA = resolveToIATA(origin_ad);
       const destIATA = resolveToIATA(destination_ad);
 
-      const getUTCDate = (localDateISO: string, utcTime: string): string => {
+      const getUTCDate = (localDateISO: string, localTime: string, utcTime: string): string => {
         const d = new Date(localDateISO + 'T12:00:00Z');
-        const [h, m] = (utcTime || '00:00').split(':').map(Number);
-        d.setUTCHours(h, m, 0, 0);
+        const [lh, lm] = (localTime || '00:00').split(':').map(Number);
+        const [uh, um] = (utcTime || '00:00').split(':').map(Number);
+        if (uh * 60 + um < lh * 60 + lm) d.setUTCDate(d.getUTCDate() + 1);
+        d.setUTCHours(uh, um, 0, 0);
         return d.toISOString().substring(0, 10);
       };
 
@@ -447,7 +457,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         if (!entry.isFlight) continue;
         for (const leg of (entry.legs || [])) {
           if (!leg.departureTimeUtc) continue;
-          const legUTCDate = getUTCDate(entry.dateISO, leg.departureTimeUtc);
+          const legUTCDate = getUTCDate(entry.dateISO, leg.departureTimeLoc, leg.departureTimeUtc);
           if (legUTCDate === dateStr && leg.origin === originIATA && leg.destination === destIATA) {
             bestMatch = leg;
             bestLocalDate = entry.dateISO;

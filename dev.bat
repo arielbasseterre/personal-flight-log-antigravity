@@ -9,9 +9,15 @@ taskkill /f /im cloudflared.exe 2>nul
 timeout /t 2 /nobreak >nul
 
 echo ========================================
-echo  Iniciando servidor (npm run dev)...
+echo  Reconstruyendo frontend...
 echo ========================================
-start "Vite + Server" cmd /c "npm run dev"
+cd /d "C:\Users\Ariel\Downloads\personal-flight-log"
+call npx vite build
+
+echo ========================================
+echo  Iniciando servidor (puerto 3000)...
+echo ========================================
+start "Express Server" cmd /c "npm run dev"
 
 echo Esperando 5 segundos para que arranque...
 timeout /t 5 /nobreak >nul
