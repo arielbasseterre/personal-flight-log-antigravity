@@ -638,22 +638,47 @@ interface RosterChange {
 }
 
 const getActivitySummary = (entry: ArmsDayEntry | null | undefined): string => {
-  if (!entry) return 'Libre / Sin programar';
+  if (!entry) return '—';
   if (isLeaveEntry(entry)) {
     const rawTask = entry.rawTask || '';
     const leaveMatch = rawTask.match(/leave\s*-\s*(.*)/i);
-    const leaveText = leaveMatch ? leaveMatch[1].trim() : rawTask;
-    return `Licencia: ${leaveText}`;
+    return `Licencia: ${leaveMatch ? leaveMatch[1].trim() : rawTask}`;
   }
   if (entry.eventType === 'OFF') return 'Libre';
-  if (entry.eventType === 'LAYOVER') return `Layover (${entry.layoverAirport || '—'})`;
-  if (entry.eventType === 'STANDBY') return `Guardia (${entry.rawTask || ''})`;
-  if (entry.eventType === 'GTR') return `Curso: ${entry.rawTask || 'GTR'}`;
-  if (entry.isFlight) {
-    const flights = entry.legs.map(l => l.flightNumber).join(', ');
-    return `Vuelo: ${flights || entry.rawTask || 'Tramos'}`;
+  if (entry.eventType === 'LAYOVER') {
+    let s = `Layover (${entry.layoverAirport || '—'})`;
+    if (entry.layoverDuration) s += `\nDuración: ${entry.layoverDuration}`;
+    return s;
   }
-  return entry.rawTask || entry.eventType || 'Sin actividad';
+  if (entry.eventType === 'STANDBY') {
+    let s = `Guardia: ${entry.rawTask || ''}`;
+    if (entry.startTimeLoc && entry.endTimeLoc) s += `\n${entry.startTimeLoc}→${entry.endTimeLoc}`;
+    return s;
+  }
+  if (entry.eventType === 'GTR') {
+    let s = `Curso: ${entry.rawTask || 'GTR'}`;
+    if (entry.startTimeLoc && entry.endTimeLoc) s += `\n${entry.startTimeLoc}→${entry.endTimeLoc}`;
+    return s;
+  }
+  if (entry.isFlight) {
+    const legParts = entry.legs.map(l => {
+      let p = `${l.flightNumber || ''}`;
+      if (l.origin && l.destination) p += ` ${l.origin}→${l.destination}`;
+      if (l.departureTimeLoc && l.arrivalTimeLoc) p += ` (${l.departureTimeLoc}→${l.arrivalTimeLoc})`;
+      if (l.blockTime) p += ` [${l.blockTime}]`;
+      return p;
+    });
+    let s = `Vuelo: ${legParts.join(' · ')}`;
+    if (entry.dailyBlockTotal) s += `\nBlock: ${entry.dailyBlockTotal}`;
+    const allCrew = entry.legs.flatMap(l => l.crewComplement || []);
+    if (allCrew.length > 0) {
+      const seen = new Set<string>();
+      const crewStr = allCrew.filter(c => { const k = `${c.name}|${c.role}`; if (seen.has(k)) return false; seen.add(k); return true; }).map(c => `${c.name} (${c.role})`).join(', ');
+      s += `\nTrip: ${crewStr}`;
+    }
+    return s;
+  }
+  return entry.rawTask || entry.eventType || '—';
 };
 
 function RosterChangesModal({
@@ -700,11 +725,11 @@ function RosterChangesModal({
               <div key={idx} className="bg-white dark:bg-[#1a2233] p-4 rounded-2xl border border-slate-150 dark:border-[#2d3748] space-y-2">
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 capitalize">{dateStr}</p>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm">
-                  <div className="bg-red-500/10 text-red-500 dark:text-red-400 px-3 py-2 rounded-xl text-xs line-through text-center font-medium min-h-[32px] flex items-center justify-center">
+                  <div className="bg-red-500/10 text-red-500 dark:text-red-400 px-3 py-2 rounded-xl text-xs line-through text-center font-medium min-h-[32px] whitespace-pre-wrap leading-tight">
                     {c.oldActivity}
                   </div>
                   <ArrowRight size={14} className="text-slate-400 dark:text-slate-600" />
-                  <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl text-xs text-center font-bold min-h-[32px] flex items-center justify-center">
+                  <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl text-xs text-center font-bold min-h-[32px] whitespace-pre-wrap leading-tight">
                     {c.newActivity}
                   </div>
                 </div>
