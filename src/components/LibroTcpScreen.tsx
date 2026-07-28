@@ -412,7 +412,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         .maybeSingle();
 
       if (!rosterData) {
-        showAlert("Roster no encontrado", "No hay datos de roster para ese mes. Sincronizá ARMS primero.", 'info');
+        showAlert("Roster no encontrado", "No hay datos de roster para ese mes. Sincronizá ARMS primero.", 'warning');
         return;
       }
 
@@ -468,13 +468,13 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       }
 
       if (!bestMatch) {
-        showAlert("Ruta no encontrada", `No se encontró un vuelo ${originIATA}→${destIATA} para el ${dateStr} en tu roster.`, 'info');
+        showAlert("Ruta no encontrada", `No se encontró un vuelo ${originIATA}→${destIATA} para el ${dateStr} en tu roster.`, 'warning');
         return;
       }
 
       const leg = bestMatch;
       if (!leg.departureTimeUtc || !leg.arrivalTimeUtc) {
-        showAlert("Sin horarios", "El roster no tiene horarios UTC para ese vuelo.", 'info');
+        showAlert("Sin horarios", "El roster no tiene horarios UTC para ese vuelo.", 'warning');
         return;
       }
 
