@@ -1274,6 +1274,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       'VERSION:2.0',
       'PRODID:-//Personal Flight Log//ARMS Roster//ES',
       'CALSCALE:GREGORIAN',
+      'NAME:flightlog Roster',
       'X-WR-CALNAME:flightlog Roster',
     ];
 
@@ -1727,7 +1728,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         return res.status(200)
           .set('Content-Type', 'text/calendar; charset=utf-8')
           .set('Content-Disposition', 'inline; filename="flightlog-roster.ics"')
-          .send('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Personal Flight Log//ARMS Roster//ES\r\nX-WR-CALNAME:flightlog Roster\r\nEND:VCALENDAR\r\n');
+          .send('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Personal Flight Log//ARMS Roster//ES\r\nNAME:flightlog Roster\r\nX-WR-CALNAME:flightlog Roster\r\nEND:VCALENDAR\r\n');
       }
 
       const icsContent = generateRosterICSForUser(

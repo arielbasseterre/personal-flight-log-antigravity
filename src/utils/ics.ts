@@ -129,6 +129,7 @@ export function generateRosterICS(
     'VERSION:2.0',
     'PRODID:-//Personal Flight Log//ARMS Roster//ES',
     'CALSCALE:GREGORIAN',
+    'NAME:flightlog Roster',
     `X-WR-CALNAME:flightlog Roster`,
   ];
 
