@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Globe,
   RefreshCw,
+  CalendarSync,
   LogOut,
   WifiOff,
   CloudOff,
@@ -1655,6 +1656,67 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
   const cancelEdit = () => {
     setEditingId(null);
     setFormData(initialFormState);
+  };
+
+  const importFromRoster = async () => {
+    if (!supabase || !userId) return;
+    const { year, month, day, origenID, destinoID } = formData;
+    if (!year || !month || !day || !origenID || !destinoID) return;
+
+    try {
+      const dateStr = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const { data: rosterData } = await supabase
+        .from('arms_roster')
+        .select('roster_json, synced_at')
+        .eq('user_id', userId)
+        .eq('month', month)
+        .eq('year', year)
+        .maybeSingle();
+
+      if (!rosterData) {
+        showAlert("Roster no encontrado", "No hay datos de roster para ese mes. Sincronizá ARMS primero.", 'info');
+        return;
+      }
+
+      const entries: any[] = rosterData.roster_json;
+      const dayEntry = entries.find((e: any) => e.dateISO === dateStr);
+      if (!dayEntry || !dayEntry.isFlight) {
+        showAlert("Sin vuelo", `No se encontró un vuelo el ${dateStr} en tu roster.`, 'info');
+        return;
+      }
+
+      const leg = dayEntry.legs.find((l: any) =>
+        l.origin === origenID && l.destination === destinoID
+      );
+      if (!leg) {
+        showAlert("Ruta no encontrada", `No se encontró un vuelo ${origenID}→${destinoID} en tu roster del ${dateStr}.`, 'info');
+        return;
+      }
+
+      if (!leg.departureTimeUtc || !leg.arrivalTimeUtc) {
+        showAlert("Sin horarios", "El roster no tiene horarios UTC para ese vuelo.", 'info');
+        return;
+      }
+
+      const arrivalDateTime = new Date(`${dateStr}T${leg.arrivalTimeUtc}:00Z`);
+      const syncedAt = new Date(rosterData.synced_at);
+
+      if (syncedAt < arrivalDateTime) {
+        showAlert("Horarios no actualizados",
+          "Los horarios del roster aún no reflejan los tiempos reales del vuelo. Sincronizá ARMS primero y volvé a intentar.",
+          'warning');
+        return;
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        departure_time_utc: leg.departureTimeUtc,
+        arrival_time_utc: leg.arrivalTimeUtc,
+      }));
+      showAlert("Horarios importados", `Salida: ${leg.departureTimeUtc} UTC · Llegada: ${leg.arrivalTimeUtc} UTC\nHorarios reales confirmados.`, 'info');
+    } catch (e: any) {
+      showAlert("Error", e.message || 'Error al importar del roster.', 'danger');
+    }
   };
 
   const generateSampleData = async () => {
@@ -3421,8 +3483,19 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 <Button variant="outline" size="sm" className="h-8 gap-2" onClick={handleImportClick}>
                   <Upload size={14} /> Importar Excel
                 </Button>
-              </div>
-            </div>
+                  </div>
+                  {formData.tipoVueloID !== '3' && formData.origin_ad && formData.destination_ad && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 gap-2 text-[10px]"
+                      onClick={importFromRoster}
+                    >
+                      <CalendarSync size={14} />
+                      Importar horario del roster
+                    </Button>
+                  )}
+                </div>
             
             <Card className="overflow-hidden">
               <ScrollArea className="h-[60vh]">
