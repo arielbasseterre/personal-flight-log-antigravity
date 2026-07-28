@@ -1660,8 +1660,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
 
   const importFromRoster = async () => {
     if (!supabase || !userId) return;
-    const { year, month, day, origenID, destinoID } = formData;
-    if (!year || !month || !day || !origenID || !destinoID) return;
+    const { year, month, day, origin_ad, destination_ad } = formData;
+    if (!year || !month || !day || !origin_ad || !destination_ad) return;
 
     try {
       const dateStr = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -1686,10 +1686,10 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       }
 
       const leg = dayEntry.legs.find((l: any) =>
-        l.origin === origenID && l.destination === destinoID
+        l.origin === origin_ad && l.destination === destination_ad
       );
       if (!leg) {
-        showAlert("Ruta no encontrada", `No se encontró un vuelo ${origenID}→${destinoID} en tu roster del ${dateStr}.`, 'info');
+        showAlert("Ruta no encontrada", `No se encontró un vuelo ${origin_ad}→${destination_ad} en tu roster del ${dateStr}.`, 'info');
         return;
       }
 

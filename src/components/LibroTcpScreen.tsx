@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, History, BarChart3, FileDown, Calendar as CalendarIcon, Clock, MapPin, PlaneTakeoff, Save, Trash2, ChevronRight, Info, Edit2, FileText, ArrowLeft, User, X, AlertTriangle, AlertCircle, CheckCircle2, Globe, RefreshCw, LogOut, WifiOff, CloudOff, Upload } from 'lucide-react';
+import { Plus, History, BarChart3, FileDown, Calendar as CalendarIcon, Clock, MapPin, PlaneTakeoff, Save, Trash2, ChevronRight, Info, Edit2, FileText, ArrowLeft, User, X, AlertTriangle, AlertCircle, CheckCircle2, Globe, RefreshCw, CalendarSync, LogOut, WifiOff, CloudOff, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -394,6 +394,67 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
 
   const askConfirm = (title: string, message: string, onConfirm: () => void, type: 'warning' | 'danger' | 'info' = 'warning') => {
     setConfirmModal({ show: true, title, message, onConfirm: () => { setConfirmModal(prev => ({ ...prev, show: false })); onConfirm(); }, onCancel: () => setConfirmModal(prev => ({ ...prev, show: false })), type, isAlert: false, confirmText: 'Confirmar', cancelText: 'Cancelar' });
+  };
+
+  const importFromRoster = async () => {
+    if (!supabase || !userId) return;
+    const { year, month, day, origin_ad, destination_ad } = formData;
+    if (!year || !month || !day || !origin_ad || !destination_ad) return;
+
+    try {
+      const dateStr = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const { data: rosterData } = await supabase
+        .from('arms_roster')
+        .select('roster_json, synced_at')
+        .eq('user_id', userId)
+        .eq('month', month)
+        .eq('year', year)
+        .maybeSingle();
+
+      if (!rosterData) {
+        showAlert("Roster no encontrado", "No hay datos de roster para ese mes. Sincronizá ARMS primero.", 'info');
+        return;
+      }
+
+      const entries: any[] = rosterData.roster_json;
+      const dayEntry = entries.find((e: any) => e.dateISO === dateStr);
+      if (!dayEntry || !dayEntry.isFlight) {
+        showAlert("Sin vuelo", `No se encontró un vuelo el ${dateStr} en tu roster.`, 'info');
+        return;
+      }
+
+      const leg = dayEntry.legs.find((l: any) =>
+        l.origin === origin_ad && l.destination === destination_ad
+      );
+      if (!leg) {
+        showAlert("Ruta no encontrada", `No se encontró un vuelo ${origin_ad}→${destination_ad} en tu roster del ${dateStr}.`, 'info');
+        return;
+      }
+
+      if (!leg.departureTimeUtc || !leg.arrivalTimeUtc) {
+        showAlert("Sin horarios", "El roster no tiene horarios UTC para ese vuelo.", 'info');
+        return;
+      }
+
+      const arrivalDateTime = new Date(`${dateStr}T${leg.arrivalTimeUtc}:00Z`);
+      const syncedAt = new Date(rosterData.synced_at);
+
+      if (syncedAt < arrivalDateTime) {
+        showAlert("Horarios no actualizados",
+          "Los horarios del roster aún no reflejan los tiempos reales del vuelo. Sincronizá ARMS primero y volvé a intentar.",
+          'warning');
+        return;
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        departure_time_utc: leg.departureTimeUtc,
+        arrival_time_utc: leg.arrivalTimeUtc,
+      }));
+      showAlert("Horarios importados", `Salida: ${leg.departureTimeUtc} UTC · Llegada: ${leg.arrivalTimeUtc} UTC\nHorarios reales confirmados.`, 'info');
+    } catch (e: any) {
+      showAlert("Error", e.message || 'Error al importar del roster.', 'danger');
+    }
   };
 
   const [showImportModal, setShowImportModal] = useState(false);
@@ -1640,6 +1701,16 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                     <Input type="time" className="h-8 text-xs" value={formData.arrival_time_utc} onChange={e => setFormData({ ...formData, arrival_time_utc: e.target.value })} />
                   </div>
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 gap-2 text-[10px]"
+                  onClick={importFromRoster}
+                >
+                  <CalendarSync size={14} />
+                  Importar horario del roster
+                </Button>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
