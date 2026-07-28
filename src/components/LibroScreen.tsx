@@ -2926,6 +2926,18 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   </div>
                 </div>
 
+                  {formData.tipoVueloID !== '3' && formData.origin_ad && formData.destination_ad && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 gap-2 text-[10px]"
+                      onClick={importFromRoster}
+                    >
+                      <CalendarSync size={14} />
+                      Importar horario del roster
+                    </Button>
+                  )}
+
                 <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
                   <input
                     type="checkbox"
@@ -3483,18 +3495,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 <Button variant="outline" size="sm" className="h-8 gap-2" onClick={handleImportClick}>
                   <Upload size={14} /> Importar Excel
                 </Button>
-                  </div>
-                  {formData.tipoVueloID !== '3' && formData.origin_ad && formData.destination_ad && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-8 gap-2 text-[10px]"
-                      onClick={importFromRoster}
-                    >
-                      <CalendarSync size={14} />
-                      Importar horario del roster
-                    </Button>
-                  )}
                 </div>
             
             <Card className="overflow-hidden">
@@ -3591,6 +3591,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 <RefreshCw size={16} className={isSavingProfile ? "animate-spin" : ""} /> 
                 Restablecer registros
               </Button>
+            </div>
             </div>
           </TabsContent>
 

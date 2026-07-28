@@ -1702,16 +1702,6 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-8 gap-2 text-[10px]"
-                  onClick={importFromRoster}
-                >
-                  <CalendarSync size={14} />
-                  Importar horario del roster
-                </Button>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">ORIGEN</Label>
@@ -1722,6 +1712,16 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                     <AirportAutocomplete id="destination_ad" value={formData.destination_ad} onChange={(v: string) => setFormData({ ...formData, destination_ad: v })} dbAirports={dbAirports} IATA_LIST={IATA_LIST} placeholder="Código aeropuerto" />
                   </div>
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 gap-2 text-[10px]"
+                  onClick={importFromRoster}
+                >
+                  <CalendarSync size={14} />
+                  Importar horario del roster
+                </Button>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
