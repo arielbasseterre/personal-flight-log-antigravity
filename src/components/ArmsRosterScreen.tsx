@@ -664,6 +664,7 @@ const getActivitySummary = (entry: ArmsDayEntry | null | undefined): string => {
     const legParts = entry.legs.map(l => {
       let p = `${l.flightNumber || ''}`;
       if (l.origin && l.destination) p += ` ${l.origin}→${l.destination}`;
+      if (l.reportTimeLoc) p += ` Pres:${l.reportTimeLoc}`;
       if (l.departureTimeLoc && l.arrivalTimeLoc) p += ` (${l.departureTimeLoc}→${l.arrivalTimeLoc})`;
       if (l.blockTime) p += ` [${l.blockTime}]`;
       return p;
