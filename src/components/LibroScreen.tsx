@@ -3496,7 +3496,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                   <Upload size={14} /> Importar Excel
                 </Button>
                 </div>
-            
+              </div>
+
             <Card className="overflow-hidden">
               <ScrollArea className="h-[60vh]">
                 <Table>
@@ -3591,7 +3592,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 <RefreshCw size={16} className={isSavingProfile ? "animate-spin" : ""} /> 
                 Restablecer registros
               </Button>
-            </div>
             </div>
           </TabsContent>
 
