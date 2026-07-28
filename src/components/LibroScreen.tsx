@@ -1380,15 +1380,15 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     };
 
     // Verificación de límites
-    if (!editingId && logs.length >= 150) {
-      showAlert("Límite Alcanzado", "Llegaste a 150 registros. Por favor restablece tu base de datos.", 'danger');
+    if (!editingId && logs.length >= 300) {
+      showAlert("Límite Alcanzado", "Llegaste a 300 registros. Por favor restablece tu base de datos.", 'danger');
       return;
     }
 
-    if (!editingId && logs.length >= 120) {
+    if (!editingId && logs.length >= 250) {
       askConfirm(
         "Límite de Capacidad",
-        `Aviso: Estás próximo a alcanzar el límite de 150 registros (tienes ${logs.length}). Al llegar a 150 no podrás guardar más vuelos hasta restablecer la base de datos. ¿Deseas continuar?`,
+        `Aviso: Estás próximo a alcanzar el límite de 300 registros (tienes ${logs.length}). Al llegar a 300 no podrás guardar más vuelos hasta restablecer la base de datos. ¿Deseas continuar?`,
         performSave,
         'warning'
       );
