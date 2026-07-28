@@ -416,27 +416,59 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         return;
       }
 
+      const resolveToIATA = (code: string): string => {
+        if (!code) return code;
+        const c = code.trim().toUpperCase();
+        if (c === "AER") return "AEP";
+        if (c === "CRR") return "CNQ";
+        if (c === "BAR") return "BRC";
+        if (c === "POS") return "PSS";
+        const found = dbAirports.find((a: any) =>
+          a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c
+        );
+        return found?.iata_code || c;
+      };
+
+      const originIATA = resolveToIATA(origin_ad);
+      const destIATA = resolveToIATA(destination_ad);
+
+      const getUTCDate = (localDateISO: string, utcTime: string): string => {
+        const d = new Date(localDateISO + 'T12:00:00Z');
+        const [h, m] = (utcTime || '00:00').split(':').map(Number);
+        d.setUTCHours(h, m, 0, 0);
+        return d.toISOString().substring(0, 10);
+      };
+
       const entries: any[] = rosterData.roster_json;
-      const dayEntry = entries.find((e: any) => e.dateISO === dateStr);
-      if (!dayEntry || !dayEntry.isFlight) {
-        showAlert("Sin vuelo", `No se encontró un vuelo el ${dateStr} en tu roster.`, 'info');
+      let bestMatch: any = null;
+      let bestLocalDate = '';
+
+      for (const entry of entries) {
+        if (!entry.isFlight) continue;
+        for (const leg of (entry.legs || [])) {
+          if (!leg.departureTimeUtc) continue;
+          const legUTCDate = getUTCDate(entry.dateISO, leg.departureTimeUtc);
+          if (legUTCDate === dateStr && leg.origin === originIATA && leg.destination === destIATA) {
+            bestMatch = leg;
+            bestLocalDate = entry.dateISO;
+            break;
+          }
+        }
+        if (bestMatch) break;
+      }
+
+      if (!bestMatch) {
+        showAlert("Ruta no encontrada", `No se encontró un vuelo ${originIATA}→${destIATA} para el ${dateStr} en tu roster.`, 'info');
         return;
       }
 
-      const leg = dayEntry.legs.find((l: any) =>
-        l.origin === origin_ad && l.destination === destination_ad
-      );
-      if (!leg) {
-        showAlert("Ruta no encontrada", `No se encontró un vuelo ${origin_ad}→${destination_ad} en tu roster del ${dateStr}.`, 'info');
-        return;
-      }
-
+      const leg = bestMatch;
       if (!leg.departureTimeUtc || !leg.arrivalTimeUtc) {
         showAlert("Sin horarios", "El roster no tiene horarios UTC para ese vuelo.", 'info');
         return;
       }
 
-      const arrivalDateTime = new Date(`${dateStr}T${leg.arrivalTimeUtc}:00Z`);
+      const arrivalDateTime = new Date(`${bestLocalDate}T${leg.arrivalTimeUtc}:00Z`);
       const syncedAt = new Date(rosterData.synced_at);
 
       if (syncedAt < arrivalDateTime) {
