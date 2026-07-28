@@ -419,14 +419,14 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       const resolveToIATA = (code: string): string => {
         if (!code) return code;
         const c = code.trim().toUpperCase();
-        if (c === "AER") return "AEP";
-        if (c === "CRR") return "CNQ";
-        if (c === "BAR") return "BRC";
-        if (c === "POS") return "PSS";
         const found = dbAirports.find((a: any) =>
           a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c
         );
-        return found?.iata_code || c;
+        if (found?.iata_code) return found.iata_code;
+        const local = localAirportsList.find(a =>
+          a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c
+        );
+        return local?.iata_code || c;
       };
 
       const originIATA = resolveToIATA(origin_ad);
