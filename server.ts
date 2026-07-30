@@ -1910,6 +1910,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           log.tipoVueloID = log.tipoVueloID || '2';
           log.clase = log.clase || 'D';
         }
+        log.autoridadCertificanteID = log.autoridadCertificanteID || (mode === 'tcp' ? '15' : '2');
       });
 
       // 5. Detectar duplicados

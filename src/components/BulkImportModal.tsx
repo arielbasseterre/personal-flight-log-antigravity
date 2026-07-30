@@ -3,6 +3,8 @@ import * as ExcelJS from 'exceljs';
 import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, XCircle, Download, X, Loader2, FileDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { supabase } from '@/src/utils/supabase/client';
 
 const FLIGHT_PURPOSES = [
@@ -139,6 +141,28 @@ interface Props {
   onImportComplete: () => void;
 }
 
+const CERTIFIER_ROLES = [
+  { key: "1", value: "OTROS" },
+  { key: "2", value: "JEFE DE AERODROMO" },
+  { key: "3", value: "OFICINA DE PLAN DE VUELO" },
+  { key: "4", value: "OFICINA DE ARO/AIS" },
+  { key: "5", value: "INSTRUCTOR DE VUELO" },
+  { key: "6", value: "JEFE DE INSTRUCTORES" },
+  { key: "7", value: "DIRECTOR ESCUELA" },
+  { key: "8", value: "PRESIDENTE INST. AERODEPORTIVA" },
+  { key: "9", value: "INSPECTORES DE VUELO" },
+  { key: "10", value: "INSPECTORES DE LINEA AEREA" },
+  { key: "11", value: "DIRECTOR DE AERONAUTICA PROVINCIAL" },
+  { key: "12", value: "JEFE DE OPERACIONES" },
+  { key: "13", value: "TITULAR EMPRESA" },
+  { key: "14", value: "JEFE DE PILOTOS" },
+  { key: "15", value: "GTE DE OPERACIONES" },
+  { key: "16", value: "JEFE DE FLOTA" },
+  { key: "17", value: "JEFE DE LINEA" },
+  { key: "18", value: "INSPECTORES RECONOCIDOS" },
+  { key: "19", value: "INSTRUCTOR DE SIMULADOR" },
+];
+
 export default function BulkImportModal({ open, onClose, mode, userId, isPaidSubscriber, onGoToSuscripcion, onImportComplete }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>('upload');
@@ -147,6 +171,10 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
   const [result, setResult] = useState<ImportResult | null>(null);
   const [importError, setImportError] = useState('');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [certifierBatch, setCertifierBatch] = useState<{ autoridadCertificanteID: string; certifierName: string }>({
+    autoridadCertificanteID: '',
+    certifierName: '',
+  });
 
   const reset = useCallback(() => {
     setStep('upload');
@@ -590,6 +618,62 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                 Archivo: <span className="font-medium text-slate-700 dark:text-slate-300">{fileName}</span>
                 {' · '}{rows.length} filas detectadas
               </div>
+
+              {/* Batch certifier form */}
+              {rows.some(r => !r.normalized.autoridadCertificanteID) && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-xl space-y-3">
+                  <p className="text-xs font-bold text-blue-700 dark:text-blue-300">Datos de certificación</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    La autoridad certificante no se detectó en el Excel. Completala aquí para aplicar a todos los registros.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Autoridad certificante</Label>
+                      <select
+                        className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-xs ring-offset-background"
+                        value={certifierBatch.autoridadCertificanteID}
+                        onChange={e => setCertifierBatch(prev => ({ ...prev, autoridadCertificanteID: e.target.value }))}
+                      >
+                        <option value="">Seleccionar...</option>
+                        {CERTIFIER_ROLES.map(r => (
+                          <option key={r.key} value={r.key}>{r.value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Nombre del certificante</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="Ej: Juan Pérez"
+                        value={certifierBatch.certifierName}
+                        onChange={e => setCertifierBatch(prev => ({ ...prev, certifierName: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 text-xs font-bold"
+                    disabled={!certifierBatch.autoridadCertificanteID}
+                    onClick={() => {
+                      setRows(prev => prev.map(r => ({
+                        ...r,
+                        normalized: {
+                          ...r.normalized,
+                          autoridadCertificanteID: certifierBatch.autoridadCertificanteID,
+                          observaciones: certifierBatch.certifierName || r.normalized.observaciones || '',
+                        },
+                        errors: (certifierBatch.certifierName && !r.errors.includes('Nombre certificante requerido'))
+                          ? r.errors.filter(e => e !== 'Nombre certificante requerido')
+                          : r.errors,
+                        selected: !certifierBatch.certifierName ? r.selected : r.errors.length === 0,
+                      })));
+                    }}
+                  >
+                    Aplicar a todos los registros
+                  </Button>
+                </div>
+              )}
 
               {/* Tools bar */}
               <div className="flex items-center gap-2 flex-wrap">
