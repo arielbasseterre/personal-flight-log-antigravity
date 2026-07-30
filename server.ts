@@ -2122,7 +2122,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       });
 
       let checkoutUrl = planResult.init_point!;
-      checkoutUrl += `&external_reference=${encodeURIComponent(externalRefId)}&back_url=${encodeURIComponent(callbackUrl)}`;
+      checkoutUrl += `&external_reference=${encodeURIComponent(externalRefId)}`;
       console.log(`[MERCADOPAGO] Plan dinámico creado: ${planResult.id}, Checkout URL: ${checkoutUrl}`);
 
       res.json({
@@ -2189,7 +2189,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               subscription_id: subscription.id,
               subscription_end_date: endDate,
               subscription_status: status,
-              mp_payer_email: (subscription as any).payer_email || null
+              mp_payer_email: (subscription as any).payer?.email || (subscription as any).payer_email || null
             })
             .eq('id', pendingRegId)
             .select('id')
@@ -2238,7 +2238,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                     subscription_id: subscription.id,
                     subscription_end_date: endDate,
                     subscription_status: status,
-                    mp_payer_email: (subscription as any).payer_email || null
+                    mp_payer_email: (subscription as any).payer?.email || (subscription as any).payer_email || null
                   })
                   .eq('id', authUser.user.id)
                   .select('id')
@@ -2261,7 +2261,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                      subscription_id: subscription.id,
                      subscription_end_date: endDate,
                      subscription_status: status,
-                     mp_payer_email: (subscription as any).payer_email || null
+                     mp_payer_email: (subscription as any).payer?.email || (subscription as any).payer_email || null
                    });
                 }
               }
@@ -2553,7 +2553,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               subscription_id: sub.id,
               subscription_end_date: endDate,
               subscription_status: sub.status,
-              mp_payer_email: (sub as any).payer_email || null
+              mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
             })
             .eq('id', finalExtRef)
             .select('id')
@@ -2612,7 +2612,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                   subscription_id: sub.id,
                   subscription_end_date: endDate,
                   subscription_status: sub.status,
-                  mp_payer_email: (sub as any).payer_email || null
+                  mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
                 })
                 .eq('id', authUser.user.id)
                 .select('id')
@@ -2635,7 +2635,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                   subscription_id: sub.id,
                   subscription_end_date: endDate,
                   subscription_status: sub.status,
-                  mp_payer_email: (sub as any).payer_email || null
+                  mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
                 });
               }
 
@@ -2672,7 +2672,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                    subscription_id: sub.id,
                    subscription_end_date: endDate,
                    subscription_status: sub.status,
-                   mp_payer_email: (sub as any).payer_email || null
+                   mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
                 });
              } catch (e) {
                 console.error(e);
