@@ -76,11 +76,19 @@ export const SubscriptionScreen = ({ profile, setProfile, refreshData, onBack }:
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4 pb-12">
           {profile?.subscription_end_date ? (
-            <Card className={profile.subscription_status === 'cancelled' ? 'border-red-200 dark:border-red-900/40 bg-red-50/10 dark:bg-red-900/5' : 'border-blue-100 dark:border-blue-900/40 bg-blue-50/10 dark:bg-blue-900/5'}>
+            <Card className={profile.subscription_status === 'cancelled'
+              ? 'border-red-200 dark:border-red-900/40 bg-red-50/10 dark:bg-red-900/5'
+              : isWithin30Days
+                ? 'border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/20'
+                : 'border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-950/20'}>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-xs font-bold flex items-center gap-2">
-                  {profile.subscription_status === 'cancelled' ? '❌' : '💳'} Suscripción
-                  <span className="ml-auto text-[10px] font-normal text-slate-400">
+                  {profile.subscription_status === 'cancelled'
+                    ? '❌ Suscripción cancelada'
+                    : isWithin30Days
+                      ? '⚠️ Suscripción próxima a vencer'
+                      : '💳 Suscripción activa'}
+                  <span className={`ml-auto text-[10px] font-semibold ${isWithin30Days ? 'text-amber-600' : 'text-green-600'}`}>
                     {daysRemaining >= 0 ? `${daysRemaining} días restantes` : ''}
                   </span>
                 </CardTitle>
