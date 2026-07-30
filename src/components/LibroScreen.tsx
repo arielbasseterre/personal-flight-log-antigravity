@@ -563,7 +563,7 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   const [isSyncing, setIsSyncing] = useState(false);
   const [anacToken, setAnacToken] = useState('');
   const [anacSession, setAnacSession] = useState<any>(null);
-  const [syncStatus, setSyncStatus] = useState<{ message: string, type: 'info' | 'success' | 'error' | null, debugInfo?: any }>({ message: '', type: null });
+  const [syncStatus, setSyncStatus] = useState<{ message: string, type: 'info' | 'success' | 'error' | null, progress?: number, debugInfo?: any }>({ message: '', type: null });
   const [showDetailedStats, setShowDetailedStats] = useState(false);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [showDebugDetail, setShowDebugDetail] = useState(false);
@@ -862,87 +862,120 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       return;
     }
     setIsSyncing(true);
-    
-    // Mapeo inteligente de aeropuertos usando la base de datos local
-    const mappedLogsToSync = (logsToSyncOverride || logs).map(l => {
-      const mapAirportCode = (code: string) => {
-        const c = (code || "").trim().toUpperCase();
-        if (!c) return c;
-        
-        // Fallback manual prioritario por seguridad
-        if (c === "AEP" || c === "SABE") return "AER";
-        if (c === "CNQ" || c === "SARC") return "CRR";
-        if (c === "BRC" || c === "SAZS") return "BAR";
-        if (c === "PSS" || c === "SARP") return "POS";
-        
-        // Buscar coincidencia en la base de datos de aeropuertos (por IATA, OACI/ICAO o ANAC/key_code)
-        const airport = dbAirports.find(a => 
-          (a.iata_code && a.iata_code.toUpperCase() === c) || 
-          (a.icao_code && a.icao_code.toUpperCase() === c) || 
-          (a.anac_code && a.anac_code.toUpperCase() === c) ||
-          (a.key_code && a.key_code.toUpperCase() === c)
-        );
-        
-        // Si encontramos el aeropuerto y tiene un anac_code o key_code definido, lo usamos.
-        if (airport) {
-          return airport.anac_code || airport.key_code || c;
-        }
-        
-        // Fallback a IATA_AIRPORTS
-        const localFound = Object.entries(IATA_AIRPORTS).find(([icao, info]) =>
-          icao.toUpperCase() === c || info.iata.toUpperCase() === c
-        );
-        if (localFound) {
-          const icao = localFound[0];
-          const iata = localFound[1].iata;
-          if (iata === "AEP") return "AER";
-          if (iata === "CNQ") return "CRR";
-          if (iata === "BRC") return "BAR";
-          if (iata === "PSS") return "POS";
-          if (!icao.startsWith("SA")) return icao.toUpperCase();
-          return iata;
-        }
-        
-        return c;
-      };
 
-      return {
-        ...l,
-        potencia: Number(l.potencia || 0),
-        origenID: mapAirportCode(l.origenID || (l as any).origin_ad),
-        destinoID: mapAirportCode(l.destinoID || (l as any).destination_ad)
-      };
-    });
+    // Mapeo inteligente de aeropuertos usando la base de datos local
+    const mapAirportCode = (code: string) => {
+      const c = (code || "").trim().toUpperCase();
+      if (!c) return c;
+      if (c === "AEP" || c === "SABE") return "AER";
+      if (c === "CNQ" || c === "SARC") return "CRR";
+      if (c === "BRC" || c === "SAZS") return "BAR";
+      if (c === "PSS" || c === "SARP") return "POS";
+      const airport = dbAirports.find(a => 
+        (a.iata_code && a.iata_code.toUpperCase() === c) || 
+        (a.icao_code && a.icao_code.toUpperCase() === c) || 
+        (a.anac_code && a.anac_code.toUpperCase() === c) ||
+        (a.key_code && a.key_code.toUpperCase() === c)
+      );
+      if (airport) return airport.anac_code || airport.key_code || c;
+      const localFound = Object.entries(IATA_AIRPORTS).find(([icao, info]) =>
+        icao.toUpperCase() === c || info.iata.toUpperCase() === c
+      );
+      if (localFound) {
+        const icao = localFound[0];
+        const iata = localFound[1].iata;
+        if (iata === "AEP") return "AER";
+        if (iata === "CNQ") return "CRR";
+        if (iata === "BRC") return "BAR";
+        if (iata === "PSS") return "POS";
+        if (!icao.startsWith("SA")) return icao.toUpperCase();
+        return iata;
+      }
+      return c;
+    };
+
+    const allLogs = (logsToSyncOverride || logs).map(l => ({
+      ...l,
+      potencia: Number(l.potencia || 0),
+      origenID: mapAirportCode(l.origenID || (l as any).origin_ad),
+      destinoID: mapAirportCode(l.destinoID || (l as any).destination_ad)
+    }));
+
+    // Partir en lotes de 50
+    const BATCH_SIZE = 50;
+    const totalBatches = Math.ceil(allLogs.length / BATCH_SIZE);
+    let successfulIds = new Set<string>();
+    let batchIndex = 0;
 
     try {
-      const response = await fetch(getApiUrl('/api/sync-anac'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: profile.id, anac_token: tokenToUse, storageState: sessionToUse, logs_to_sync: mappedLogsToSync })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSyncStatus({ message: 'Sincronización finalizada.', type: 'success' });
-        
-        // Actualizar fecha de última sincronización en el perfil
-        if (mappedLogsToSync.length > 0 && profile?.id) {
-          const latestFlight = mappedLogsToSync.reduce((prev, current) => {
-            const d1 = new Date(prev.fechaHoraSalida).getTime();
-            const d2 = new Date(current.fechaHoraSalida).getTime();
-            return d2 > d1 ? current : prev;
-          });
-          
-          await supabase
-            .from('profiles')
-            .update({ last_synced_flight_at: latestFlight.fechaHoraSalida })
-            .eq('id', profile.id);
-            
-          refreshData();
+      for (let i = 0; i < allLogs.length; i += BATCH_SIZE) {
+        batchIndex++;
+        const batch = allLogs.slice(i, i + BATCH_SIZE);
+        const processedSoFar = successfulIds.size;
+
+        setSyncStatus({
+          message: `Sincronizando lote ${batchIndex}/${totalBatches} (${processedSoFar}/${allLogs.length} exitosos)`,
+          type: 'info',
+          progress: processedSoFar / allLogs.length
+        });
+
+        let attempts = 0;
+        const maxAttempts = 3;
+        let batchOk = false;
+
+        while (!batchOk && attempts < maxAttempts) {
+          attempts++;
+          try {
+            const response = await fetch(getApiUrl('/api/sync-anac'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: profile.id,
+                anac_token: tokenToUse,
+                storageState: sessionToUse,
+                logs_to_sync: batch
+              }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Error del servidor');
+
+            if (data.results) {
+              data.results.forEach((r: any) => {
+                if (r.status === 'success') successfulIds.add(r.id);
+              });
+            }
+            batchOk = true;
+          } catch (e: any) {
+            if (attempts >= maxAttempts) {
+              console.warn(`[SYNC] Lote ${batchIndex} falló tras ${maxAttempts} intentos: ${e.message}`);
+            } else {
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
         }
       }
-      else setSyncStatus({ message: `Error: ${data.error}`, type: 'error' });
-    } catch (e) {
-      setSyncStatus({ message: 'Error de conexión.', type: 'error' });
+
+      const finalProcessed = successfulIds.size;
+      setSyncStatus({
+        message: `Sincronización finalizada: ${finalProcessed} exitosos de ${allLogs.length}`,
+        type: finalProcessed < allLogs.length ? 'warning' : 'success',
+        progress: 1
+      });
+
+      if (finalProcessed > 0 && profile?.id) {
+        const latestFlight = allLogs.reduce((prev, current) => {
+          const d1 = new Date(prev.fechaHoraSalida).getTime();
+          const d2 = new Date(current.fechaHoraSalida).getTime();
+          return d2 > d1 ? current : prev;
+        });
+        await supabase
+          .from('profiles')
+          .update({ last_synced_flight_at: latestFlight.fechaHoraSalida })
+          .eq('id', profile.id);
+        refreshData();
+      }
+    } catch (e: any) {
+      setSyncStatus({ message: `Error: ${e.message}`, type: 'error' });
     } finally {
       setIsSyncing(false);
     }
@@ -3995,13 +4028,18 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                 }} />
 
                 {/* Status messages for sync process (post-login) */}
-                {isSyncing && (
-                  <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col items-center gap-3">
-                    <RefreshCw className="text-blue-500 animate-spin" size={24} />
-                    <p className="text-xs font-bold text-blue-600 uppercase tracking-widest animate-pulse">Sincronizando vuelos...</p>
-                    <p className="text-[10px] text-blue-500 text-center">{syncStatus.message}</p>
-                  </div>
-                )}
+                  {isSyncing && (
+                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col items-center gap-3">
+                      <RefreshCw className="text-blue-500 animate-spin" size={24} />
+                      <p className="text-xs font-bold text-blue-600 uppercase tracking-widest animate-pulse">Sincronizando vuelos...</p>
+                      <p className="text-[10px] text-blue-500 text-center">{syncStatus.message}</p>
+                      {syncStatus.progress !== undefined && (
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                          <div className="bg-blue-500 h-2 rounded-full transition-all duration-500" style={{ width: `${syncStatus.progress * 100}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  )}
               </div>
             </motion.div>
           </div>

@@ -641,14 +641,13 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
   // --- ANAC Get Logs API ---
   app.post("/api/get-anac-logs", async (req, res) => {
-    const { anac_token, storageState, pageNumber = 1, rowsPerPage = 50 } = req.body;
+    const { anac_token, storageState, rowsPerPage = 100 } = req.body;
 
     if (!anac_token && !storageState) {
       return res.status(400).json({ error: "Sesión de ANAC es requerida" });
     }
 
     try {
-      // Construir Cookie Header completo
       let cookieHeader = "";
       if (storageState && storageState.cookies) {
         cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
@@ -656,41 +655,54 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
       }
 
-      console.log(`[GET_ANAC_LOGS] Solicitando página ${pageNumber} de ANAC...`);
+      const allLogs: any[] = [];
+      let page = 1;
+      let hasMore = true;
 
-      const url = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TM&sortField=fechaSalida&sortDirection=DESC&pageNumber=${pageNumber}&rowsPerPage=${rowsPerPage}&mostrarIngresados=true&solicitudFoliadoId=null`;
-      
-      let anacResponse;
-      try {
-        anacResponse = await axios.get(url, {
-          headers: {
-            "Cookie": cookieHeader,
-            "X-Requested-With": "XMLHttpRequest",
-            "Accept": "application/json, text/plain, */*",
-            "Origin": "https://cad.anac.gob.ar",
-            "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-          },
-          timeout: 15000
-        });
-      } catch (err: any) {
-        // Fallback strategy
-        if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
-          const fallbackUrl = `https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/GetPagedList?description=&sortField=fechaSalida&sortDirection=DESC&pageNumber=${pageNumber}&rowsPerPage=${rowsPerPage}`;
-          anacResponse = await axios.get(fallbackUrl, {
+      while (hasMore) {
+        console.log(`[GET_ANAC_LOGS] Solicitando página ${page} de ANAC...`);
+
+        const url = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TM&sortField=fechaSalida&sortDirection=DESC&pageNumber=${page}&rowsPerPage=${rowsPerPage}&mostrarIngresados=true&solicitudFoliadoId=null`;
+
+        let anacResponse;
+        try {
+          anacResponse = await axios.get(url, {
             headers: {
               "Cookie": cookieHeader,
               "X-Requested-With": "XMLHttpRequest",
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+              "Accept": "application/json, text/plain, */*",
+              "Origin": "https://cad.anac.gob.ar",
+              "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             },
             timeout: 15000
           });
+        } catch (err: any) {
+          if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+            const fallbackUrl = `https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/GetPagedList?description=&sortField=fechaSalida&sortDirection=DESC&pageNumber=${page}&rowsPerPage=${rowsPerPage}`;
+            anacResponse = await axios.get(fallbackUrl, {
+              headers: {
+                "Cookie": cookieHeader,
+                "X-Requested-With": "XMLHttpRequest",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+              },
+              timeout: 15000
+            });
+          } else {
+            throw err;
+          }
+        }
+
+        const pageData = anacResponse.data?.dataSource || anacResponse.data;
+        if (Array.isArray(pageData) && pageData.length > 0) {
+          allLogs.push(...pageData);
+          page++;
         } else {
-          throw err;
+          hasMore = false;
         }
       }
 
-      res.json(anacResponse.data);
+      res.json({ dataSource: allLogs, totalPages: page - 1 });
     } catch (error: any) {
       console.error("[GET_ANAC_LOGS] Error:", error);
       res.status(500).json({ error: error.message });

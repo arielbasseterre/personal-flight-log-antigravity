@@ -339,7 +339,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
   const [isSyncing, setIsSyncing] = useState(false);
   const [anacToken, setAnacToken] = useState('');
   const [anacSession, setAnacSession] = useState<any>(null);
-  const [syncStatus, setSyncStatus] = useState<{ message: string, type: 'info' | 'success' | 'error' | null }>({ message: '', type: null });
+  const [syncStatus, setSyncStatus] = useState<{ message: string, type: 'info' | 'success' | 'error' | null, progress?: number }>({ message: '', type: null });
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [anacLogs, setAnacLogs] = useState<AnacLog[]>([]);
@@ -1183,9 +1183,8 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       return;
     }
     setIsSyncing(true);
-    setSyncStatus({ message: 'Sincronizando...', type: 'info' });
 
-    const mappedLogsToSync = (logsToSyncOverride || pendingLogs).map(log => ({
+    const allLogs = (logsToSyncOverride || pendingLogs).map(log => ({
       id: log.id,
       fechaHoraSalida: log.fechaHoraSalida,
       fechaHoraLlegada: log.fechaHoraLlegada,
@@ -1200,35 +1199,82 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       observaciones: log.observaciones,
     }));
 
+    const BATCH_SIZE = 50;
+    const totalBatches = Math.ceil(allLogs.length / BATCH_SIZE);
+    let successfulIds = new Set<string>();
+    let batchIndex = 0;
+
     try {
-      const response = await fetch(getApiUrl('/api/sync-anac-tcp'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: profile?.id, anac_token: tokenToUse, storageState: sessionToUse, logs_to_sync: mappedLogsToSync })
-      });
-      const result = await response.json();
-      if (response.ok) {
-        const successCount = result.results?.filter((r: any) => r.status === 'success').length || 0;
-        const errorCount = result.results?.filter((r: any) => r.status === 'error').length || 0;
-        setSyncStatus({ message: `Sincronización completa: ${successCount} exitosos, ${errorCount} errores.`, type: errorCount > 0 ? 'warning' : 'success' });
-        if (logs.length > 0 && profile?.id) {
-          const latestFlight = logs.reduce((prev, current) => {
-            const d1 = new Date(prev.fechaHoraSalida).getTime();
-            const d2 = new Date(current.fechaHoraSalida).getTime();
-            return d2 > d1 ? current : prev;
-          });
-          await supabase.from('profiles').update({ last_synced_flight_at: latestFlight.fechaHoraSalida }).eq('id', profile.id);
-          refreshData();
+      for (let i = 0; i < allLogs.length; i += BATCH_SIZE) {
+        batchIndex++;
+        const batch = allLogs.slice(i, i + BATCH_SIZE);
+        const processedSoFar = successfulIds.size;
+
+        setSyncStatus({
+          message: `Sincronizando lote ${batchIndex}/${totalBatches} (${processedSoFar}/${allLogs.length} exitosos)`,
+          type: 'info',
+          progress: processedSoFar / allLogs.length
+        });
+
+        let attempts = 0;
+        const maxAttempts = 3;
+        let batchOk = false;
+
+        while (!batchOk && attempts < maxAttempts) {
+          attempts++;
+          try {
+            const response = await fetch(getApiUrl('/api/sync-anac-tcp'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: profile?.id,
+                anac_token: tokenToUse,
+                storageState: sessionToUse,
+                logs_to_sync: batch
+              }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Error del servidor');
+
+            if (result.results) {
+              result.results.forEach((r: any) => {
+                if (r.status === 'success') successfulIds.add(r.id);
+              });
+            }
+            batchOk = true;
+          } catch (e: any) {
+            if (attempts >= maxAttempts) {
+              console.warn(`[SYNC_TCP] Lote ${batchIndex} falló tras ${maxAttempts} intentos: ${e.message}`);
+            } else {
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
         }
-        setPendingLogs([]);
-        setShowPendingModal(false);
-      } else {
-        setSyncStatus({ message: `Error: ${result.error || 'Error desconocido'}`, type: 'error' });
       }
+
+      const finalProcessed = successfulIds.size;
+      setSyncStatus({
+        message: `Sincronización completa: ${finalProcessed} exitosos de ${allLogs.length}`,
+        type: finalProcessed < allLogs.length ? 'warning' : 'success',
+        progress: 1
+      });
+
+      if (finalProcessed > 0 && profile?.id) {
+        const latestFlight = logs.reduce((prev, current) => {
+          const d1 = new Date(prev.fechaHoraSalida).getTime();
+          const d2 = new Date(current.fechaHoraSalida).getTime();
+          return d2 > d1 ? current : prev;
+        });
+        await supabase.from('profiles').update({ last_synced_flight_at: latestFlight.fechaHoraSalida }).eq('id', profile.id);
+        refreshData();
+      }
+      setPendingLogs([]);
+      setShowPendingModal(false);
     } catch (e: any) {
-      setSyncStatus({ message: `Error de conexión: ${e.message}`, type: 'error' });
+      setSyncStatus({ message: `Error: ${e.message}`, type: 'error' });
+    } finally {
+      setIsSyncing(false);
     }
-    setIsSyncing(false);
   };
 
   const exportExcel = async () => {
@@ -2178,6 +2224,15 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                   </div>
                 )}
               </ScrollArea>
+
+              {isSyncing && syncStatus.progress !== undefined && (
+                <div className="px-6 py-3">
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                    <div className="bg-blue-500 h-2 rounded-full transition-all duration-500" style={{ width: `${syncStatus.progress * 100}%` }} />
+                  </div>
+                  <p className="text-[10px] text-slate-500 text-center mt-1">{syncStatus.message}</p>
+                </div>
+              )}
 
               <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
                 <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowPendingModal(false)}>
