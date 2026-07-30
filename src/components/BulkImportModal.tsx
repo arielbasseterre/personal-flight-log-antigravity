@@ -441,13 +441,13 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) { setStep('parsing'); parseExcel(file); }
+    if (file) { setStep('parsing'); setTimeout(() => parseExcel(file), 50); }
   }, [parseExcel]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (file) { setStep('parsing'); parseExcel(file); }
+    if (file) { setStep('parsing'); setTimeout(() => parseExcel(file), 50); }
   }, [parseExcel]);
 
   const toggleRow = useCallback((id: number) => {
