@@ -264,7 +264,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
         {/* Row 1: Main Category Groups */}
         <View style={[styles.headerRow, { height: 25 }]}>
           <View style={[styles.cell, { width: col.dia + col.mes, borderRightWidth: 1.5 }]}>
-            <Text style={styles.headerTitle}>AÑO{"\n"}{logs[0] ? new Date(logs[0].fechaHoraSalida).getUTCFullYear() : 2026}</Text>
+            <Text style={styles.headerTitle}>AÑO{"\n"}{pageLogs[0] ? new Date(pageLogs[0].fechaHoraSalida).getUTCFullYear() : 2026}</Text>
           </View>
           <View style={[styles.cell, { width: col.salida + col.desdeh + col.llegada, borderRightWidth: 1.5 }]}><Text style={styles.headerTitle}>ITINERARIO</Text></View>
           <View style={[styles.cell, { width: col.finalidad, borderRightWidth: 1.5 }]}></View>
