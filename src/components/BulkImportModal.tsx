@@ -204,8 +204,8 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
           // Check for year in this row (e.g. "AÑO\n2024" in merged cell)
           text.forEach(t => {
-            const yMatch = t.match(/(\d{4})/);
-            if (yMatch) detectedYear = parseInt(yMatch[0]);
+            const yMatch = t.match(/\b(20[2-9]\d)\b/);
+            if (yMatch) detectedYear = parseInt(yMatch[1]);
           });
 
           // Count how many columns in this row match known patterns

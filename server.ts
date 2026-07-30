@@ -1801,7 +1801,10 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
             errs.push(`Horas exceden el vuelo. Máximo: ${totalRef.toFixed(1)}h (declaraste ${totalH.toFixed(1)}h)`);
         }
       }
-      if (sal > new Date()) errs.push('Fecha de salida futura');
+      if (sal > new Date()) {
+        const diffDays = Math.ceil((sal.getTime() - Date.now()) / 86400000);
+        if (diffDays > 365) errs.push('Fecha de salida fuera de rango (>1 año)');
+      }
     } catch { errs.push('Fechas inválidas'); }
     if (!log.origenID) errs.push('Origen requerido');
     if (!log.destinoID) errs.push('Destino requerido');
