@@ -1870,10 +1870,22 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       });
 
       const PAGE_SIZE = 15;
-      const pages = [];
-      for (let i = 0; i < sortedLogs.length; i += PAGE_SIZE) {
-        pages.push(sortedLogs.slice(i, i + PAGE_SIZE));
+      const pages: any[][] = [];
+      let yearLogs: any[] = [];
+      let currentYear = 0;
+
+      for (const log of sortedLogs) {
+        const logYear = new Date(log.fechaHoraSalida).getFullYear();
+        if (currentYear !== 0 && logYear !== currentYear) {
+          for (let i = 0; i < yearLogs.length; i += PAGE_SIZE)
+            pages.push(yearLogs.slice(i, i + PAGE_SIZE));
+          yearLogs = [];
+        }
+        currentYear = logYear;
+        yearLogs.push(log);
       }
+      for (let i = 0; i < yearLogs.length; i += PAGE_SIZE)
+        pages.push(yearLogs.slice(i, i + PAGE_SIZE));
 
       const startFolio = profile?.initial_folio_number || 1;
 

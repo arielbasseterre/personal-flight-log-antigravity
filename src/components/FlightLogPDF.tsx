@@ -183,11 +183,22 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
   });
 
   const rowsPerPage = 15;
-  const pages = [];
-  
-  for (let i = 0; i < sortedLogs.length; i += rowsPerPage) {
-    pages.push(sortedLogs.slice(i, i + rowsPerPage));
+  const pages: any[][] = [];
+  let yearLogs: any[] = [];
+  let currentYear = 0;
+
+  for (const log of sortedLogs) {
+    const logYear = new Date(log.fechaHoraSalida).getFullYear();
+    if (currentYear !== 0 && logYear !== currentYear) {
+      for (let i = 0; i < yearLogs.length; i += rowsPerPage)
+        pages.push(yearLogs.slice(i, i + rowsPerPage));
+      yearLogs = [];
+    }
+    currentYear = logYear;
+    yearLogs.push(log);
   }
+  for (let i = 0; i < yearLogs.length; i += rowsPerPage)
+    pages.push(yearLogs.slice(i, i + rowsPerPage));
 
   // Column width definitions tuned for 35.5cm (1006pt) landscape
   const col = {
