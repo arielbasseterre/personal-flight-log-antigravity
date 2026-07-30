@@ -123,7 +123,7 @@ interface ParsedRow {
   selected: boolean;
 }
 
-type Step = 'upload' | 'preview' | 'importing' | 'result';
+type Step = 'upload' | 'parsing' | 'preview' | 'importing' | 'result';
 
 interface ImportResult {
   inserted: number;
@@ -441,13 +441,13 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) parseExcel(file);
+    if (file) { setStep('parsing'); parseExcel(file); }
   }, [parseExcel]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (file) parseExcel(file);
+    if (file) { setStep('parsing'); parseExcel(file); }
   }, [parseExcel]);
 
   const toggleRow = useCallback((id: number) => {
@@ -791,6 +791,14 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {step === 'parsing' && (
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 size={40} className="animate-spin text-blue-500 mb-4" />
+              <p className="text-sm text-slate-500 font-medium">Procesando archivo Excel...</p>
+              <p className="text-xs text-slate-400 mt-1">Leyendo hojas, detectando columnas y validando registros.</p>
             </div>
           )}
 
