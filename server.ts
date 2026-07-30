@@ -2117,7 +2117,11 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
             transaction_amount: amount,
             currency_id: "ARS"
           },
-          back_url: callbackUrl
+          back_urls: {
+            success: callbackUrl,
+            failure: callbackUrl,
+            pending: callbackUrl
+          }
         } as any
       });
 

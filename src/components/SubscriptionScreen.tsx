@@ -3,7 +3,8 @@ import {
   ArrowLeft,
   CreditCard,
   AlertTriangle,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,10 +22,12 @@ interface SubscriptionScreenProps {
 export const SubscriptionScreen = ({ profile, setProfile, refreshData, onBack }: SubscriptionScreenProps) => {
   const [isRenewingSubscription, setIsRenewingSubscription] = useState(false);
   const [pendingCheckoutUrl, setPendingCheckoutUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRenewSubscription = async () => {
     if (!profile) return;
     setIsRenewingSubscription(true);
+    setError(null);
     try {
       const response = await fetch('/api/mercadopago/create-subscription', {
         method: 'POST',
@@ -48,6 +51,7 @@ export const SubscriptionScreen = ({ profile, setProfile, refreshData, onBack }:
         throw new Error('No se recibió la URL de pago');
       }
     } catch (err: any) {
+      setError(err.message || 'Error al procesar la suscripción');
     } finally {
       setIsRenewingSubscription(false);
     }
@@ -139,6 +143,18 @@ export const SubscriptionScreen = ({ profile, setProfile, refreshData, onBack }:
                 </Button>
               </CardContent>
             </Card>
+          )}
+          {error && (
+            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 flex items-start gap-3">
+              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-red-700 dark:text-red-400">Error</p>
+                <p className="text-xs text-red-600 dark:text-red-300 mt-0.5">{error}</p>
+              </div>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 shrink-0">
+                <X size={16} />
+              </button>
+            </div>
           )}
         </div>
       </div>
