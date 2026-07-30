@@ -1167,6 +1167,13 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         showAlert("Campo Obligatorio", "Por favor ingrese la matrícula de la aeronave.", 'warning');
         return;
       }
+      if (!isSim) {
+        const regLetters = (formData.registration || '').replace(/[^a-zA-Z]/g, '');
+        if (regLetters.length !== 5) {
+          showAlert("Matrícula Inválida", "La matrícula debe tener 5 letras (ej: LV-KCE).", 'warning');
+          return;
+        }
+      }
 
       if (!isSim && !formData.aircraft_model) {
         showAlert("Campo Obligatorio", "Por favor ingrese la marca/modelo de la aeronave.", 'warning');
@@ -1284,7 +1291,12 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         destinoID: resolvedDest,
         finalidadID: formData.flight_purpose || '78',
         clase: formData.aircraft_class || (isSim ? 'D' : 'MULT-T'),
-        matriculaAvion: isSim ? (formData.registration || '') : (formData.registration || '').toUpperCase(),
+        matriculaAvion: isSim ? (formData.registration || '') : (() => {
+          const raw = (formData.registration || '').toUpperCase();
+          const letters = raw.replace(/[^a-zA-Z]/g, '');
+          if (letters.length === 5) return `${letters.slice(0, 2)}-${letters.slice(2)}`;
+          return raw;
+        })(),
         Marca_Modelo: formData.aircraft_model || '',
         potencia: isSim ? 0 : Number(formData.power_rating || 0),
         aterrizajes: isSim ? 0 : Number(formData.landings || 1),

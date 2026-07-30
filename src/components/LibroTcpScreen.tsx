@@ -647,6 +647,11 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         showAlert("Campo Obligatorio", "Por favor ingrese la matrícula de la aeronave.", 'warning');
         return;
       }
+      const regLetters = (formData.registration || '').replace(/[^a-zA-Z]/g, '');
+      if (regLetters.length !== 5) {
+        showAlert("Matrícula Inválida", "La matrícula debe tener 5 letras (ej: LV-KCE).", 'warning');
+        return;
+      }
       if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
         showAlert("Horario Inválido", "Por favor ingrese un horario de salida válido (HH:MM).", 'warning');
         return;
@@ -714,7 +719,12 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         destinoID: resolvedDest,
         finalidadID: formData.flight_purpose || '79',
         clase: '',
-        matriculaAvion: (formData.registration || '').toUpperCase(),
+        matriculaAvion: (() => {
+          const raw = (formData.registration || '').toUpperCase();
+          const letters = raw.replace(/[^a-zA-Z]/g, '');
+          if (letters.length === 5) return `${letters.slice(0, 2)}-${letters.slice(2)}`;
+          return raw;
+        })(),
         Marca_Modelo: formData.aircraft_model || '',
         potencia: 0,
         aterrizajes: Number(formData.landings || 1),
@@ -796,6 +806,11 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         showAlert("Campo Obligatorio", "Por favor ingrese la matrícula de la aeronave.", 'warning');
         return;
       }
+      const regLetters = (formData.registration || '').replace(/[^a-zA-Z]/g, '');
+      if (regLetters.length !== 5) {
+        showAlert("Matrícula Inválida", "La matrícula debe tener 5 letras (ej: LV-KCE).", 'warning');
+        return;
+      }
       if (!formData.departure_time_utc || formData.departure_time_utc.length < 5) {
         showAlert("Horario Inválido", "Por favor ingrese un horario de salida válido (HH:MM).", 'warning');
         return;
@@ -846,7 +861,12 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         destinoID: resolvedDest,
         finalidadID: formData.flight_purpose || '79',
         clase: '',
-        matriculaAvion: (formData.registration || '').toUpperCase(),
+        matriculaAvion: (() => {
+          const raw = (formData.registration || '').toUpperCase();
+          const letters = raw.replace(/[^a-zA-Z]/g, '');
+          if (letters.length === 5) return `${letters.slice(0, 2)}-${letters.slice(2)}`;
+          return raw;
+        })(),
         Marca_Modelo: formData.aircraft_model || '',
         potencia: 0,
         aterrizajes: Number(formData.landings || 1),
