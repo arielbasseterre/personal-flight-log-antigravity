@@ -23,7 +23,7 @@ dotenv.config();
 
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // --- Helmet: seguridad HTTP headers (producción con CSP, dev sin CSP para Vite HMR) ---
 app.use(helmet({

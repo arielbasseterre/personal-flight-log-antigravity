@@ -477,6 +477,10 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
     if (!isPaidSubscriber) { setShowUpgradeModal(true); return; }
 
+    if (selected.length > 500) {
+      if (!confirm(`Son ${selected.length} registros. La importación puede demorar varios segundos. Se recomienda dividir en lotes de hasta 500 registros. ¿Deseas continuar?`)) return;
+    }
+
     setStep('importing');
     try {
       const logs = selected.map(r => ({
@@ -491,7 +495,16 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
         body: JSON.stringify({ user_id: userId, logs, mode }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+          throw new Error('Error del servidor. La importación tiene demasiados registros. Dividí el archivo en lotes de hasta 300 registros e intentá de nuevo.');
+        }
+        throw new Error('Error inesperado al procesar la respuesta del servidor.');
+      }
       if (!res.ok) throw new Error(data.error || 'Error del servidor');
 
       setResult(data);
