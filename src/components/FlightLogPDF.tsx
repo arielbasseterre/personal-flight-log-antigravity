@@ -225,7 +225,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
     cert: 155,
   };
 
-  const renderHeader = () => {
+  const renderHeader = (year: number) => {
     const bodyHeight = 45 + 12; // Combined height of sub-header rows
 
     // Column spans Row 2 + Row 3 with a horizontal divider at specific height
@@ -264,7 +264,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
         {/* Row 1: Main Category Groups */}
         <View style={[styles.headerRow, { height: 25 }]}>
           <View style={[styles.cell, { width: col.dia + col.mes, borderRightWidth: 1.5 }]}>
-            <Text style={styles.headerTitle}>AÑO{"\n"}{pageLogs[0] ? new Date(pageLogs[0].fechaHoraSalida).getUTCFullYear() : 2026}</Text>
+            <Text style={styles.headerTitle}>AÑO{"\n"}{year}</Text>
           </View>
           <View style={[styles.cell, { width: col.salida + col.desdeh + col.llegada, borderRightWidth: 1.5 }]}><Text style={styles.headerTitle}>ITINERARIO</Text></View>
           <View style={[styles.cell, { width: col.finalidad, borderRightWidth: 1.5 }]}></View>
@@ -517,7 +517,10 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
             </View>
 
             <View style={styles.table}>
-              {renderHeader()}
+              {(() => {
+                const headerYear = pageLogs.length > 0 ? new Date(pageLogs[0].fechaHoraSalida).getUTCFullYear() : 2026;
+                return renderHeader(headerYear);
+              })()}
               <View style={[styles.row, { height: 14 }]}>
                 <View style={{ 
                   width: col.dia + col.mes + col.salida + col.desdeh + col.llegada + col.finalidad + col.marca + col.matr + col.pot + col.clase, 
