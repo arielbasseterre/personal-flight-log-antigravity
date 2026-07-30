@@ -3,6 +3,7 @@ import * as ExcelJS from 'exceljs';
 import { Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, XCircle, Download, X, Loader2, FileDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from "@/components/ui/button";
+import { supabase } from '@/src/utils/supabase/client';
 
 const FLIGHT_PURPOSES = [
   { key: "47", value: "ACROBACIA", sigla: "ACR" },
@@ -379,6 +380,31 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
       setRows(parsedRows);
       setStep('preview');
+
+      // Check duplicates against existing records in DB
+      try {
+        if (supabase && userId) {
+          const { data: existingLogs } = await supabase
+            .from('flight_logs')
+            .select('fechaHoraSalida, matriculaAvion, origenID, destinoID')
+            .eq('user_id', userId);
+
+          if (existingLogs && existingLogs.length > 0) {
+            const existingSet = new Set(
+              existingLogs.map(l => `${l.fechaHoraSalida}|${l.matriculaAvion}|${l.origenID}|${l.destinoID}`)
+            );
+            setRows(prev => prev.map(r => {
+              const key = `${r.normalized.fechaHoraSalida}|${r.normalized.matriculaAvion}|${r.normalized.origenID}|${r.normalized.destinoID}`;
+              if (existingSet.has(key) && !r.errors.includes('Ya existe en la app')) {
+                return { ...r, errors: [...r.errors, 'Ya existe en la app'], selected: false };
+              }
+              return r;
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('[BulkImport] Error al verificar duplicados:', e);
+      }
     } catch (e: any) {
       setImportError(`Error al leer el archivo: ${e.message}`);
       setStep('result');
