@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from '@/src/utils/supabase/client';
+import airportsCsvRaw from '../../airports.csv?raw';
 
 const FLIGHT_PURPOSES = [
   { key: "47", value: "ACROBACIA", sigla: "ACR" },
@@ -110,6 +111,54 @@ const resolveFinalidad = (val: string): string => {
   if (/^\d+$/.test(trimmed)) return trimmed;
   const found = FLIGHT_PURPOSES.find(p => p.sigla === trimmed.toUpperCase());
   return found ? found.key : trimmed;
+};
+
+const parseAirportsCsv = (csvText: string) => {
+  const lines = csvText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length <= 1) return [];
+  const airports = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    if (parts.length < 2) continue;
+    const iata = parts[0]?.trim().replace(/^"|"$/g, '');
+    const icao = parts[1]?.trim().replace(/^"|"$/g, '');
+    const anac = parts[2]?.trim().replace(/^"|"$/g, '');
+    const name = parts[3]?.trim().replace(/^"|"$/g, '');
+    const city = parts[4]?.trim().replace(/^"|"$/g, '');
+    const cleanAnac = anac && anac !== 'N/A' && anac !== '' ? anac.toUpperCase() : null;
+    airports.push({
+      iata_code: iata?.toUpperCase(),
+      icao_code: icao?.toUpperCase(),
+      anac_code: cleanAnac,
+      key_code: cleanAnac || iata?.toUpperCase(),
+      name: name || '',
+      city: city || ''
+    });
+  }
+  return airports;
+};
+
+const localAirportsList = parseAirportsCsv(airportsCsvRaw);
+
+const normalizeStr = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+const resolveAirportCode = (value: string): string | null => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const c = raw.toUpperCase();
+  const byCode = localAirportsList.find(a => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
+  if (byCode) return byCode.iata_code || byCode.key_code;
+  const norm = normalizeStr(raw);
+  if (norm.length >= 3) {
+    const byName = localAirportsList.find(a => {
+      const nameN = normalizeStr(a.name);
+      const cityN = normalizeStr(a.city);
+      return nameN === norm || cityN === norm || nameN.includes(norm) || cityN.includes(norm);
+    });
+    if (byName) return byName.iata_code || byName.key_code;
+  }
+  return null;
 };
 
 interface ParsedRow {
@@ -361,6 +410,13 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                 errors.push(`Horas exceden el vuelo. Máximo: ${totalRef.toFixed(1)}h (declaraste ${totalHoras.toFixed(1)}h)`);
             }
           }
+          // Normalizar y validar aeropuertos contra la lista local (airports.csv)
+          const resolvedOrigen = resolveAirportCode(origenID);
+          const resolvedDest = resolveAirportCode(destinoID);
+          if (origenID && !resolvedOrigen) errors.push(`Origen desconocido: "${origenID}"`);
+          if (destinoID && !resolvedDest) errors.push(`Destino desconocido: "${destinoID}"`);
+          if (resolvedOrigen) origenID = resolvedOrigen;
+          if (resolvedDest) destinoID = resolvedDest;
           if (!origenID) errors.push('Origen requerido');
           if (!destinoID) errors.push('Destino requerido');
           const matriculaLetters = (matriculaRaw || '').replace(/[^a-zA-Z]/g, '');
@@ -482,8 +538,20 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
       if (field === 'horasDia' || field === 'horasNoche') {
         norm[field] = rawToOACI(parseFloat(value) || 0);
       }
-      if (field === 'origenID' && !value) errs.push('Origen requerido');
-      if (field === 'destinoID' && !value) errs.push('Destino requerido');
+      if (field === 'origenID' || field === 'destinoID') {
+        const raw = String(value || '').trim();
+        const fieldLabel = field === 'origenID' ? 'Origen' : 'Destino';
+        if (!raw) {
+          errs.push(`${fieldLabel} requerido`);
+        } else {
+          const resolved = resolveAirportCode(raw);
+          if (!resolved) {
+            errs.push(`${fieldLabel} desconocido: "${raw}"`);
+          } else {
+            norm[field] = resolved;
+          }
+        }
+      }
       if (mode === 'tcp' && field === 'folio_rva' && !value) warns.push('FOLIO RVA vacío');
       const hDia = Number(norm.horasDia) || 0;
       const hNoche = Number(norm.horasNoche) || 0;

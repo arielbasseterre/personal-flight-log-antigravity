@@ -20,7 +20,66 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
+// --- Aeropuertos: fuente única = airports.csv (ANAC) ---
+let airportsCsvList: any[] | null = null;
 
+const parseAirportsCsvServer = (csvText: string) => {
+  const lines = csvText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length <= 1) return [];
+  const airports: any[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    if (parts.length < 2) continue;
+    const iata = parts[0]?.trim().replace(/^"|"$/g, '');
+    const icao = parts[1]?.trim().replace(/^"|"$/g, '');
+    const anac = parts[2]?.trim().replace(/^"|"$/g, '');
+    const name = parts[3]?.trim().replace(/^"|"$/g, '');
+    const city = parts[4]?.trim().replace(/^"|"$/g, '');
+    const cleanAnac = anac && anac !== 'N/A' && anac !== '' ? anac.toUpperCase() : null;
+    airports.push({
+      iata_code: iata?.toUpperCase(),
+      icao_code: icao?.toUpperCase(),
+      anac_code: cleanAnac,
+      key_code: cleanAnac || iata?.toUpperCase(),
+      name: name || '',
+      city: city || ''
+    });
+  }
+  return airports;
+};
+
+const ensureAirportsLoaded = async () => {
+  if (airportsCsvList) return;
+  try {
+    const csvText = await fs.readFile(path.join(process.cwd(), 'airports.csv'), 'utf-8');
+    airportsCsvList = parseAirportsCsvServer(csvText);
+  } catch (e: any) {
+    console.error("Error cargando airports.csv:", e.message);
+    airportsCsvList = [];
+  }
+};
+
+const normalizeAirportStr = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+const resolveAirportCodeServer = (value: string): string | null => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const c = raw.toUpperCase();
+  const list = airportsCsvList || [];
+  const byCode = list.find(a => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
+  if (byCode) return byCode.iata_code || byCode.key_code;
+  const rawNorm = normalizeAirportStr(raw);
+  if (rawNorm.length >= 3) {
+    const byName = list.find(a => {
+      const nameN = normalizeAirportStr(a.name);
+      const cityN = normalizeAirportStr(a.city);
+      return nameN === rawNorm || cityN === rawNorm || nameN.includes(rawNorm) || cityN.includes(rawNorm);
+    });
+    if (byName) return byName.iata_code || byName.key_code;
+  }
+  return null;
+};
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -414,7 +473,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "NQN": "NEU", "SAZN": "NEU", // Neuquén
               "TUC": "TUC", "SANT": "TUC", // Tucumán
               "USH": "USU", "SAWH": "USU", // Ushuaia
-              "FTE": "CAL", "SAWC": "CAL", // El Calafate
+              "FTE": "ECA", "SAWC": "ECA", "CAL": "ECA", // El Calafate
               "JUJ": "JUJ", "SASJ": "JUJ", // Jujuy
               "PSS": "POS", "SARP": "POS", // Posadas
               "CNQ": "CRR", "SARC": "CRR", // Corrientes
@@ -730,6 +789,32 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       console.log(`[SYNC_ANAC_TCP] Iniciando sincronización TCP con ${storageState ? 'sesión completa' : 'token simple'}`);
 
+      // Descubrir vueloTripulanteID del usuario desde sus vuelos existentes en ANAC
+      let tripulanteID = Number(req.body.vueloTripulanteID) || 0;
+      if (!tripulanteID) {
+        try {
+          const discoverUrl = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TM&sortField=fechaSalida&sortDirection=DESC&pageNumber=1&rowsPerPage=1&mostrarIngresados=true&solicitudFoliadoId=null`;
+          const discoverRes = await axios.get(discoverUrl, {
+            headers: {
+              "Cookie": cookieHeader,
+              "X-Requested-With": "XMLHttpRequest",
+              "Accept": "application/json, text/plain, */*",
+              "Origin": "https://cad.anac.gob.ar",
+              "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            timeout: 15000
+          });
+          const first = discoverRes.data?.dataSource?.[0];
+          if (first?.vueloTripulanteID) {
+            tripulanteID = first.vueloTripulanteID;
+            console.log(`[SYNC_ANAC_TCP] vueloTripulanteID descubierto: ${tripulanteID}`);
+          }
+        } catch (e) {
+          console.warn("[SYNC_ANAC_TCP] No se pudo descubrir vueloTripulanteID:", (e as any).message);
+        }
+      }
+
       const sortedLogs = [...logs].sort((a: any, b: any) => {
         return new Date(a.fechaHoraSalida || 0).getTime() - new Date(b.fechaHoraSalida || 0).getTime();
       });
@@ -749,7 +834,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "NQN": "NEU", "SAZN": "NEU",
               "TUC": "TUC", "SANT": "TUC",
               "USH": "USU", "SAWH": "USU",
-              "FTE": "CAL", "SAWC": "CAL",
+              "FTE": "ECA", "SAWC": "ECA", "CAL": "ECA",
               "JUJ": "JUJ", "SASJ": "JUJ",
               "PSS": "POS", "SARP": "POS",
               "CNQ": "CRR", "SARC": "CRR",
@@ -803,20 +888,22 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           const payload = {
             Discriminaciones: [],
             discriminaciones: [],
-            horasDia: String(parseFloat(log.horasDia || "0")),
-            horasNoche: String(parseFloat(log.horasNoche || "0")),
+            horasDia: parseFloat(log.horasDia || "0"),
+            horasNoche: parseFloat(log.horasNoche || "0"),
             cargoID: 5,
             origenID: oriID,
             destinoID: destID,
-            origenPersonalizado: "",
-            destinoPersonalizado: "",
+            origenPersonalizado: null,
+            destinoPersonalizado: null,
             fechaHoraSalida: dSalida.toISOString(),
             fechaHoraLlegada: dLlegada.toISOString(),
             aterrizajes: parseInt(log.aterrizajes || "1"),
-            autoridadCertificanteID: String(authId),
+            autoridadCertificanteID: parseInt(authId || "15"),
             observaciones: obs,
             matriculaAvion: log.matriculaAvion,
-            finalidadID: String(log.finalidadID || "79")
+            finalidadID: parseInt(log.finalidadID || "79"),
+            vueloTripulanteID: tripulanteID || 0,
+            vueloTripulanteIDs: null,
           };
 
           console.log("[SYNC_ANAC_TCP] Payload:", JSON.stringify(payload));
@@ -1818,8 +1905,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         if (diffDays > 365) errs.push('Fecha de salida fuera de rango (>1 año)');
       }
     } catch { errs.push('Fechas inválidas'); }
+    const resolvedOrigen = resolveAirportCodeServer(log.origenID);
+    const resolvedDest = resolveAirportCodeServer(log.destinoID);
+    if (log.origenID && !resolvedOrigen) errs.push(`Origen desconocido: "${log.origenID}"`);
+    if (log.destinoID && !resolvedDest) errs.push(`Destino desconocido: "${log.destinoID}"`);
     if (!log.origenID) errs.push('Origen requerido');
     if (!log.destinoID) errs.push('Destino requerido');
+    if (resolvedOrigen) log.origenID = resolvedOrigen;
+    if (resolvedDest) log.destinoID = resolvedDest;
     if (!log.matriculaAvion) errs.push('Matrícula requerida');
     const matriculaLetters = (log.matriculaAvion || '').replace(/[^a-zA-Z]/g, '');
     if (log.matriculaAvion && matriculaLetters.length !== 5)
@@ -1836,6 +1929,8 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       if (!user_id || !logs || !Array.isArray(logs)) {
         return res.status(400).json({ success: false, error: "user_id y logs son requeridos" });
       }
+
+      await ensureAirportsLoaded();
 
       // 1. Verificar suscripción de pago
       const { data: profile, error: profileError } = await supabase

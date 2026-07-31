@@ -39,7 +39,7 @@ export default async function handler(req: any, res: any) {
             "NQN": "NEU", "SAZN": "NEU",
             "TUC": "TUC", "SANT": "TUC",
             "USH": "USU", "SAWH": "USU",
-            "FTE": "CAL", "SAWC": "CAL",
+            "FTE": "ECA", "SAWC": "ECA", "CAL": "ECA",
             "JUJ": "JUJ", "SASJ": "JUJ",
             "PSS": "POS", "SARP": "POS",
             "CNQ": "CRR", "SARC": "CRR",

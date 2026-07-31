@@ -214,7 +214,7 @@ const parseAirportsCsv = (csvText: string) => {
 
 const localAirportsList = parseAirportsCsv(airportsCsvRaw);
 
-const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, placeholder }: any) => {
+const AirportAutocomplete = ({ id, value, onChange, IATA_LIST, placeholder }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -239,37 +239,20 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
     if (!search) return [];
     const lower = search.toLowerCase();
     const lowerNorm = normalizeStr(lower);
-    let allApts: any[] = localAirportsList;
-    if (dbAirports && dbAirports.length > 0) {
-      const localKeys = new Set(localAirportsList.map(a => a.key_code));
-      const dbAptsMerged = dbAirports.filter((apt: any) => !localKeys.has(apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code)).map((apt: any) => {
-        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
-        const uniqueCodes = Array.from(new Set(codes));
-        const raw = `${apt.name} ${uniqueCodes.join(' ')}`;
-        return { code: apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code, label: `${apt.name} (${uniqueCodes.join('/')})`, searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}` }
+    let allApts: any[] = localAirportsList.map(apt => {
+      const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
+      const uniqueCodes = Array.from(new Set(codes));
+      const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
+      return { code: apt.key_code, label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`, searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}` }
+    });
+    if (allApts.length === 0) {
+      allApts = IATA_LIST.map((apt: any) => {
+        const raw = `${apt.name} ${apt.iata}`;
+        return { code: apt.iata, label: `${apt.name} (${apt.iata})`, searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}` }
       });
-      allApts = [...localAirportsList.map(apt => {
-        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
-        const uniqueCodes = Array.from(new Set(codes));
-        const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
-        return { code: apt.key_code, label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`, searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}` }
-      }), ...dbAptsMerged];
-    } else {
-      allApts = localAirportsList.map(apt => {
-        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
-        const uniqueCodes = Array.from(new Set(codes));
-        const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
-        return { code: apt.key_code, label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`, searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}` }
-      });
-      if (allApts.length === 0) {
-        allApts = IATA_LIST.map((apt: any) => {
-          const raw = `${apt.name} ${apt.iata}`;
-          return { code: apt.iata, label: `${apt.name} (${apt.iata})`, searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}` }
-        });
-      }
     }
     return allApts.filter((a: any) => a.searchStr.includes(lower) || a.searchStr.includes(lowerNorm)).slice(0, 15);
-  }, [search, dbAirports, IATA_LIST]);
+  }, [search, IATA_LIST]);
 
   return (
     <div className="relative" ref={wrapperRef}>
@@ -309,15 +292,15 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
   );
 };
 
-const resolveToAnac = (code: string, dbAirports: any[]) => {
+const resolveToAnac = (code: string) => {
   const c = code.trim().toUpperCase();
   if (!c) return null;
   const local = localAirportsList.find(a => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
-  if (local) return local.key_code;
-  if (dbAirports) {
-    const db = dbAirports.find((a: any) => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
-    if (db) return db.key_code || db.anac_code || db.iata_code || db.icao_code;
-  }
+  if (local) return local.iata_code || local.key_code;
+  const localFound = Object.entries(IATA_AIRPORTS).find(([icao, info]) =>
+    icao.toUpperCase() === c || info.iata.toUpperCase() === c
+  );
+  if (localFound) return localFound[1].iata;
   return c;
 };
 
@@ -335,7 +318,6 @@ interface LibroTcpScreenProps {
 export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData, loading, userId, onGoToSuscripcion }: LibroTcpScreenProps) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [dbAirports, setDbAirports] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [anacToken, setAnacToken] = useState('');
   const [anacSession, setAnacSession] = useState<any>(null);
@@ -417,7 +399,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       }
 
       const ANAC_TO_IATA: Record<string, string> = {
-        "AER":"AEP","BAI":"BHI","BAR":"BRC","CAL":"FTE","CAT":"CTC",
+        "AER":"AEP","BAI":"BHI","BAR":"BRC","ECA":"FTE","CAT":"CTC",
         "CBA":"COR","CHA":"CPC","CRR":"CNQ","DOZ":"MDZ","ESQ":"EQS",
         "GAL":"RGL","GIC":"GPO","GRA":"RGA","IGU":"IGR","JUA":"UAQ",
         "LAR":"IRJ","MAD":"PMY","MAL":"LGS","MDP":"MDQ","NEU":"NQN",
@@ -430,7 +412,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         if (!code) return code;
         const c = code.trim().toUpperCase();
         if (ANAC_TO_IATA[c]) return ANAC_TO_IATA[c];
-        const found = dbAirports.find((a: any) =>
+        const found = localAirportsList.find((a: any) =>
           a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c
         );
         if (found?.iata_code) return found.iata_code;
@@ -571,10 +553,6 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
   }, [activeTab]);
 
   useEffect(() => {
-    fetchAirports();
-  }, []);
-
-  useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -584,23 +562,6 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
-
-  const fetchAirports = async () => {
-    try {
-      const cached = localStorage.getItem('airports_cache');
-      if (cached) {
-        try { setDbAirports(JSON.parse(cached)); } catch {}
-      }
-      if (!supabase) return;
-      const { data, error } = await supabase.from('airports').select('*');
-      if (!error && data && data.length > 0) {
-        setDbAirports(data);
-        localStorage.setItem('airports_cache', JSON.stringify(data));
-      }
-    } catch (e) {
-      console.error("Error fetching airports:", e);
-    }
-  };
 
   const calculateDecimalDuration = (dep: string | undefined, arr: string | undefined) => {
     if (!dep || !arr) return null;
@@ -661,8 +622,8 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         return;
       }
 
-      const resolvedOrigin = resolveToAnac(formData.origin_ad, dbAirports);
-      const resolvedDest = resolveToAnac(formData.destination_ad, dbAirports);
+      const resolvedOrigin = resolveToAnac(formData.origin_ad);
+      const resolvedDest = resolveToAnac(formData.destination_ad);
       if (!resolvedOrigin || !resolvedDest) {
         showAlert("Aeródromo Inválido", "No se pudo resolver el código del aeródromo.", 'warning');
         return;
@@ -820,8 +781,8 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         return;
       }
 
-      const resolvedOrigin = resolveToAnac(formData.origin_ad, dbAirports);
-      const resolvedDest = resolveToAnac(formData.destination_ad, dbAirports);
+      const resolvedOrigin = resolveToAnac(formData.origin_ad);
+      const resolvedDest = resolveToAnac(formData.destination_ad);
       if (!resolvedOrigin || !resolvedDest) {
         showAlert("Aeródromo Inválido", "No se pudo resolver el código del aeródromo.", 'warning');
         return;
@@ -1376,49 +1337,49 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         sheet.mergeCells('A2:B2');
         sheet.getCell('A2').value = `AÑO\n${pageYear}`;
         sheet.getCell('A2').font = { bold: true, size: 8 };
-        sheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        sheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         sheet.mergeCells('C2:F2');
         sheet.getCell('C2').value = 'ITINERARIO';
         sheet.getCell('C2').font = { bold: true, size: 8 };
-        sheet.getCell('C2').alignment = { horizontal: 'center', vertical: 'center' };
+        sheet.getCell('C2').alignment = { horizontal: 'center', vertical: 'middle' };
 
         sheet.mergeCells('G2:G3');
         sheet.getCell('G2').value = 'FINALIDAD DEL VUELO';
         sheet.getCell('G2').font = { bold: true, size: 7 };
-        sheet.getCell('G2').alignment = { horizontal: 'center', vertical: 'center', wrapText: true, textRotation: 90 };
+        sheet.getCell('G2').alignment = { horizontal: 'center', vertical: 'middle', wrapText: true, textRotation: 90 };
 
         sheet.mergeCells('H2:J2');
         sheet.getCell('H2').value = 'AERONAVES UTILIZADAS';
         sheet.getCell('H2').font = { bold: true, size: 8 };
-        sheet.getCell('H2').alignment = { horizontal: 'center', vertical: 'center' };
+        sheet.getCell('H2').alignment = { horizontal: 'center', vertical: 'middle' };
 
         sheet.mergeCells('K2:L2');
         sheet.getCell('K2').value = 'TIEMPOS DE VUELO';
         sheet.getCell('K2').font = { bold: true, size: 8 };
-        sheet.getCell('K2').alignment = { horizontal: 'center', vertical: 'center' };
+        sheet.getCell('K2').alignment = { horizontal: 'center', vertical: 'middle' };
 
         sheet.mergeCells('M2:M3');
         sheet.getCell('M2').value = 'ATERRIZAJES';
         sheet.getCell('M2').font = { bold: true, size: 7 };
-        sheet.getCell('M2').alignment = { horizontal: 'center', vertical: 'center', wrapText: true, textRotation: 90 };
+        sheet.getCell('M2').alignment = { horizontal: 'center', vertical: 'middle', wrapText: true, textRotation: 90 };
 
         sheet.mergeCells('N2:O2');
         sheet.getCell('N2').value = 'DISCRIMINACION DE TIEMPOS DE VUELO';
         sheet.getCell('N2').font = { bold: true, size: 7 };
-        sheet.getCell('N2').alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        sheet.getCell('N2').alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         sheet.mergeCells('P2:P3');
         sheet.getCell('P2').value = 'CERTIFICACIONES';
         sheet.getCell('P2').font = { bold: true, size: 7 };
-        sheet.getCell('P2').alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+        sheet.getCell('P2').alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         // Unified row 2 borders: medium top edge-to-edge, thin sides/bottom
         for (let c = 1; c <= 16; c++) {
           const cell = sheet.getCell(2, c);
           cell.border = {
-            left: { style: c === 1 || c === 7 || c === 13 ? 'medium' : c === 3 || c === 8 || c === 11 || c === 14 ? 'thin' : '' },
-            right: { style: c === 2 || c === 7 || c === 10 || c === 12 || c === 13 || c === 15 || c === 16 ? 'medium' : c === 6 || c === 11 ? 'thin' : '' },
+            left: { style: c === 1 || c === 7 || c === 13 ? 'medium' : c === 3 || c === 8 || c === 11 || c === 14 ? 'thin' : undefined },
+            right: { style: c === 2 || c === 7 || c === 10 || c === 12 || c === 13 || c === 15 || c === 16 ? 'medium' : c === 6 || c === 11 ? 'thin' : undefined },
             top: { style: 'medium' },
             bottom: { style: c === 7 || c === 13 || c === 16 ? 'medium' : 'thin' },
           };
@@ -1446,7 +1407,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           const cell = sheet.getCell(3, col);
           cell.value = label;
           cell.font = { bold: true, size: 7 };
-          cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         });
 
         // Apply row 3 borders
@@ -1455,7 +1416,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           const isMed = medRight(c);
           cell.border = {
             left: { style: c === 1 ? 'medium' : c === 7 || c === 13 ? 'medium' : 'thin' },
-            right: { style: isMed ? 'medium' : c === 6 || c === 7 || c === 13 || c === 16 ? '' : 'thin' },
+            right: { style: isMed ? 'medium' : c === 6 || c === 7 || c === 13 || c === 16 ? undefined : 'thin' },
             top: { style: 'thin' },
             bottom: { style: 'medium' },
           };
@@ -1463,7 +1424,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
 
         // Ensure all row 3 cells have vertical center alignment
         for (let c = 1; c <= 16; c++) {
-          sheet.getCell(3, c).alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+          sheet.getCell(3, c).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         }
 
         // Data start position
@@ -1478,7 +1439,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           const c = sheet.getCell(r, 1);
           c.value = `TOTALES PAGINA ANTERIOR -------------------------------------------------------------------------------->`;
           c.font = { bold: true, size: 7 };
-          c.alignment = { horizontal: 'right', vertical: 'center' };
+          c.alignment = { horizontal: 'right', vertical: 'middle' };
           sheet.getCell(r, 11).value = parseFloat(anterior.dia.toFixed(1));
           sheet.getCell(r, 12).value = parseFloat(anterior.noche.toFixed(1));
           sheet.getCell(r, 13).value = anterior.landings;
@@ -1521,11 +1482,11 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
             const cell = sheet.getCell(r, c + 1);
             cell.value = val;
             cell.font = { size: 7 };
-            cell.alignment = { horizontal: 'center', vertical: 'center' };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
             const isFirstDataRow = r === dataOffset;
             cell.border = {
               left: { style: c + 1 === 1 ? 'medium' : c + 1 === 7 || c + 1 === 13 ? 'medium' : 'thin' },
-              right: { style: c + 1 === 6 ? '' : c + 1 === 16 ? 'medium' : medRight(c + 1) },
+              right: { style: c + 1 === 6 ? undefined : c + 1 === 16 ? 'medium' : medRight(c + 1) },
               top: { style: isFirstDataRow && c + 1 === 7 ? 'medium' : 'thin' },
               bottom: { style: 'thin' },
             };
@@ -1543,7 +1504,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
             cell.font = { size: 7 };
             cell.border = {
               left: { style: c === 1 ? 'medium' : c === 7 || c === 13 ? 'medium' : 'thin' },
-              right: { style: c === 6 ? '' : c === 16 ? 'medium' : medRight(c) },
+              right: { style: c === 6 ? undefined : c === 16 ? 'medium' : medRight(c) },
               top: { style: 'thin' },
               bottom: { style: isLastDataRow ? 'medium' : 'thin' },
             };
@@ -1557,7 +1518,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         const tc = sheet.getCell(totalR, 1);
         tc.value = `TOTAL HORAS DE VUELO A LA PAGINA SIGUIENTE >`;
         tc.font = { bold: true, size: 7 };
-        tc.alignment = { horizontal: 'center', vertical: 'center' };
+        tc.alignment = { horizontal: 'center', vertical: 'middle' };
 
         sheet.getCell(totalR, 11).value = parseFloat(siguiente.dia.toFixed(1));
         sheet.getCell(totalR, 12).value = parseFloat(siguiente.noche.toFixed(1));
@@ -1570,7 +1531,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         for (let c = 1; c <= 16; c++) {
           const cell = sheet.getCell(totalR, c);
           cell.font = { bold: true, size: 7 };
-          cell.alignment = { horizontal: 'center', vertical: 'center' };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
           cell.fill = totalFill;
           cell.border = {
             left: { style: 'thin' },
@@ -1841,11 +1802,11 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">ORIGEN</Label>
-                    <AirportAutocomplete id="origin_ad" value={formData.origin_ad} onChange={(v: string) => setFormData({ ...formData, origin_ad: v })} dbAirports={dbAirports} IATA_LIST={IATA_LIST} placeholder="Código aeropuerto" />
+                    <AirportAutocomplete id="origin_ad" value={formData.origin_ad} onChange={(v: string) => setFormData({ ...formData, origin_ad: v })} IATA_LIST={IATA_LIST} placeholder="Código aeropuerto" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">DESTINO</Label>
-                    <AirportAutocomplete id="destination_ad" value={formData.destination_ad} onChange={(v: string) => setFormData({ ...formData, destination_ad: v })} dbAirports={dbAirports} IATA_LIST={IATA_LIST} placeholder="Código aeropuerto" />
+                    <AirportAutocomplete id="destination_ad" value={formData.destination_ad} onChange={(v: string) => setFormData({ ...formData, destination_ad: v })} IATA_LIST={IATA_LIST} placeholder="Código aeropuerto" />
                   </div>
                 </div>
 

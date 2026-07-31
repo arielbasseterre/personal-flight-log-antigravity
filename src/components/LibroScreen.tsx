@@ -301,7 +301,7 @@ const parseAirportsCsv = (csvText: string) => {
 
 const localAirportsList = parseAirportsCsv(airportsCsvRaw);
 
-const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, placeholder }: any) => {
+const AirportAutocomplete = ({ id, value, onChange, IATA_LIST, placeholder }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -327,56 +327,29 @@ const AirportAutocomplete = ({ id, value, onChange, dbAirports, IATA_LIST, place
     const lower = search.toLowerCase();
     const lowerNorm = normalizeStr(lower);
     
-    let allApts: any[] = localAirportsList;
-    if (dbAirports && dbAirports.length > 0) {
-      // Merge dbAirports and localAirportsList, giving priority to local list for duplicates
-      const localKeys = new Set(localAirportsList.map(a => a.key_code));
-      const dbAptsMerged = dbAirports.filter((apt: any) => !localKeys.has(apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code)).map((apt: any) => {
-        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
-        const uniqueCodes = Array.from(new Set(codes));
-        const raw = `${apt.name} ${uniqueCodes.join(' ')}`;
-        return {
-          code: apt.key_code || apt.anac_code || apt.iata_code || apt.icao_code,
-          label: `${apt.name} (${uniqueCodes.join('/')})`,
-          searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
-        }
-      });
-      allApts = [...localAirportsList.map(apt => {
-        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
-        const uniqueCodes = Array.from(new Set(codes));
-        const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
-        return {
-          code: apt.key_code,
-          label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`,
-          searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
-        }
-      }), ...dbAptsMerged];
-    } else {
-      // Fallback if dbAirports is empty, use local list anyway
-      allApts = localAirportsList.map(apt => {
-        const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
-        const uniqueCodes = Array.from(new Set(codes));
-        const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
-        return {
-          code: apt.key_code,
-          label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`,
-          searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
-        }
-      });
-      if (allApts.length === 0) {
-        allApts = IATA_LIST.map((apt: any) => {
-          const raw = `${apt.name} ${apt.iata}`;
-          return {
-            code: apt.iata,
-            label: `${apt.name} (${apt.iata})`,
-            searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
-          }
-        });
+    let allApts: any[] = localAirportsList.map(apt => {
+      const codes = [apt.anac_code, apt.iata_code, apt.icao_code].filter(Boolean);
+      const uniqueCodes = Array.from(new Set(codes));
+      const raw = `${apt.city} ${apt.name} ${uniqueCodes.join(' ')}`;
+      return {
+        code: apt.key_code,
+        label: `${apt.city ? apt.city + ' - ' : ''}${apt.name} (${uniqueCodes.join('/')})`,
+        searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
       }
+    });
+    if (allApts.length === 0) {
+      allApts = IATA_LIST.map((apt: any) => {
+        const raw = `${apt.name} ${apt.iata}`;
+        return {
+          code: apt.iata,
+          label: `${apt.name} (${apt.iata})`,
+          searchStr: `${raw.toLowerCase()} ${normalizeStr(raw).toLowerCase()}`
+        }
+      });
     }
 
     return allApts.filter((a: any) => a.searchStr.includes(lower) || a.searchStr.includes(lowerNorm)).slice(0, 15);
-  }, [search, dbAirports, IATA_LIST]);
+  }, [search, IATA_LIST]);
 
   return (
     <div className="relative" ref={wrapperRef}>
@@ -427,7 +400,6 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     });
   }, [logs]);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [dbAirports, setDbAirports] = useState<any[]>([]);
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
     title: string;
@@ -637,41 +609,10 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
   }, [activeTab]);
 
   useEffect(() => {
-    fetchAirports();
     if (logs.length === 0 && !profile) {
       refreshData();
     }
   }, []);
-
-  const fetchAirports = async () => {
-    try {
-      // Intentar cargar desde caché interna primero
-      const cached = localStorage.getItem('airports_cache');
-      if (cached) {
-        try {
-          setDbAirports(JSON.parse(cached));
-        } catch (e) {
-          console.error("Error parsing cached airports", e);
-        }
-      }
-
-      if (!supabase) return;
-      
-      const { data, error } = await supabase.from('airports').select('*');
-      if (error) {
-        console.error("Supabase fetch airports error:", error);
-      }
-      if (!error && data && data.length > 0) {
-        setDbAirports(data);
-        // Actualizar la base de datos interna local
-        localStorage.setItem('airports_cache', JSON.stringify(data));
-      } else {
-        console.log("No airports found in DB or error. Using local list.", error);
-      }
-    } catch (err) {
-      console.error("Fetch airports error:", err);
-    }
-  };
 
   // Update profile whenever the tab changes to 'perfil'
   useEffect(() => {
@@ -707,41 +648,26 @@ export const LibroScreen = ({ logs, setLogs, profile, setProfile, refreshData, l
     formData.cross_country_day_copilot, formData.cross_country_night_copilot,
   ]);
 
-const resolveToAnac = (input: string | undefined, airports: any[]) => {
+const resolveToAnac = (input: string | undefined) => {
     if (!input) return '';
     const search = input.trim().toUpperCase();
     
-    // Fallback manual prioritario por seguridad
-    if (search === "AEP" || search === "SABE") return "AER";
-    if (search === "CNQ" || search === "SARC") return "CRR";
-    if (search === "BRC" || search === "SAZS") return "BAR";
-    if (search === "PSS" || search === "SARP") return "POS";
-    
-    // Look in dbAirports (Supabase)
-    const found = airports.find(a => 
+    // Look in local airport list (airports.csv) by any code
+    const found = localAirportsList.find(a => 
       (a.anac_code && a.anac_code.toUpperCase() === search) || 
       (a.key_code && a.key_code.toUpperCase() === search) || 
       (a.icao_code && a.icao_code.toUpperCase() === search) || 
       (a.iata_code && a.iata_code.toUpperCase() === search)
     );
     
-    if (found) return found.anac_code || found.key_code || found.iata_code || search;
+    if (found) return found.iata_code || found.key_code || search;
     
-    // Fallback to local IATA_AIRPORTS (mostly used for initial setup/demo)
+    // Fallback to local IATA_AIRPORTS (used for initial setup/demo)
     const localFound = Object.entries(IATA_AIRPORTS).find(([icao, info]) => 
       icao.toUpperCase() === search || info.iata.toUpperCase() === search
     );
     
-    if (localFound) {
-      const icao = localFound[0] as string;
-      const iata = localFound[1].iata;
-      if (iata === "AEP") return "AER";
-      if (iata === "CNQ") return "CRR";
-      if (iata === "BRC") return "BAR";
-      if (iata === "PSS") return "POS";
-      if (!icao.startsWith("SA")) return icao;
-      return iata;
-    }
+    if (localFound) return localFound[1].iata;
 
     return search;
   };
@@ -867,11 +793,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
     const mapAirportCode = (code: string) => {
       const c = (code || "").trim().toUpperCase();
       if (!c) return c;
-      if (c === "AEP" || c === "SABE") return "AER";
-      if (c === "CNQ" || c === "SARC") return "CRR";
-      if (c === "BRC" || c === "SAZS") return "BAR";
-      if (c === "PSS" || c === "SARP") return "POS";
-      const airport = dbAirports.find(a => 
+      const airport = localAirportsList.find(a => 
         (a.iata_code && a.iata_code.toUpperCase() === c) || 
         (a.icao_code && a.icao_code.toUpperCase() === c) || 
         (a.anac_code && a.anac_code.toUpperCase() === c) ||
@@ -884,10 +806,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       if (localFound) {
         const icao = localFound[0];
         const iata = localFound[1].iata;
-        if (iata === "AEP") return "AER";
-        if (iata === "CNQ") return "CRR";
-        if (iata === "BRC") return "BAR";
-        if (iata === "PSS") return "POS";
         if (!icao.startsWith("SA")) return icao.toUpperCase();
         return iata;
       }
@@ -1246,8 +1164,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       if (isSim) {
         flight_type_id = "3"; // Simulador
       } else {
-        const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
-        const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
+        const resolvedOriginCheck = resolveToAnac(formData.origin_ad);
+        const resolvedDestCheck = resolveToAnac(formData.destination_ad);
         if (resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck === resolvedDestCheck) {
           flight_type_id = "1"; // Local
         }
@@ -1288,8 +1206,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         return;
       }
 
-      const resolvedOrigin = isSim ? (formData.registration ? "SIM" : "") : resolveToAnac(formData.origin_ad, dbAirports);
-      const resolvedDest = isSim ? (formData.registration ? "SIM" : "") : resolveToAnac(formData.destination_ad, dbAirports);
+      const resolvedOrigin = isSim ? (formData.registration ? "SIM" : "") : resolveToAnac(formData.origin_ad);
+      const resolvedDest = isSim ? (formData.registration ? "SIM" : "") : resolveToAnac(formData.destination_ad);
       const crossesMidnight = (formData.arrival_time_utc || "") < (formData.departure_time_utc || "");
 
       const checkSalida = buildISO(formData.year!, formData.month!, formData.day!, formData.departure_time_utc!);
@@ -1724,7 +1642,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
       }
 
       const ANAC_TO_IATA: Record<string, string> = {
-        "AER":"AEP","BAI":"BHI","BAR":"BRC","CAL":"FTE","CAT":"CTC",
+        "AER":"AEP","BAI":"BHI","BAR":"BRC","ECA":"FTE","CAT":"CTC",
         "CBA":"COR","CHA":"CPC","CRR":"CNQ","DOZ":"MDZ","ESQ":"EQS",
         "GAL":"RGL","GIC":"GPO","GRA":"RGA","IGU":"IGR","JUA":"UAQ",
         "LAR":"IRJ","MAD":"PMY","MAL":"LGS","MDP":"MDQ","NEU":"NQN",
@@ -1737,7 +1655,7 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
         if (!code) return code;
         const c = code.trim().toUpperCase();
         if (ANAC_TO_IATA[c]) return ANAC_TO_IATA[c];
-        const found = dbAirports.find((a: any) =>
+        const found = localAirportsList.find((a: any) =>
           a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c
         );
         if (found?.iata_code) return found.iata_code;
@@ -2936,7 +2854,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         placeholder="Ej: AER o Ciudad"
                         value={formData.origin_ad || ''}
                         onChange={(val: string) => setFormData({...formData, origin_ad: val})}
-                        dbAirports={dbAirports}
                         IATA_LIST={IATA_LIST}
                       />
                     </div>
@@ -2947,7 +2864,6 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                         placeholder="Ej: EZE o Ciudad"
                         value={formData.destination_ad || ''}
                         onChange={(val: string) => setFormData({...formData, destination_ad: val})}
-                        dbAirports={dbAirports}
                         IATA_LIST={IATA_LIST}
                       />
                     </div>
@@ -3239,8 +3155,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     })()}
                     
                     {(() => {
-                      const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
-                      const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
+                      const resolvedOriginCheck = resolveToAnac(formData.origin_ad);
+                      const resolvedDestCheck = resolveToAnac(formData.destination_ad);
                       const isCrossCountry = resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck !== resolvedDestCheck;
                       return (
                         <div className={`space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg transition-all duration-300 ${isCrossCountry ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>
@@ -3313,8 +3229,8 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
                     })()}
 
                     {(() => {
-                      const resolvedOriginCheck = resolveToAnac(formData.origin_ad, dbAirports);
-                      const resolvedDestCheck = resolveToAnac(formData.destination_ad, dbAirports);
+                      const resolvedOriginCheck = resolveToAnac(formData.origin_ad);
+                      const resolvedDestCheck = resolveToAnac(formData.destination_ad);
                       const isLocal = resolvedOriginCheck && resolvedDestCheck && resolvedOriginCheck === resolvedDestCheck;
                       return (
                         <div className={`space-y-3 p-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg transition-all duration-300 ${isLocal ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}>

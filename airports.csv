@@ -9,7 +9,7 @@ SLA,SASA,SAL,Salta / Martín Miguel de Güemes,Salta
 NQN,SAZN,NEU,Neuquén / Presidente Perón,Neuquén
 TUC,SANT,TUC,Tucumán / Benjamín Matienzo,Tucumán
 USH,SAWH,USU,Ushuaia / Malvinas Argentinas,Ushuaia
-FTE,SAWC,CAL,El Calafate / Armando Tola,El Calafate
+FTE,SAWC,ECA,El Calafate / Armando Tola,El Calafate
 JUJ,SASJ,JUJ,Jujuy / Horacio Guzmán,San Salvador de Jujuy
 PSS,SARP,POS,Posadas / Libertador San Martín,Posadas
 CNQ,SARC,CRR,Corrientes / Piragine Niveyro,Corrientes
@@ -53,9 +53,9 @@ REC,SBRF,SBRF,Recife,Recife (Brasil)
 FOR,SBFZ,SBFZ,Fortaleza,Fortaleza (Brasil)
 LIM,SPJC,SPJC,Lima / Jorge Chávez,Lima (Perú)
 BOG,SKBO,SKBO,Bogotá / El Dorado,Bogotá (Colombia)
-UIO,SEQM,SQEM,Quito / Mariscal Sucre,Quito (Ecuador)
+UIO,SEQM,SEQM,Quito / Mariscal Sucre,Quito (Ecuador)
 PTY,MPTO,MPTO,Panamá / Tocumen,Panamá (Panamá)
-CUN,MMUN,MMUM,Cancún,Cancún (México)
+CUN,MMUN,MMUN,Cancún,Cancún (México)
 MEX,MMMX,MMMX,Ciudad de México,Ciudad de México (México)
 PUJ,MDPC,MDPC,Punta Cana,Punta Cana (Rep. Dominicana)
 HAV,MUHA,MUHA,La Habana / José Martí,La Habana (Cuba)
