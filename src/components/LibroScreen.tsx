@@ -3552,9 +3552,9 @@ const resolveToAnac = (input: string | undefined, airports: any[]) => {
           </TabsContent>
 
           <TabsContent value="history" className="m-0 space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">REGISTRO DE VUELOS</h3>
-              <div className="flex gap-2">
+            <div className="px-1 space-y-2">
+              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">REGISTRO DE VUELOS</h3>
+              <div className="flex justify-center gap-2">
                 {(() => {
                   const numPages = Math.ceil(logs.length / 15);
                   const startFolio = profile?.initial_folio_number || 1;

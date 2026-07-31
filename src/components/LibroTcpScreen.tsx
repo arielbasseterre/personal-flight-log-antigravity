@@ -1964,9 +1964,9 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           </TabsContent>
 
           <TabsContent value="historial">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">REGISTRO DE VUELOS TCP</h3>
-              <div className="flex gap-2">
+            <div className="px-1 space-y-2">
+              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">REGISTRO DE VUELOS TCP</h3>
+              <div className="flex justify-center gap-2">
                 <Button variant="outline" size="sm" className="h-8 gap-2 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
                   disabled={tcpLogs.length === 0}
                   onClick={async () => {

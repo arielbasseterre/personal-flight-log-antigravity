@@ -622,11 +622,6 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
               <div className="text-xs text-slate-500">
                 Archivo: <span className="font-medium text-slate-700 dark:text-slate-300">{fileName}</span>
                 {' · '}{rows.length} filas detectadas
-                {(() => {
-                  const firstWithDate = rows.find(r => r.normalized.fechaHoraSalida);
-                  const y = firstWithDate ? new Date(firstWithDate.normalized.fechaHoraSalida).getFullYear() : null;
-                  return y ? <span className="ml-2 text-blue-600 font-semibold">Año detectado: {y}</span> : null;
-                })()}
               </div>
 
               {/* Batch certifier form */}
@@ -715,6 +710,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                           />
                         </th>
                         <th className="p-2 text-left">Hoja</th>
+                        <th className="p-2 text-left">AÑO</th>
                         <th className="p-2 text-left">DIA</th>
                         <th className="p-2 text-left">MES</th>
                         <th className="p-2 text-left">H.SAL</th>
@@ -741,6 +737,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                               <input type="checkbox" checked={r.selected} disabled={hasErr} onChange={() => toggleRow(r.id)} />
                             </td>
                             <td className="p-2 text-slate-400">{r.sheetName}</td>
+                            <td className="p-2 font-mono text-slate-600">{d.getUTCFullYear()}</td>
                             <td className="p-2 font-mono">{String(d.getUTCDate()).padStart(2, '0')}</td>
                             <td className="p-2 font-mono">{String(d.getUTCMonth() + 1).padStart(2, '0')}</td>
                             <td className="p-2 font-mono">{d.toISOString().slice(11, 16)}</td>
