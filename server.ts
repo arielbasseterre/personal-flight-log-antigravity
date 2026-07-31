@@ -602,8 +602,43 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       }
 
       if (!hasAuthCookie) {
-        const portalError = await page.locator(".text-danger, .validation-summary-errors").first().innerText().catch(() => null);
-        throw new Error(portalError || "No se pudo detectar la sesión del portal. Verifica tus datos.");
+        // ── Diagnóstico ampliado: ver qué muestra ANAC para esta cuenta ──
+        let urlStr = '';
+        try { urlStr = page.url(); } catch {}
+        const portalErrors: string[] = [];
+        try {
+          const els = await page.locator(".text-danger, .validation-summary-errors li, .validation-summary-errors").all();
+          for (const el of els) {
+            const t = (await el.innerText().catch(() => '')).trim();
+            if (t) portalErrors.push(t);
+          }
+        } catch {}
+        let hasCaptcha = false;
+        let hasPasswordChange = false;
+        let hasSecurity = false;
+        try { hasCaptcha = await page.locator('iframe[src*="captcha"], .g-recaptcha, [id*="captcha"], [name*="captcha"]').count() > 0; } catch {}
+        try { hasPasswordChange = await page.locator('input#NewPassword, input#ConfirmPassword, [id*="newPassword"], [id*="new_password"], input#Password').count() >= 2; } catch {}
+        try { hasSecurity = await page.locator('[id*="security"], [id*="pregunta"], [id*="question"], [id*="desafio"], [id*="challenge"]').count() > 0; } catch {}
+        let screenshotB64 = '';
+        try { screenshotB64 = (await page.screenshot({ type: 'jpeg', quality: 50 })).toString('base64').substring(0, 500); } catch {}
+        const pageTitle = await page.title().catch(() => '');
+
+        console.error(`[AUTH_ANAC] Login fallido para CUIL: ${cuil}`);
+        console.error(`[AUTH_ANAC] URL post-submit: ${urlStr || '(vacía)'}`);
+        console.error(`[AUTH_ANAC] Título de página: ${pageTitle}`);
+        console.error(`[AUTH_ANAC] Mensajes de validación: ${JSON.stringify(portalErrors)}`);
+        console.error(`[AUTH_ANAC] Detección: captcha=${hasCaptcha} passwordChange=${hasPasswordChange} security=${hasSecurity}`);
+        console.error(`[AUTH_ANAC] Screenshot (truncado): ${screenshotB64}`);
+
+        const detailMsg = [
+          portalErrors.length ? `Mensajes ANAC: ${portalErrors.join(' | ')}` : 'Sin mensajes de validación en la página',
+          `URL: ${urlStr || '(vacía)'}`,
+          hasCaptcha ? 'SE DETECTÓ CAPTCHA' : '',
+          hasPasswordChange ? 'SE DETECTÓ FORMULARIO DE CAMBIO DE CONTRASEÑA' : '',
+          hasSecurity ? 'SE DETECTÓ PREGUNTA DE SEGURIDAD' : ''
+        ].filter(Boolean).join(' | ');
+
+        throw new Error(portalErrors[0] || `No se pudo detectar la sesión del portal. Verifica tus datos. [${detailMsg}]`);
       }
 
       console.log("[AUTH_ANAC] Login exitoso confirmado.");
