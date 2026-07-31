@@ -232,6 +232,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
           const text = row.map((c: any) => {
             if (!c) return '';
             if (typeof c === 'object' && c.richText) return c.richText.map((r: any) => r.text).join(' ').trim();
+            if (typeof c === 'object' && 'result' in c && c.result != null) return String(c.result).trim();
             return String(c).trim();
           });
 
