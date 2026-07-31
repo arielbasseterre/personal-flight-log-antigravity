@@ -1116,7 +1116,10 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           const remoteEnd = (remoteLog.fechaLlegada || "").substring(0, 16);
           const remoteMat = (remoteLog.matricula || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 
-          return localStart === remoteStart && localEnd === remoteEnd && localMat === remoteMat;
+          const matchTime = localStart === remoteStart && localEnd === remoteEnd;
+          const matchMat = localMat === remoteMat || !localMat || !remoteMat;
+
+          return matchTime && matchMat;
         });
         return !exists;
       } catch { return true; }
