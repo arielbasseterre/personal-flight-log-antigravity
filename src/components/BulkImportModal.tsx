@@ -621,6 +621,11 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
               <div className="text-xs text-slate-500">
                 Archivo: <span className="font-medium text-slate-700 dark:text-slate-300">{fileName}</span>
                 {' · '}{rows.length} filas detectadas
+                {(() => {
+                  const firstWithDate = rows.find(r => r.normalized.fechaHoraSalida);
+                  const y = firstWithDate ? new Date(firstWithDate.normalized.fechaHoraSalida).getFullYear() : null;
+                  return y ? <span className="ml-2 text-blue-600 font-semibold">Año detectado: {y}</span> : null;
+                })()}
               </div>
 
               {/* Batch certifier form */}
