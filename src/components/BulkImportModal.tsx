@@ -229,7 +229,11 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
         for (let ri = 0; ri < Math.min(5, allRows.length); ri++) {
           const row = allRows[ri];
-          const text = row.map((c: any) => String(c ?? '').trim());
+          const text = row.map((c: any) => {
+            if (!c) return '';
+            if (typeof c === 'object' && c.richText) return c.richText.map((r: any) => r.text).join(' ').trim();
+            return String(c).trim();
+          });
 
           // Check for year in this row (e.g. "AÑO\n2024" in merged cell)
           text.forEach(t => {
