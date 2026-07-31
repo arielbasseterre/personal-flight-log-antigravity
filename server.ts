@@ -20,6 +20,9 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
+// Diagnóstico de clock drift (ANAC rechaza con "ajusta la hora de su sistema" si el reloj está desviado)
+console.log("[SERVER] Hora del servidor:", new Date().toISOString(), "| TZ:", process.env.TZ || 'sistema');
+
 // --- Aeropuertos: fuente única = airports.csv (ANAC) ---
 let airportsCsvList: any[] | null = null;
 

@@ -21,9 +21,15 @@ ENV NODE_ENV=production
 # Compilar el frontend (React/Vite)
 RUN npm run build
 
+# Sincronizar el reloj al arrancar: ANAC rechaza con "ajusta la hora de su sistema"
+# cuando el reloj del contenedor está desviado (clock drift de Render).
+RUN apt-get update && apt-get install -y ntpdate tzdata
+
+# Zona horaria Argentina (ANAC valida hora local AR)
+ENV TZ=America/Argentina/Buenos_Aires
+
 # Exponer el puerto
 EXPOSE 3000
 
-# Arrancar la aplicación (usamos tsx para correr server.ts directamente en producción, o compilarlo)
-# Vite corre por defecto en el puerto 3000, nuestro express usa process.env.PORT || 3000
-CMD ["npx", "tsx", "server.ts"]
+# Arrancar la aplicación sincronizando el reloj (al inicio y cada hora) antes de servir
+CMD ["bash", "-c", "ntpdate -s pool.ntp.org || true; (while true; do sleep 3600; ntpdate -s pool.ntp.org || true; done) & npx tsx server.ts"]
