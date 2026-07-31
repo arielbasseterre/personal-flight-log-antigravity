@@ -171,6 +171,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
   const [result, setResult] = useState<ImportResult | null>(null);
   const [importError, setImportError] = useState('');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [certifierBatch, setCertifierBatch] = useState<{ autoridadCertificanteID: string; certifierName: string }>({
     autoridadCertificanteID: '',
     certifierName: '',
@@ -540,7 +541,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
     if (!isPaidSubscriber) { setShowUpgradeModal(true); return; }
 
     if (existingCount + selected.length > 500) {
-      alert("No podés superar los 500 registros. Primero restablecé los registros presionando el botón correspondiente en la parte inferior del historial. Recordá sincronizar previamente con ANAC, de lo contrario los registros se perderán al restablecer.");
+      setShowLimitModal(true);
       return;
     }
 
@@ -945,6 +946,36 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                   Adquirir Suscripción
                 </Button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showLimitModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLimitModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 p-6 text-center"
+            >
+              <div className="mx-auto w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-4">
+                <AlertTriangle size={28} className="text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Límite de registros</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                No podés superar los 500 registros. Primero restablecé los registros presionando el botón correspondiente en la parte inferior del historial. Recordá sincronizar previamente con ANAC, de lo contrario los registros se perderán al restablecer.
+              </p>
+              <Button className="w-full rounded-xl h-12 font-bold" onClick={() => setShowLimitModal(false)}>
+                Entendido
+              </Button>
             </motion.div>
           </div>
         )}
