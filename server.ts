@@ -505,7 +505,10 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       res.json({
         internet: "ok",
         googleStatus: google.status,
-        anacResolve
+        anacResolve,
+        serverTime: new Date().toISOString(),
+        serverTimeLocal: new Date().toString(),
+        tz: process.env.TZ || 'sistema'
       });
     } catch (error: any) {
       console.error("[TEST_CONNECTIVITY]", error.stack || error.message);
