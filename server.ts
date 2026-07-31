@@ -1929,13 +1929,17 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         .select('fechaHoraSalida, matriculaAvion, origenID, destinoID')
         .eq('user_id', user_id);
 
+      const normDate = (iso: string) => {
+        try { return new Date(iso).toISOString(); } catch { return iso; }
+      };
+
       const existingSet = new Set(
-        (existingLogs || []).map(l => `${l.fechaHoraSalida}|${l.matriculaAvion}|${l.origenID}|${l.destinoID}`)
+        (existingLogs || []).map(l => `${normDate(l.fechaHoraSalida)}|${l.matriculaAvion}|${l.origenID}|${l.destinoID}`)
       );
 
       const toInsert: any[] = [];
       validated.forEach((log, i) => {
-        const key = `${log.fechaHoraSalida}|${log.matriculaAvion}|${log.origenID}|${log.destinoID}`;
+        const key = `${normDate(log.fechaHoraSalida)}|${log.matriculaAvion}|${log.origenID}|${log.destinoID}`;
         if (existingSet.has(key)) {
           errors.push({ index: logs.indexOf(log), messages: ['Duplicado (misma fecha+matrícula+origen+destino)'] });
         } else {

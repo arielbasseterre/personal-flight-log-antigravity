@@ -427,11 +427,14 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
           setExistingCount(existingLogs?.length || 0);
 
           if (existingLogs && existingLogs.length > 0) {
+            const normDate = (iso: string) => {
+              try { return new Date(iso).toISOString(); } catch { return iso; }
+            };
             const existingSet = new Set(
-              existingLogs.map(l => `${l.fechaHoraSalida}|${l.matriculaAvion}|${l.origenID}|${l.destinoID}`)
+              existingLogs.map(l => `${normDate(l.fechaHoraSalida)}|${l.matriculaAvion}|${l.origenID}|${l.destinoID}`)
             );
             setRows(prev => prev.map(r => {
-              const key = `${r.normalized.fechaHoraSalida}|${r.normalized.matriculaAvion}|${r.normalized.origenID}|${r.normalized.destinoID}`;
+              const key = `${normDate(r.normalized.fechaHoraSalida)}|${r.normalized.matriculaAvion}|${r.normalized.origenID}|${r.normalized.destinoID}`;
               if (existingSet.has(key) && !r.errors.includes('Ya existe en la app')) {
                 return { ...r, errors: [...r.errors, 'Ya existe en la app'], selected: false };
               }
