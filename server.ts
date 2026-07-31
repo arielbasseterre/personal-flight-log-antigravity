@@ -81,6 +81,225 @@ const resolveAirportCodeServer = (value: string): string | null => {
   return null;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ANAC Edit: builders de payload para corregir vuelos ya existentes en ANAC
+// (copian fielmente los builders de los endpoints de Create, sin tocarlos)
+// ─────────────────────────────────────────────────────────────────────────────
+const ANAC_AIRPORT_MAPPINGS: Record<string, string> = {
+  "AEP": "AER", "SABE": "AER", // Aeroparque
+  "EZE": "EZE", "SAEZ": "EZE", // Ezeiza
+  "COR": "CBA", "SACO": "CBA", // Córdoba
+  "MDZ": "DOZ", "SAMM": "DOZ", // Mendoza
+  "BRC": "BAR", "SAZS": "BAR", // Bariloche
+  "IGR": "IGU", "SARI": "IGU", // Puerto Iguazú
+  "SLA": "SAL", "SASA": "SAL", // Salta
+  "NQN": "NEU", "SAZN": "NEU", // Neuquén
+  "TUC": "TUC", "SANT": "TUC", // Tucumán
+  "USH": "USU", "SAWH": "USU", // Ushuaia
+  "FTE": "ECA", "SAWC": "ECA", "CAL": "ECA", // El Calafate
+  "JUJ": "JUJ", "SASJ": "JUJ", // Jujuy
+  "PSS": "POS", "SARP": "POS", // Posadas
+  "CNQ": "CRR", "SARC": "CRR", // Corrientes
+  "RES": "SIS", "SARE": "SIS", // Resistencia
+  "UAQ": "JUA", "SANU": "JUA", // San Juan
+  "LUQ": "UIS", "SAOU": "UIS", // San Luis
+  "CTC": "CAT", "SANC": "CAT", // Catamarca
+  "IRJ": "LAR", "SANL": "LAR", // La Rioja
+  "SFN": "SVO", "SAAV": "SVO", // Santa Fe
+  "PRA": "PAR", "SAAP": "PAR", // Paraná
+  "ROS": "ROS", "SAAR": "ROS", // Rosario
+  "VDM": "VIE", "SAVN": "VIE", // Viedma
+  "BHI": "BAI", "SAZB": "BAI", // Bahía Blanca
+  "MDQ": "MDP", "SAZM": "MDP", // Mar del Plata
+  "REL": "TRW", "SAVT": "TRW", // Trelew
+  "PMY": "MAD", "SAVY": "MAD", // Puerto Madryn
+  "CRV": "CRV", "SAVC": "CRV", // Comodoro Rivadavia
+  "RGL": "GAL", "SAWG": "GAL", // Río Gallegos
+  "RGA": "GRA", "SAWE": "GRA", // Río Grande
+  "CPC": "CHA", "SAZY": "CHA", // Chapelco / San Martín de los Andes
+  "EQS": "ESQ", "SAVV": "ESQ", // Esquel
+  "LGS": "MAL", "SAMO": "MAL", // Malargüe
+  "AFA": "SRA", "SAMR": "SRA", // San Rafael
+  "RSA": "OSA", "SAWR": "OSA", // Santa Rosa
+  // Internacionales → OACI (código 4 letras)
+  "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
+  "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
+  "SSA": "SBSV", "MCZ": "SBMO", "REC": "SBRF", "FOR": "SBFZ",
+  "LIM": "SPJC", "BOG": "SKBO", "UIO": "SEQM", "PTY": "MPTO",
+  "CUN": "MMUN", "MEX": "MMMX", "PUJ": "MDPC", "HAV": "MUHA",
+  "MIA": "KMIA", "JFK": "KJFK", "MAD": "LEMD", "FCO": "LIRF",
+};
+
+const mapAnacAirportCode = (code: string) => {
+  const c = (code || "").trim().toUpperCase();
+  return ANAC_AIRPORT_MAPPINGS[c] || c;
+};
+
+const buildAnacTcpPayload = (log: any) => {
+  const oriID = mapAnacAirportCode(String(log.origenID || ""));
+  const destID = mapAnacAirportCode(String(log.destinoID || ""));
+  let obs = log.observaciones || "";
+  let authId = String(log.autoridadCertificanteID || "15");
+  if (authId && isNaN(Number(authId))) {
+    obs = authId + (obs ? " - " + obs : "");
+    authId = "15";
+  }
+  const dSalida = new Date(log.fechaHoraSalida);
+  const dLlegada = new Date(log.fechaHoraLlegada);
+  if (dLlegada < dSalida) {
+    dLlegada.setDate(dLlegada.getDate() + 1);
+  }
+  return {
+    Discriminaciones: [],
+    discriminaciones: [],
+    horasDia: parseFloat(log.horasDia || "0"),
+    horasNoche: parseFloat(log.horasNoche || "0"),
+    cargoID: 5,
+    origenID: oriID,
+    destinoID: destID,
+    origenPersonalizado: null,
+    destinoPersonalizado: null,
+    fechaHoraSalida: dSalida.toISOString(),
+    fechaHoraLlegada: dLlegada.toISOString(),
+    aterrizajes: parseInt(log.aterrizajes || "1"),
+    autoridadCertificanteID: parseInt(authId || "15"),
+    observaciones: obs,
+    matriculaAvion: log.matriculaAvion,
+    finalidadID: parseInt(log.finalidadID || "79"),
+    vueloTripulanteID: 0,
+    vueloTripulanteIDs: null,
+  };
+};
+
+const buildAnacPilotPayload = (log: any) => {
+  let authId = String(log.autoridadCertificanteID || "15");
+  let obs = log.observaciones || "";
+  if (authId && isNaN(Number(authId))) {
+    obs = authId + (obs ? " - " + obs : "");
+    authId = "15";
+  }
+  const oriID = mapAnacAirportCode(String(log.origenID || ""));
+  const destID = mapAnacAirportCode(String(log.destinoID || ""));
+
+  const formatHours = (val: any) => {
+    const num = parseFloat(val || "0");
+    return String(num.toFixed(1));
+  };
+  const discriminaciones: any[] = [];
+  const ifrRealTotal = parseFloat(String(log.ifr_real_pilot || "0")) + parseFloat(String(log.ifr_real_copilot || "0"));
+  if (parseFloat(String(log.instruccion || "0")) > 0) {
+    discriminaciones.push({ tipoDiscriminacionID: 1, horas: formatHours(log.instruccion) });
+  }
+  if (parseFloat(String(log.multi_engine || "0")) > 0) {
+    discriminaciones.push({ tipoDiscriminacionID: 2, horas: formatHours(log.multi_engine) });
+  }
+  if (parseFloat(String(log.jet || "0")) > 0) {
+    discriminaciones.push({ tipoDiscriminacionID: 3, horas: formatHours(log.jet) });
+  }
+  if (ifrRealTotal > 0) {
+    discriminaciones.push({ tipoDiscriminacionID: 6, horas: formatHours(ifrRealTotal) });
+  }
+  const uniqueDiscriminaciones = Array.from(
+    discriminaciones.reduce((map: any, item: any) => {
+      map.set(item.tipoDiscriminacionID, item);
+      return map;
+    }, new Map()).values()
+  ).sort((a: any, b: any) => a.tipoDiscriminacionID - b.tipoDiscriminacionID);
+
+  let finalCargoID = "1";
+  const copilotHours = (parseFloat(String(log.cross_country_day_copilot || "0")) +
+    parseFloat(String(log.cross_country_night_copilot || "0")) +
+    parseFloat(String(log.airfield_day_copilot || "0")) +
+    parseFloat(String(log.airfield_night_copilot || "0")));
+  if (copilotHours > 0) {
+    finalCargoID = "2";
+  } else {
+    finalCargoID = "1";
+  }
+
+  const offsetHours = 0;
+  const adjustDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    d.setHours(d.getHours() + offsetHours);
+    return d;
+  };
+  const dSalida = adjustDate(log.fechaHoraSalida);
+  const dLlegada = adjustDate(log.fechaHoraLlegada);
+  if (dLlegada < dSalida) {
+    dLlegada.setDate(dLlegada.getDate() + 1);
+  }
+
+  const isSimLog = String(log.tipoVueloID) === "3";
+
+  if (isSimLog) {
+    return {
+      Discriminaciones: [],
+      discriminaciones: [],
+      horasDia: 0,
+      horasNoche: 0,
+      tipoVueloID: "3",
+      fechaHoraSalida: dSalida.toISOString(),
+      fechaHoraLlegada: dLlegada.toISOString(),
+      aterrizajes: 0,
+      autoridadCertificanteID: String(authId || "5"),
+      observaciones: obs,
+      finalidadID: String(log.finalidadID || "63"),
+      potencia: "",
+      clase: log.clase || "D",
+      cargoID: String(log.cargoID || "6"),
+      simulador: {
+        simuladorID: String(log.matriculaAvion || "86"),
+        nombre: log.Marca_Modelo || "",
+        modeloID: "",
+        modelo: ""
+      }
+    };
+  }
+
+  return {
+    Discriminaciones: uniqueDiscriminaciones,
+    aterrizajes: parseInt(log.aterrizajes || "1"),
+    autoridadCertificanteID: parseInt(authId || "15"),
+    cargoID: parseInt(finalCargoID),
+    clase: log.clase || "MULT-T",
+    destinoID: destID,
+    destinoPersonalizado: "",
+    discriminaciones: [],
+    fechaHoraLlegada: dLlegada.toISOString(),
+    fechaHoraSalida: dSalida.toISOString(),
+    finalidadID: parseInt(log.finalidadID || "79"),
+    horasDia: parseFloat(log.horasDia || "0"),
+    horasNoche: parseFloat(log.horasNoche || "0"),
+    marcaModeloID: 302371,
+    matriculaAvion: log.matriculaAvion,
+    observaciones: obs,
+    origenID: oriID,
+    origenPersonalizado: "",
+    potencia: parseInt(log.potencia || "26000"),
+    tipoVueloID: parseInt(log.tipoVueloID || "2"),
+    vueloTripulanteID: 0,
+    vueloTripulanteIDs: null
+  };
+};
+
+// Persistir el ID de ANAC en flight_logs (best-effort, nunca bloquea el envío).
+// IMPORTANTE: ANAC implementa el "Edit" como borrar el registro viejo y crear uno NUEVO
+// con otro vueloTripulanteID → siempre persistir el ID que devuelve ANAC en la respuesta.
+const persistAnacVueloId = async (logId: string, anacResponseData: any): Promise<number | null> => {
+  if (!logId) return null;
+  let id: number | null = null;
+  if (anacResponseData) {
+    const raw = anacResponseData?.vueloTripulanteID ?? anacResponseData?.vueloTripulanteId ?? anacResponseData?.id ?? anacResponseData?.vueloID;
+    const n = Number(raw);
+    if (Number.isInteger(n) && n > 0) id = n;
+  }
+  if (!id) return null;
+  try {
+    await supabase.from('flight_logs').update({ anac_vuelo_id: id }).eq('id', logId);
+  } catch {}
+  return id;
+};
+
 const app = express();
 app.use(express.json({ limit: '5mb' }));
 
@@ -680,6 +899,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           }
 
           results.push({ id: log.id, status: "success", data: anacResponse.data });
+          await persistAnacVueloId(log.id, anacResponse.data);
 
           // Security Delay (2 seconds)
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -694,6 +914,77 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       res.json({ results });
     } catch (error: any) {
       console.error("Sync error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ANAC Edit API (pilotos): corregir un vuelo ya existente en ANAC ---
+  app.post("/api/edit-anac", async (req, res) => {
+    const { anac_token, storageState, edits } = req.body;
+    if ((!anac_token && !storageState) || !edits || !Array.isArray(edits) || edits.length === 0) {
+      return res.status(400).json({ error: "anac_token/sesión y edits son requeridos" });
+    }
+    try {
+      let cookieHeader = "";
+      if (storageState && storageState.cookies) {
+        cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      } else {
+        cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
+      }
+
+      const results: any[] = [];
+      for (const edit of edits) {
+        const { log, vueloTripulanteID } = edit;
+        try {
+          const payload = buildAnacPilotPayload(log);
+          payload.vueloTripulanteID = Number(vueloTripulanteID) || 0;
+          console.log("[SYNC_ANAC_EDIT] Payload:", JSON.stringify(payload));
+
+          let anacResponse;
+          try {
+            anacResponse = await axios.put("https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/Edit", payload, {
+              headers: {
+                "Cookie": cookieHeader,
+                "Content-Type": "application/json; charset=utf-8",
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "application/json, text/plain, */*",
+                "Origin": "https://cad.anac.gob.ar",
+                "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Edit",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              },
+              timeout: 15000
+            });
+          } catch (err: any) {
+            if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+              anacResponse = await axios.put("https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/Edit", payload, {
+                headers: {
+                  "Cookie": cookieHeader,
+                  "Content-Type": "application/json; charset=utf-8",
+                  "X-Requested-With": "XMLHttpRequest",
+                  "Origin": "https://cadam.anac.gob.ar",
+                  "Referer": "https://cadam.anac.gob.ar/Cadam/VueloTripulante/Edit",
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"
+                },
+                timeout: 15000
+              });
+            } else {
+              throw err;
+            }
+          }
+
+          const newVueloId = await persistAnacVueloId(log.id, anacResponse.data);
+          results.push({ id: log.id, status: "success", data: anacResponse.data, newVueloTripulanteID: newVueloId });
+          console.log("[EDIT_ANAC] Response:", anacResponse.status, JSON.stringify(anacResponse.data).substring(0, 500));
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (itemError: any) {
+          console.error("[EDIT_ANAC] Error:", itemError.response?.status, itemError.response?.data || itemError.message);
+          results.push({ id: log.id, status: "error", error: itemError.response?.data || itemError.message });
+        }
+      }
+
+      res.json({ results });
+    } catch (error: any) {
+      console.error("[EDIT_ANAC] Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -949,6 +1240,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           }
 
           results.push({ id: log.id, status: "success", data: anacResponse.data });
+          await persistAnacVueloId(log.id, anacResponse.data);
           await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (itemError: any) {
           results.push({ id: log.id, status: "error", error: itemError.response?.data || itemError.message });
@@ -957,6 +1249,127 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       res.json({ results });
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ANAC Edit API (TCP): corregir un vuelo ya existente en ANAC ---
+  app.post("/api/edit-anac-tcp", async (req, res) => {
+    const { anac_token, storageState, edits } = req.body;
+    if ((!anac_token && !storageState) || !edits || !Array.isArray(edits) || edits.length === 0) {
+      return res.status(400).json({ error: "anac_token/sesión y edits son requeridos" });
+    }
+    try {
+      let cookieHeader = "";
+      if (storageState && storageState.cookies) {
+        cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      } else {
+        cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
+      }
+
+      const results: any[] = [];
+      for (const edit of edits) {
+        const { log, vueloTripulanteID } = edit;
+        try {
+          const payload = buildAnacTcpPayload(log);
+          payload.vueloTripulanteID = Number(vueloTripulanteID) || 0;
+          console.log("[SYNC_ANAC_TCP_EDIT] Payload:", JSON.stringify(payload));
+
+          let anacResponse;
+          try {
+            anacResponse = await axios.put("https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/Edit", payload, {
+              headers: {
+                "Cookie": cookieHeader,
+                "Content-Type": "application/json; charset=utf-8",
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "application/json, text/plain, */*",
+                "Origin": "https://cad.anac.gob.ar",
+                "Referer": "https://cad.anac.gob.ar/vuelotripulantetcp/edit",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+              },
+              timeout: 15000
+            });
+          } catch (err: any) {
+            if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+              anacResponse = await axios.put("https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/Edit", payload, {
+                headers: {
+                  "Cookie": cookieHeader,
+                  "Content-Type": "application/json; charset=utf-8",
+                  "X-Requested-With": "XMLHttpRequest",
+                  "Origin": "https://cadam.anac.gob.ar",
+                  "Referer": "https://cadam.anac.gob.ar/Cadam/vuelotripulantetcp/edit",
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/150.0.0.0 Safari/537.36"
+                },
+                timeout: 15000
+              });
+            } else {
+              throw err;
+            }
+          }
+
+          const newVueloId = await persistAnacVueloId(log.id, anacResponse.data);
+          results.push({ id: log.id, status: "success", data: anacResponse.data, newVueloTripulanteID: newVueloId });
+          console.log("[EDIT_ANAC_TCP] Response:", anacResponse.status, JSON.stringify(anacResponse.data).substring(0, 500));
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (itemError: any) {
+          console.error("[EDIT_ANAC_TCP] Error:", itemError.response?.status, itemError.response?.data || itemError.message);
+          results.push({ id: log.id, status: "error", error: itemError.response?.data || itemError.message });
+        }
+      }
+
+      res.json({ results });
+    } catch (error: any) {
+      console.error("[EDIT_ANAC_TCP] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- ANAC Get Log Detail API: GetPagedList no expone horas/observaciones/autoridad.
+  // El detalle (Get?id=) sí los incluye → se usa para la comparación de cambios.
+  app.post("/api/get-anac-log-detail", async (req, res) => {
+    const { anac_token, storageState, vueloTripulanteID } = req.body;
+    if ((!anac_token && !storageState) || !vueloTripulanteID) {
+      return res.status(400).json({ error: "anac_token/sesión y vueloTripulanteID son requeridos" });
+    }
+    try {
+      let cookieHeader = "";
+      if (storageState && storageState.cookies) {
+        cookieHeader = storageState.cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
+      } else {
+        cookieHeader = anac_token.includes("=") ? anac_token : `Auth.ANAC.localhost=${anac_token}`;
+      }
+
+      let anacResponse;
+      try {
+        anacResponse = await axios.get(`https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/Get?id=${vueloTripulanteID}`, {
+          headers: {
+            "Cookie": cookieHeader,
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json, text/plain, */*",
+            "Origin": "https://cad.anac.gob.ar",
+            "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+          },
+          timeout: 15000
+        });
+      } catch (err: any) {
+        if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+          anacResponse = await axios.get(`https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/Get?id=${vueloTripulanteID}`, {
+            headers: {
+              "Cookie": cookieHeader,
+              "X-Requested-With": "XMLHttpRequest",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/150.0.0.0 Safari/537.36"
+            },
+            timeout: 15000
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      res.json(anacResponse.data);
+    } catch (error: any) {
+      console.error("[GET_ANAC_LOG_DETAIL] Error:", error);
       res.status(500).json({ error: error.message });
     }
   });

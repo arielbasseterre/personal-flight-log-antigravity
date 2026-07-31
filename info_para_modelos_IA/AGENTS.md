@@ -13,7 +13,7 @@
 
 ## Estructura raíz
 ```
-server.ts              → Servidor Express (~2899 líneas V2 y V1)
+server.ts              → Servidor Express (~3326 líneas V2 y V1)
 src/App.tsx            → Componente principal (navegación por estado)
 src/components/        → 12 screens (V2) / 8 screens (V1)
 api/arms-scraper.ts    → Scraper ARMS (Playwright)
@@ -41,6 +41,17 @@ Dockerfile             → mcr.microsoft.com/playwright:v1.59.1-jammy
 - `ANAC_TO_IATA` (import de roster): `ECA→FTE` (se eliminó `CAL→FTE`).
 - **Código canónico guardado = IATA** (`resolveToAnac` en LibroScreen/LibroTcpScreen devuelve `iata_code`; FTE queda FTE). La conversión a código ANAC ocurre SOLO en el sync (`mapAirportCode` en LibroScreen + `ANAC_MAPPINGS` en server).
 - **Validación en import masivo**: `BulkImportModal.tsx` y `validateImportLog` (server.ts) normalizan origen/destino → IATA matcheando por IATA/OACI/ANAC/nombre/ciudad (sin acentos). Si no resuelve → error `Origen desconocido: "X"` / `Destino desconocido: "X"` y la fila queda deseleccionada. El server lee `airports.csv` con `fs/promises` (caché en `airportsCsvList`, se carga con `ensureAirportsLoaded()`).
+
+## Sync ANAC — Edición de vuelos (detalles críticos)
+- **Columna `flight_logs.anac_vuelo_id` (BIGINT)**: `vueloTripulanteID` vigente de ANAC por vuelo. Es la clave anti-duplicados.
+- **ANAC "Edit" = borrar + crear** (ID nuevo cada vez) y responde solo `true` → tras un Edit hay que **re-resolver el ID** (client post-sync: match fecha+matrícula+ruta contra `GetPagedList`) y persistirlo.
+- **Endpoints nuevos**: `POST /api/edit-anac` y `/api/edit-anac-tcp` (usan **`axios.put`** a `VueloTripulante/Edit` — POST da "The requested resource does not support http method 'POST'"; fallback `cadam.anac.gob.ar/Cadam/api/VueloTripulante/Edit`); `POST /api/get-anac-log-detail` (GET `VueloTripulante/Get?id=X`).
+- **`GetPagedList` NO expone `horasDia/Noche`, `observaciones`, `autoridadCertificante`** (undefined) → esos campos se comparan con el **detalle `Get?id=`** (concurrencia 5, `mergeAnacDetail`). Solo se pide el detalle para vuelos matcheados que el listado no marcó.
+- **`listFlightDiffs`**: horas/aterrizajes solo si ANAC trae valor (epsilon 0.01); fechas 16 chars; matrícula; ruta contra desc (trae el ICAO "SAZS" → `localAirportCodes` IATA/OACI/ANAC); observaciones (ambos no vacíos); clase/potencia (ambos con valor); autoridadCertificante (por `autoridadCertificanteID` del detalle, o rol reconocido — si ANAC devuelve persona, no marca); finalidad por nombre (siglas ≥3). **NUNCA comparar `marcaModelo`** (ANAC lo llena por su cuenta).
+- **TCP: NOMBRE CERTIFICANTE = `observaciones`** (`certifier_name` → `observaciones`); ROL (`certifier_role_id`) → `autoridadCertificanteID`.
+- **`handleSyncANAC`**: FASE 1 crea (lotes 50) → FASE 2 edita. Modal con "Nuevos (a crear)" + "Modificados (a actualizar)". Mensaje "X nuevos, Y actualizados, Z con error".
+- Comparación TCP anti-duplicados: match matrícula tolerante a vacío (igual que pilotos).
+- Aviso al editar: "Recuerda volver a sincronizar con ANAC para enviar los cambios realizados en este vuelo."
 
 ## Convenciones de código
 - **Navegación**: Sin router — estado `screen` en App.tsx + renderizado condicional
@@ -86,7 +97,7 @@ Si como modelo necesitás una key para proponer un cambio, indicá que el usuari
 
 ## TCP Flight Log (Tripulante de Cabina de Pasajeros)
 - `src/components/FlightLogTcpPDF.tsx` — PDF 16 col, A4 landscape, 15 reg/pág, paginación con acumulación
-- `src/components/LibroTcpScreen.tsx` — Full TCP screen (~2343 líneas): Excel, ANAC sync, historial, reset
+- `src/components/LibroTcpScreen.tsx` — Full TCP screen (~2749 líneas): Excel, ANAC sync, historial, reset
 - `LibroScreen.tsx` es referencia para lógica de sync ANAC y paginación
 - `rowsPerPage = 15`, `getCumulativeTotals(pageIndex)` para totales acumulados
 - Excel layout referenciado de `planilla modelo tcp.xlsx` (merged cells, row heights, borders, textRotation 90° solo FINALIDAD/ATERRIZAJES)
@@ -109,4 +120,8 @@ Si como modelo necesitás una key para proponer un cambio, indicá que el usuari
 10. **Matrícula**: estricto `XX-XXX` (5 letras) — validación en manual + import; normalización `LVKCE`→`LV-KCE`.
 11. **Suscripción**: `refreshSub` en App.tsx siempre fetchea sin caché; suscripción vencida → modal rojo estilizado.
 12. **Calendario ICS**: incluir `NAME:` (RFC 7986) además de `X-WR-CALNAME` (Google no muestra nombre sin NAME).
-13. **server.ts creció mucho**: ~2899 líneas — considerar dividir en módulos si sigue creciendo.
+13. **server.ts creció mucho**: ~3326 líneas — considerar dividir en módulos si sigue creciendo.
+14. **ANAC Edit = PUT**: `VueloTripulante/Edit` NO acepta POST ("does not support http method 'POST'"). Usar `axios.put` en `/api/edit-anac*`.
+15. **ANAC Edit borra+crea**: cada edit genera un `vueloTripulanteID` nuevo y responde `true` (sin ID). Tras sync, re-resolver el ID (fecha+matrícula+ruta) y persistirlo, o el vuelo vuelve a aparecer como "Modificados" (loop de re-ediciones).
+16. **`GetPagedList` omite horas/observaciones/autoridad**: para detectar cambios en esos campos usar `Get?id=` (detalle). `autoridadCertificante` del listado puede traer nombre de persona → comparar por `autoridadCertificanteID` del detalle.
+17. **Falsos positivos de comparación**: no comparar `marcaModelo` (ANAC lo llena); horas/aterrizajes solo si ANAC trae valor; siglas de finalidad cortas ("I") son substrings de todo → comparar por nombre con sigla ≥3.

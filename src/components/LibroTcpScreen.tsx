@@ -214,6 +214,226 @@ const parseAirportsCsv = (csvText: string) => {
 
 const localAirportsList = parseAirportsCsv(airportsCsvRaw);
 
+// ── Comparación local vs ANAC para detectar vuelos modificados ──
+const normalizeMatCompare = (m: any) => String(m || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+const normTxt = (s: any) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+
+const resolveAnacCode = (code: any) => {
+  const c = String(code || '').trim().toUpperCase();
+  if (!c) return '';
+  const found = localAirportsList.find(a => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
+  return found ? (found.anac_code || found.key_code || c) : c;
+};
+
+// Todos los códigos del aeropuerto local (IATA/OACI/ANAC) para matchear la descripción de ANAC
+const localAirportCodes = (code: any): string[] => {
+  const c = String(code || '').trim().toUpperCase();
+  if (!c) return [];
+  const found = localAirportsList.find(a => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
+  if (found) {
+    return Array.from(new Set([found.iata_code, found.icao_code, found.anac_code, found.key_code].filter(Boolean))) as string[];
+  }
+  return [c];
+};
+
+const descContainsAny = (desc: string, codes: string[]): boolean =>
+  codes.some(cd => cd && (desc || '').toUpperCase().includes(cd));
+
+// Si el desc de ANAC no contiene ningún código local, intentar resolverlo como un
+// aeropuerto conocido. Solo marca cambio si es un aeropuerto DISTINTO al local.
+const routeDiffers = (localRaw: any, localCodes: string[], anacDesc: any): boolean => {
+  if (!localCodes.length) return false;
+  if (descContainsAny(anacDesc, localCodes)) return false;
+  const d = (anacDesc || '').trim().toUpperCase();
+  if (!d) return false;
+  const resolved = localAirportsList.find(a =>
+    a.icao_code === d || a.iata_code === d || a.anac_code === d || a.key_code === d
+  );
+  if (!resolved) return false; // desc no reconocido → no se puede comparar → no marcar
+  const localRow = localAirportsList.find(a =>
+    localCodes.includes(a.iata_code as any) || localCodes.includes(a.icao_code as any) ||
+    localCodes.includes(a.anac_code as any) || localCodes.includes(a.key_code as any)
+  );
+  if (!localRow) return false;
+  return resolved.iata_code !== localRow.iata_code;
+};
+
+// Merge del detalle (Get?id=) sobre el log del listado (GetPagedList):
+// GetPagedList NO expone horas/observaciones/autoridad → los toma del detalle.
+const mergeAnacDetail = (listLog: any, detail: any): any => {
+  if (!detail) return listLog;
+  return {
+    ...listLog,
+    horasDia: detail.horasDia ?? listLog.horasDia,
+    horasNoche: detail.horasNoche ?? listLog.horasNoche,
+    observaciones: detail.observaciones ?? listLog.observaciones,
+    aterrizajes: detail.aterrizajes ?? listLog.aterrizajes,
+    autoridadCertificanteID: detail.autoridadCertificanteID ?? listLog.autoridadCertificanteID,
+    finalidad: detail.finalidad ?? listLog.finalidad,
+    clase: detail.clase ?? listLog.clase,
+    matricula: detail.matriculaAvion ?? listLog.matricula,
+    marcaModelo: detail.marcaModelo ?? listLog.marcaModelo,
+  };
+};
+
+const runConcurrent = async (items: any[], limit: number, fn: (item: any) => Promise<void>) => {
+  let idx = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (idx < items.length) {
+      const i = idx++;
+      try { await fn(items[i]); } catch {}
+    }
+  });
+  await Promise.all(workers);
+};
+
+const listFlightDiffs = (local: any, anac: any): string[] => {
+  const diffs: string[] = [];
+
+  // Campos núcleo: se comparan solo si ANAC los devuelve con valor (GetPagedList
+  // puede devolver null en horasDia/horasNoche/aterrizajes → no son comparables)
+  const anacHD = anac.horasDia;
+  if (anacHD != null && Math.abs(Number(local.horasDia || 0) - Number(anacHD)) > 0.01) diffs.push('horasDia');
+  const anacHN = anac.horasNoche;
+  if (anacHN != null && Math.abs(Number(local.horasNoche || 0) - Number(anacHN)) > 0.01) diffs.push('horasNoche');
+  if (anac.aterrizajes != null && Number(local.aterrizajes || 0) !== Number(anac.aterrizajes)) diffs.push('aterrizajes');
+
+  const localStart = new Date(local.fechaHoraSalida).toISOString().substring(0, 16);
+  const localEnd = new Date(local.fechaHoraLlegada).toISOString().substring(0, 16);
+  if (localStart !== (anac.fechaSalida || '').substring(0, 16)) diffs.push('fechaSalida');
+  if (localEnd !== (anac.fechaLlegada || '').substring(0, 16)) diffs.push('fechaLlegada');
+
+  if (normalizeMatCompare(local.matriculaAvion) !== normalizeMatCompare(anac.matricula)) diffs.push('matricula');
+
+  // ANAC devuelve la ruta como descripción (ej: "SAZS" o "SAZS - BRC - BAR (...)") →
+  // matchear contra CUALQUIER código del aeropuerto local (IATA/OACI/ANAC)
+  const localOrigenCodes = localAirportCodes(local.origenID || (local as any).origin_ad);
+  const localDestCodes = localAirportCodes(local.destinoID || (local as any).destination_ad);
+  if (routeDiffers(local.origenID || (local as any).origin_ad, localOrigenCodes, anac.origenDesc)) diffs.push('origen');
+  if (routeDiffers(local.destinoID || (local as any).destination_ad, localDestCodes, anac.destinoDesc)) diffs.push('destino');
+
+  // Campos opcionales: SOLO marcan si AMBOS lados tienen valor y difieren
+  // (GetPagedList puede no devolverlos → no generar falsos "modificados")
+  const locObs = normTxt(local.observaciones);
+  const anacObs = normTxt(anac.observaciones);
+  if (locObs && anacObs && locObs !== anacObs) diffs.push('observaciones');
+
+  // marcaModelo NO se compara: ANAC lo completa por su cuenta y puede diferir siempre
+
+  const locClase = normTxt(local.clase);
+  const anacClase = normTxt(anac.clase);
+  if (locClase && anacClase && locClase !== anacClase) diffs.push('clase');
+
+  const locPot = Number(local.potencia || 0);
+  const anacPot = Number(anac.potencia || 0);
+  if (locPot > 0 && anacPot > 0 && locPot !== anacPot) diffs.push('potencia');
+
+  // autoridadCertificante:
+  // - Si ANAC expone autoridadCertificanteID (del detalle Get?id=) → comparar el ID directo.
+  // - Si no, comparar por rol reconocido (nombre); si ANAC devuelve persona/otro texto → no marcar.
+  const localCertifierKey = String(local.autoridadCertificanteID);
+  if (anac.autoridadCertificanteID != null) {
+    if (String(anac.autoridadCertificanteID) !== localCertifierKey) {
+      diffs.push('autoridadCertificante');
+    }
+  } else {
+    const localCertifier = CERTIFIER_ROLES.find((r: any) => r.key === localCertifierKey);
+    const anacCertNorm = normTxt(anac.autoridadCertificante);
+    if (localCertifier && anacCertNorm) {
+      const matchedCertRole = CERTIFIER_ROLES.find((r: any) =>
+        anacCertNorm.includes(normTxt(r.value)) || anacCertNorm.includes(normTxt(r.key))
+      );
+      if (matchedCertRole && matchedCertRole.key !== localCertifierKey) {
+        diffs.push('autoridadCertificante');
+      }
+    }
+  }
+
+  // finalidad: comparar por NOMBRE completo; las siglas cortas (ej: "I" de INSTRUCTOR)
+  // causan falsos positivos porque son substrings de casi cualquier texto
+  const localFinalidad = FLIGHT_PURPOSES.find((p: any) => p.key === String(local.finalidadID));
+  const anacFinNorm = normTxt(anac.finalidad);
+  if (localFinalidad && anacFinNorm) {
+    const localFinName = normTxt(localFinalidad.value);
+    const localFinSigla = normTxt(localFinalidad.sigla);
+    const localFinKey = normTxt(localFinalidad.key);
+    const localFinMatches = anacFinNorm.includes(localFinName)
+      || (localFinSigla.length >= 3 && anacFinNorm.includes(localFinSigla))
+      || anacFinNorm === localFinKey
+      || anacFinNorm.includes(localFinKey);
+    if (!localFinMatches) {
+      const matchedFin = FLIGHT_PURPOSES.find((p: any) => {
+        const name = normTxt(p.value);
+        const sigla = normTxt(p.sigla);
+        return anacFinNorm.includes(name) || (sigla.length >= 3 && anacFinNorm.includes(sigla));
+      });
+      if (matchedFin && matchedFin.key !== String(local.finalidadID)) {
+        diffs.push('finalidad');
+      }
+    }
+  }
+
+  return diffs;
+};
+
+const flightDiffersFromAnac = (local: any, anac: any): boolean => listFlightDiffs(local, anac).length > 0;
+
+// Describe en texto los cambios detectados (para mostrarlos antes de sincronizar)
+const describeFlightDiffs = (local: any, anac: any): string[] => {
+  const diffs = listFlightDiffs(local, anac);
+  const labels: string[] = [];
+  const fmtNum = (v: any) => (v == null ? '(sin dato)' : String(Number(v)));
+  const fmtDate = (iso: any) => (iso ? (iso || '').substring(0, 16).replace('T', ' ') : '(sin dato)');
+  const resolveIata = (code: any) => {
+    const c = String(code || '').trim().toUpperCase();
+    if (!c) return c;
+    const f = localAirportsList.find(a => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
+    return f?.iata_code || c;
+  };
+  const descIata = (desc: any) => {
+    const d = (desc || '').trim().toUpperCase();
+    const f = localAirportsList.find(a => a.icao_code === d || a.iata_code === d || a.anac_code === d || a.key_code === d);
+    return f?.iata_code || d;
+  };
+
+  if (diffs.includes('horasDia')) labels.push(`Horas día: ${fmtNum(local.horasDia)} → ${fmtNum(anac.horasDia)}`);
+  if (diffs.includes('horasNoche')) labels.push(`Horas noche: ${fmtNum(local.horasNoche)} → ${fmtNum(anac.horasNoche)}`);
+  if (diffs.includes('aterrizajes')) labels.push(`Aterrizajes: ${fmtNum(local.aterrizajes)} → ${fmtNum(anac.aterrizajes)}`);
+  if (diffs.includes('fechaSalida')) labels.push(`Fecha salida: ${fmtDate(new Date(local.fechaHoraSalida).toISOString())} → ${fmtDate(anac.fechaSalida)}`);
+  if (diffs.includes('fechaLlegada')) labels.push(`Fecha llegada: ${fmtDate(new Date(local.fechaHoraLlegada).toISOString())} → ${fmtDate(anac.fechaLlegada)}`);
+  if (diffs.includes('matricula')) labels.push(`Matrícula: ${normalizeMatCompare(local.matriculaAvion)} → ${normalizeMatCompare(anac.matricula)}`);
+  if (diffs.includes('origen')) labels.push(`Origen: ${resolveIata(local.origenID || (local as any).origin_ad)} → ${descIata(anac.origenDesc)}`);
+  if (diffs.includes('destino')) labels.push(`Destino: ${resolveIata(local.destinoID || (local as any).destination_ad)} → ${descIata(anac.destinoDesc)}`);
+  if (diffs.includes('observaciones')) labels.push(`Observaciones: "${normTxt(local.observaciones)}" → "${normTxt(anac.observaciones)}"`);
+  if (diffs.includes('clase')) labels.push(`Clase: ${normTxt(local.clase)} → ${normTxt(anac.clase)}`);
+  if (diffs.includes('potencia')) labels.push(`Potencia: ${fmtNum(local.potencia)} → ${fmtNum(anac.potencia)}`);
+  if (diffs.includes('autoridadCertificante')) {
+    const localRole = CERTIFIER_ROLES.find((r: any) => r.key === String(local.autoridadCertificanteID))?.value || local.autoridadCertificanteID;
+    const anacRole = anac.autoridadCertificanteID != null
+      ? (CERTIFIER_ROLES.find((r: any) => r.key === String(anac.autoridadCertificanteID))?.value || anac.autoridadCertificanteID)
+      : (anac.autoridadCertificante || '(sin dato)');
+    labels.push(`Autoridad certificante: ${localRole} → ${anacRole}`);
+  }
+  if (diffs.includes('finalidad')) {
+    const localFin = FLIGHT_PURPOSES.find((p: any) => p.key === String(local.finalidadID))?.value || local.finalidadID;
+    labels.push(`Finalidad: ${localFin} → ${anac.finalidad || '(sin dato)'}`);
+  }
+  return labels;
+};
+
+const findSecondaryMatch = (local: any, remoteLogs: any[]): any => {
+  const localMat = normalizeMatCompare(local.matriculaAvion);
+  if (!localMat) return undefined;
+  const localStart = new Date(local.fechaHoraSalida).getTime();
+  const candidates = remoteLogs.filter(r => {
+    if (normalizeMatCompare(r.matricula) !== localMat) return false;
+    const rStart = new Date(r.fechaSalida).getTime();
+    if (isNaN(rStart)) return false;
+    return Math.abs(rStart - localStart) / 86400000 <= 2;
+  });
+  return candidates.length === 1 ? candidates[0] : undefined;
+};
+
 const AirportAutocomplete = ({ id, value, onChange, IATA_LIST, placeholder }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -326,6 +546,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [anacLogs, setAnacLogs] = useState<AnacLog[]>([]);
   const [pendingLogs, setPendingLogs] = useState<FlightLog[]>([]);
+  const [pendingUpdates, setPendingUpdates] = useState<{ log: FlightLog; vueloTripulanteID: number; diffs: string[] }[]>([]);
   const [isComparing, setIsComparing] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingOps, setPendingOps] = useState<PendingOp[]>([]);
@@ -1063,7 +1284,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     window.scrollTo(0, 0);
     showAlert(
       "Precaución ANAC",
-      "Si modificás los datos de un vuelo que ya fue sincronizado con ANAC, se recomienda eliminar el registro original en el portal de ANAC antes de volver a sincronizar, para evitar vuelos duplicados.",
+      "Recuerda volver a sincronizar con ANAC para enviar los cambios realizados en este vuelo.",
       'info'
     );
   };
@@ -1105,29 +1326,102 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       return;
     }
 
-    const missing = logs.filter(localLog => {
+    const missing: FlightLog[] = [];
+    const updates: { log: FlightLog; vueloTripulanteID: number; diffs: string[] }[] = [];
+    const matchedIds: { logId: string; vueloTripulanteID: number }[] = [];
+    const matchedPairs: { localLog: FlightLog; matched: any }[] = [];
+
+    logs.forEach(localLog => {
       try {
         const localStart = new Date(localLog.fechaHoraSalida).toISOString().substring(0, 16);
         const localEnd = new Date(localLog.fechaHoraLlegada).toISOString().substring(0, 16);
-        const localMat = (localLog.matriculaAvion || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        const localMat = normalizeMatCompare(localLog.matriculaAvion);
 
-        const exists = remoteLogs.some(remoteLog => {
-          const remoteStart = (remoteLog.fechaSalida || "").substring(0, 16);
-          const remoteEnd = (remoteLog.fechaLlegada || "").substring(0, 16);
-          const remoteMat = (remoteLog.matricula || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        const anacId = Number((localLog as any).anac_vuelo_id) || 0;
+        let matched = anacId ? remoteLogs.find(r => Number(r.vueloTripulanteID) === anacId) : undefined;
 
-          const matchTime = localStart === remoteStart && localEnd === remoteEnd;
-          const matchMat = localMat === remoteMat || !localMat || !remoteMat;
+        if (!matched) {
+          matched = remoteLogs.find(remoteLog => {
+            const remoteStart = (remoteLog.fechaSalida || "").substring(0, 16);
+            const remoteEnd = (remoteLog.fechaLlegada || "").substring(0, 16);
+            const remoteMat = normalizeMatCompare(remoteLog.matricula);
+            const matchTime = localStart === remoteStart && localEnd === remoteEnd;
+            const matchMat = localMat === remoteMat || !localMat || !remoteMat;
+            return matchTime && matchMat;
+          });
+        }
+        if (!matched) {
+          matched = findSecondaryMatch(localLog, remoteLogs);
+        }
 
-          return matchTime && matchMat;
-        });
-        return !exists;
-      } catch { return true; }
+        if (matched) {
+          const id = Number(matched.vueloTripulanteID) || 0;
+          if (id) matchedIds.push({ logId: localLog.id, vueloTripulanteID: id });
+          if (id) {
+            const diffs = listFlightDiffs(localLog, matched);
+            if (diffs.length > 0) {
+              updates.push({ log: localLog, vueloTripulanteID: id, diffs: describeFlightDiffs(localLog, matched) });
+            }
+            matchedPairs.push({ localLog, matched });
+          }
+        } else {
+          missing.push(localLog);
+        }
+      } catch {
+        missing.push(localLog);
+      }
     });
 
+    // Pasada con detalle Get?id= para vuelos matcheados NO marcados por el listado:
+    // GetPagedList no expone horas/observaciones/autoridad → compararlos con el detalle.
+    {
+      const flaggedIds = new Set(updates.map(u => u.log.id));
+      const toDetail = matchedPairs.filter(p => !flaggedIds.has(p.localLog.id));
+      if (toDetail.length > 0) {
+        setSyncStatus({ message: 'Verificando detalles con ANAC...', type: 'info' });
+        const detailCache = new Map<number, any>();
+        await runConcurrent(toDetail, 5, async (pair) => {
+          const id = Number(pair.matched.vueloTripulanteID) || 0;
+          if (!id) return;
+          try {
+            const res = await fetch(getApiUrl('/api/get-anac-log-detail'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ anac_token: tokenToUse, storageState: sessionToUse, vueloTripulanteID: id }),
+            });
+            if (res.ok) detailCache.set(id, await res.json());
+          } catch {}
+        });
+        for (const { localLog, matched } of toDetail) {
+          const id = Number(matched.vueloTripulanteID) || 0;
+          const merged = mergeAnacDetail(matched, detailCache.get(id));
+          const diffs = listFlightDiffs(localLog, merged);
+          if (diffs.length > 0) {
+            updates.push({ log: localLog, vueloTripulanteID: id, diffs: describeFlightDiffs(localLog, merged) });
+          }
+        }
+      }
+    }
+
     setPendingLogs(missing);
+    setPendingUpdates(updates);
     setIsComparing(false);
-    if (missing.length === 0) {
+
+    // Backfill best-effort de anac_vuelo_id (vuelos que ya existen en ANAC)
+    const backfillPromises = matchedIds
+      .filter(({ logId }) => {
+        const current = logs.find(l => l.id === logId) as any;
+        return Number(current?.anac_vuelo_id) !== matchedIds.find(m => m.logId === logId)?.vueloTripulanteID;
+      })
+      .map(({ logId, vueloTripulanteID }) =>
+        supabase.from('flight_logs').update({ anac_vuelo_id: vueloTripulanteID }).eq('id', logId)
+      );
+    if (backfillPromises.length > 0) {
+      Promise.all(backfillPromises).then(() => refreshData()).catch(() => {});
+    }
+
+    const totalPending = missing.length + updates.length;
+    if (totalPending === 0) {
       setSyncStatus({ message: 'Todos tus vuelos ya están en el portal de ANAC.', type: 'success' });
 
       if (logs.length > 0 && profile?.id) {
@@ -1148,8 +1442,12 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           console.error("Error silencioso actualizando última sincronización:", err);
         }
       }
-    } else {
+    } else if (updates.length === 0) {
       setSyncStatus({ message: `Se encontraron ${missing.length} vuelos pendientes de sincronizar.`, type: 'info' });
+    } else if (missing.length === 0) {
+      setSyncStatus({ message: `Se encontraron ${updates.length} vuelos con cambios para actualizar en ANAC.`, type: 'info' });
+    } else {
+      setSyncStatus({ message: `Se encontraron ${missing.length} vuelos nuevos y ${updates.length} para actualizar.`, type: 'info' });
     }
     setShowPendingModal(true);
   };
@@ -1180,20 +1478,24 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     }));
 
     const BATCH_SIZE = 50;
-    const totalBatches = Math.ceil(allLogs.length / BATCH_SIZE);
+    const edits = pendingUpdates || [];
+    const totalToProcess = allLogs.length + edits.length;
     let successfulIds = new Set<string>();
+    let updatedIds = new Set<string>();
+    let editErrors = 0;
     let batchIndex = 0;
 
     try {
+      // FASE 1: Crear vuelos nuevos (igual que antes)
       for (let i = 0; i < allLogs.length; i += BATCH_SIZE) {
         batchIndex++;
         const batch = allLogs.slice(i, i + BATCH_SIZE);
         const processedSoFar = successfulIds.size;
 
         setSyncStatus({
-          message: `Sincronizando lote ${batchIndex}/${totalBatches} (${processedSoFar}/${allLogs.length} exitosos)`,
+          message: `Sincronizando lote ${batchIndex}/${Math.ceil(allLogs.length / BATCH_SIZE)} (${processedSoFar}/${allLogs.length} nuevos)`,
           type: 'info',
-          progress: processedSoFar / allLogs.length
+          progress: processedSoFar / totalToProcess
         });
 
         let attempts = 0;
@@ -1232,24 +1534,125 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
         }
       }
 
-      const finalProcessed = successfulIds.size;
+      // FASE 2: Actualizar vuelos modificados en ANAC (Edit)
+      if (edits.length > 0) {
+        let editBatchIndex = 0;
+        for (let i = 0; i < edits.length; i += BATCH_SIZE) {
+          editBatchIndex++;
+          const batch = edits.slice(i, i + BATCH_SIZE);
+          const processedSoFar = updatedIds.size;
+
+          setSyncStatus({
+            message: `Actualizando vuelos lote ${editBatchIndex}/${Math.ceil(edits.length / BATCH_SIZE)} (${processedSoFar}/${edits.length} actualizados)`,
+            type: 'info',
+            progress: (successfulIds.size + processedSoFar) / totalToProcess
+          });
+
+          let attempts = 0;
+          const maxAttempts = 3;
+          let batchOk = false;
+
+          while (!batchOk && attempts < maxAttempts) {
+            attempts++;
+            try {
+              const response = await fetch(getApiUrl('/api/edit-anac-tcp'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user_id: profile?.id,
+                  anac_token: tokenToUse,
+                  storageState: sessionToUse,
+                  edits: batch
+                }),
+              });
+              const result = await response.json();
+              if (!response.ok) throw new Error(result.error || 'Error del servidor');
+
+              if (result.results) {
+                result.results.forEach((r: any) => {
+                  if (r.status === 'success') {
+                    updatedIds.add(r.id);
+                    if (r.newVueloTripulanteID) {
+                      setLogs(prev => prev.map(l => l.id === r.id ? { ...l, anac_vuelo_id: r.newVueloTripulanteID } : l));
+                      (async () => { try { await supabase.from('flight_logs').update({ anac_vuelo_id: r.newVueloTripulanteID }).eq('id', r.id); } catch {} })();
+                    }
+                  } else if (r.status === 'error') editErrors++;
+                });
+              }
+              batchOk = true;
+            } catch (e: any) {
+              if (attempts >= maxAttempts) {
+                console.warn(`[SYNC_TCP_EDIT] Lote ${editBatchIndex} falló tras ${maxAttempts} intentos: ${e.message}`);
+              } else {
+                await new Promise(r => setTimeout(r, 3000));
+              }
+            }
+          }
+        }
+      }
+
+      const finalProcessed = successfulIds.size + updatedIds.size;
+      const msgEdits = edits.length > 0 ? `, ${updatedIds.size} actualizados` : '';
+      const msgErrors = editErrors > 0 ? `, ${editErrors} con error` : '';
       setSyncStatus({
-        message: `Sincronización completa: ${finalProcessed} exitosos de ${allLogs.length}`,
-        type: finalProcessed < allLogs.length ? 'warning' : 'success',
+        message: `Sincronización completa: ${successfulIds.size} nuevos${msgEdits}${msgErrors}`,
+        type: finalProcessed < totalToProcess ? 'warning' : 'success',
         progress: 1
       });
 
+      // Re-resolver el ID de ANAC tras el sync: ANAC implementa el Edit como
+      // borrar + crear (nuevo vueloTripulanteID) y responde solo 'true'.
+      // Matcheamos fecha+matrícula+ruta contra el listado actual para actualizar anac_vuelo_id.
+      if (finalProcessed > 0) {
+        try {
+          const remoteLogs = await fetchAnacLogs(tokenToUse, sessionToUse);
+          const syncedIds = new Set<string>([...successfulIds, ...updatedIds]);
+          for (const id of syncedIds) {
+            const localLog = logs.find(l => l.id === id);
+            if (!localLog) continue;
+            const localStart = new Date(localLog.fechaHoraSalida).toISOString().substring(0, 16);
+            const localEnd = new Date(localLog.fechaHoraLlegada).toISOString().substring(0, 16);
+            const localMat = normalizeMatCompare(localLog.matriculaAvion);
+            const localOriCodes = localAirportCodes(localLog.origenID || (localLog as any).origin_ad);
+            const localDestCodes = localAirportCodes(localLog.destinoID || (localLog as any).destination_ad);
+            const anacMatch = remoteLogs.find(r =>
+              (r.fechaSalida || '').substring(0, 16) === localStart &&
+              (r.fechaLlegada || '').substring(0, 16) === localEnd &&
+              (normalizeMatCompare(r.matricula) === localMat || !localMat || !normalizeMatCompare(r.matricula)) &&
+              (!localOriCodes.length || descContainsAny(r.origenDesc, localOriCodes)) &&
+              (!localDestCodes.length || descContainsAny(r.destinoDesc, localDestCodes))
+            );
+            if (anacMatch?.vueloTripulanteID) {
+              const newId = Number(anacMatch.vueloTripulanteID);
+              setLogs(prev => prev.map(l => l.id === id ? { ...l, anac_vuelo_id: newId } : l));
+              try { await supabase.from('flight_logs').update({ anac_vuelo_id: newId }).eq('id', id); } catch {}
+            }
+          }
+        } catch (e) {
+          console.warn("[SYNC_TCP] Error re-resolviendo IDs ANAC:", e);
+        }
+      }
+
+      // Cerrar la ventana de pendientes y avisar el resultado ANTES de updates secundarios
+      setPendingLogs([]);
+      setPendingUpdates([]);
+      setShowPendingModal(false);
+      if (finalProcessed > 0) {
+        showAlert('Sincronización completada', `Se sincronizaron ${successfulIds.size} vuelos nuevos${msgEdits}${msgErrors}.`, 'info');
+      }
       if (finalProcessed > 0 && profile?.id) {
-        const latestFlight = logs.reduce((prev, current) => {
-          const d1 = new Date(prev.fechaHoraSalida).getTime();
-          const d2 = new Date(current.fechaHoraSalida).getTime();
-          return d2 > d1 ? current : prev;
-        });
-        await supabase.from('profiles').update({ last_synced_flight_at: latestFlight.fechaHoraSalida }).eq('id', profile.id);
+        try {
+          const latestFlight = logs.reduce((prev, current) => {
+            const d1 = new Date(prev.fechaHoraSalida).getTime();
+            const d2 = new Date(current.fechaHoraSalida).getTime();
+            return d2 > d1 ? current : prev;
+          });
+          await supabase.from('profiles').update({ last_synced_flight_at: latestFlight.fechaHoraSalida }).eq('id', profile.id);
+        } catch (err) {
+          console.error("Error actualizando última sincronización:", err);
+        }
         refreshData();
       }
-      setPendingLogs([]);
-      setShowPendingModal(false);
     } catch (e: any) {
       setSyncStatus({ message: `Error: ${e.message}`, type: 'error' });
     } finally {
@@ -2175,10 +2578,14 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
               <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    {syncStatus.type === 'success' && pendingLogs.length > 0 ? 'Vuelos Sincronizados' : 'Vuelos Pendientes'}
+                    {syncStatus.type === 'success' && (pendingLogs.length + pendingUpdates.length) > 0 ? 'Vuelos Sincronizados' : 'Vuelos Pendientes'}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {syncStatus.type === 'success' && pendingLogs.length > 0 ? 'Estos vuelos han sido subidos exitosamente al portal de ANAC.' : 'Estos vuelos no se encontraron en el portal de ANAC.'}
+                    {syncStatus.type === 'success' && (pendingLogs.length + pendingUpdates.length) > 0
+                      ? 'Estos vuelos han sido subidos exitosamente al portal de ANAC.'
+                      : pendingUpdates.length > 0
+                        ? 'Hay vuelos nuevos y/o con cambios para sincronizar con ANAC.'
+                        : 'Estos vuelos no se encontraron en el portal de ANAC.'}
                   </p>
                 </div>
                 <button onClick={() => setShowPendingModal(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
@@ -2187,32 +2594,67 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
               </div>
 
               <ScrollArea className="h-[350px] p-4">
-                {pendingLogs.length === 0 ? (
+                {(pendingLogs.length === 0 && pendingUpdates.length === 0) ? (
                   <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4 text-slate-500">
                     <CheckCircle2 size={48} className="text-emerald-500" />
                     <div>
                       <p className="text-lg font-bold text-slate-900 dark:text-white">¡Todo está al día!</p>
-                      <p className="text-sm mt-2">No hay nuevos vuelos para cargar. Tus registros locales y el portal de ANAC se encuentran perfectamente sincronizados.</p>
+                      <p className="text-sm mt-2">No hay nuevos vuelos ni cambios. Tus registros locales y el portal de ANAC se encuentran perfectamente sincronizados.</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {pendingLogs.map((log) => {
-                      const date = new Date(log.fechaHoraSalida);
-                      return (
-                        <div key={log.id} className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                          <div>
-                            <div className="font-bold text-sm">{log.origenID || (log as any).origin_ad} → {log.destinoID || (log as any).destination_ad}</div>
-                            <div className="text-[10px] text-slate-500">
-                              {date.getUTCDate()}/{date.getUTCMonth() + 1}/{date.getUTCFullYear()} • {log.matriculaAvion || (log as any).registration}
+                  <div className="space-y-4">
+                    {pendingLogs.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Nuevos (a crear)</p>
+                        {pendingLogs.map((log) => {
+                          const date = new Date(log.fechaHoraSalida);
+                          return (
+                            <div key={log.id} className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                              <div>
+                                <div className="font-bold text-sm">{log.origenID || (log as any).origin_ad} → {log.destinoID || (log as any).destination_ad}</div>
+                                <div className="text-[10px] text-slate-500">
+                                  {date.getUTCDate()}/{date.getUTCMonth() + 1}/{date.getUTCFullYear()} • {log.matriculaAvion || (log as any).registration}
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/40">
+                                {syncStatus.type === 'success' ? 'Sincronizado' : 'A crear'}
+                              </Badge>
                             </div>
-                          </div>
-                          <Badge variant="outline" className={syncStatus.type === 'success' ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/40"}>
-                            {syncStatus.type === 'success' ? 'Sincronizado' : 'Pendiente'}
-                          </Badge>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    )}
+                    {pendingUpdates.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Modificados (a actualizar en ANAC)</p>
+                        {pendingUpdates.map(({ log, diffs }) => {
+                          const date = new Date(log.fechaHoraSalida);
+                          return (
+                            <div key={log.id} className="p-3 bg-amber-50/60 dark:bg-amber-900/10 rounded-xl border border-amber-200/70 dark:border-amber-900/40">
+                              <div className="flex justify-between items-center gap-2">
+                                <div>
+                                  <div className="font-bold text-sm">{log.origenID || (log as any).origin_ad} → {log.destinoID || (log as any).destination_ad}</div>
+                                  <div className="text-[10px] text-slate-500">
+                                    {date.getUTCDate()}/{date.getUTCMonth() + 1}/{date.getUTCFullYear()} • {log.matriculaAvion || (log as any).registration}
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/40">
+                                  {syncStatus.type === 'success' ? 'Actualizado' : 'Actualizar'}
+                                </Badge>
+                              </div>
+                              {diffs.length > 0 && (
+                                <ul className="mt-1.5 space-y-0.5 border-t border-amber-200/60 dark:border-amber-900/40 pt-1.5">
+                                  {diffs.map((d, i) => (
+                                    <li key={i} className="text-[10px] text-amber-700 dark:text-amber-300">• {d}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </ScrollArea>
@@ -2230,14 +2672,18 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                 <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowPendingModal(false)}>
                   Cerrar
                 </Button>
-                {pendingLogs.length > 0 && syncStatus.type !== 'success' && (
+                {(pendingLogs.length + pendingUpdates.length) > 0 && syncStatus.type !== 'success' && (
                   <Button
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl gap-2"
                     onClick={() => handleSyncANAC()}
                     disabled={isSyncing}
                   >
                     <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-                    {isSyncing ? 'Sincronizando...' : `Sincronizar ${pendingLogs.length}`}
+                    {isSyncing
+                      ? 'Sincronizando...'
+                      : pendingUpdates.length > 0
+                        ? `Sincronizar ${pendingLogs.length} nuevos + ${pendingUpdates.length} actualizar`
+                        : `Sincronizar ${pendingLogs.length}`}
                   </Button>
                 )}
               </div>

@@ -39,8 +39,8 @@ Para entender la arquitectura, stack, estructura de directorios, cuentas de serv
 
 ### Archivos clave
 - `src/components/FlightLogTcpPDF.tsx` — PDF 16 columnas, A4 landscape, 15 registros/hoja con paginación
-- `src/components/LibroTcpScreen.tsx` — Componente full (~2343 líneas): Excel export, ANAC sync, historial, reset
-- `src/components/LibroScreen.tsx` — Versión pilotos (~4159 líneas, referencia para sync ANAC)
+- `src/components/LibroTcpScreen.tsx` — Componente full (~2749 líneas): Excel export, ANAC sync, historial, reset
+- `src/components/LibroScreen.tsx` — Versión pilotos (~4553 líneas, referencia para sync ANAC)
 
 ### Paginación (PDF y Excel)
 - `rowsPerPage = 15`, `getCumulativeTotals(pageIndex)` para TOTALES PAGINA ANTERIOR
@@ -70,3 +70,18 @@ Para entender la arquitectura, stack, estructura de directorios, cuentas de serv
 - **El Calafate = `ECA`** (`FTE,SAWC,ECA` en el CSV). `CAL` es OTRO aeropuerto (Campo Arenal) → nunca mapear FTE→CAL. En `ANAC_MAPPINGS` existe legacy `CAL→ECA` para que vuelos viejos sincronicen bien.
 - **Código canónico guardado = IATA** (FTE queda FTE); la conversión a código ANAC ocurre solo en el sync (`mapAirportCode` + `ANAC_MAPPINGS`).
 - **Import masivo valida aeropuertos**: normaliza origen/destino a IATA (match por IATA/OACI/ANAC/nombre/ciudad); si no resuelve → `Origen desconocido: "X"` / `Destino desconocido: "X"` y la fila queda deseleccionada (misma validación en cliente y server).
+
+## Sync ANAC — Edición de vuelos ya sincronizados (IMPORTANTE)
+- **Columna `flight_logs.anac_vuelo_id` (BIGINT)**: guarda el `vueloTripulanteID` vigente de ANAC por vuelo. **CLAVE** para no duplicar.
+- **ANAC implementa el "Edit" como borrar el registro viejo + crear uno NUEVO** con otro `vueloTripulanteID`, y el endpoint responde solo `true` (no devuelve el ID nuevo). Por eso:
+  - Tras cada Edit, el ID queda desactualizado → la app **re-resuelve el ID** post-sync matcheando fecha+matrícula+ruta contra `GetPagedList` y persiste el nuevo.
+  - `persistAnacVueloId` en server persiste el ID de la respuesta del Create/Edit (best-effort).
+- **Endpoints nuevos en `server.ts`**:
+  - `POST /api/edit-anac` (pilotos) y `POST /api/edit-anac-tcp` (TCP): **`axios.put`** a `VueloTripulante/Edit` (NO POST → ANAC responde "does not support http method 'POST'"), fallback `cadam.anac.gob.ar/Cadam/api/VueloTripulante/Edit`, reintentos. Body `{ anac_token, storageState, edits: [{ log, vueloTripulanteID }] }`. Devuelve `results` con `newVueloTripulanteID`.
+  - `POST /api/get-anac-log-detail`: GET `VueloTripulante/Get?id=X` — **`GetPagedList` NO expone `horasDia/Noche`, `observaciones` ni `autoridadCertificante`** (undefined) → el detalle es imprescindible para compararlos.
+- **`compareWithAnac`** (ambos screens) clasifica en 3: matchea por `anac_vuelo_id` primero, luego por fecha+matrícula (tolerante), luego match secundario (matrícula ±2 días, 1 candidato). Produce `pendingLogs` (nuevos) + `pendingUpdates` (modificados) + **backfill** de `anac_vuelo_id`.
+- **Detección de cambios (`listFlightDiffs`)**: horas/aterrizajes SOLO si ANAC trae valor (epsilon 0.01), fechas (16 chars), matrícula, ruta (desc de ANAC trae el **ICAO** tipo "SAZS" → match por `localAirportCodes` IATA/OACI/ANAC), observaciones (ambos no vacíos), clase/potencia (ambos con valor), autoridadCertificante (por `autoridadCertificanteID` del detalle, o rol reconocido), finalidad (por nombre; siglas ≥3 para evitar falsos). **NO comparar `marcaModelo`** (ANAC lo completa por su cuenta).
+- **Pasada de detalle**: para vuelos matcheados no marcados por el listado, pide `Get?id=` (concurrencia 5) y compara horas/observaciones/autoridad con `mergeAnacDetail`.
+- **`handleSyncANAC`**: FASE 1 crea (lotes 50, sin cambios) → FASE 2 actualiza (Edit). Modal con secciones "Nuevos (a crear)" y "Modificados (a actualizar)". Mensaje "X nuevos, Y actualizados, Z con error".
+- **TCP: NOMBRE CERTIFICANTE se guarda como `observaciones`** (`certifier_name` → `observaciones`); el ROL (`certifier_role_id`) → `autoridadCertificanteID`. Cambios en ambos se detectan vía el detalle.
+- **Aviso al editar** (ambos screens): "Recuerda volver a sincronizar con ANAC para enviar los cambios realizados en este vuelo."

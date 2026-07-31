@@ -67,6 +67,7 @@ export interface FlightLog {
   autoridadCertificanteID: string;
   observaciones: string;
   Discriminaciones?: any[];
+  anac_vuelo_id?: number | null;
   
   // UI Helpers and Form fields (Legacy mapping support)
   year?: number;

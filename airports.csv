@@ -2,7 +2,7 @@ iata_code,icao_code,anac_code,name,city
 AEP,SABE,AER,Aeroparque Jorge Newbery,Buenos Aires
 EZE,SAEZ,EZE,Ezeiza Ministro Pistarini,Buenos Aires
 COR,SACO,CBA,Córdoba / Ambrosio Taravella,Córdoba
-MDZ,SAMM,DOZ,Mendoza / El Plumerillo,Mendoza
+MDZ,SAME,DOZ,Mendoza / El Plumerillo,Mendoza
 BRC,SAZS,BAR,San Carlos de Bariloche,Bariloche
 IGR,SARI,IGU,Puerto Iguazú,Puerto Iguazú
 SLA,SASA,SAL,Salta / Martín Miguel de Güemes,Salta
@@ -32,7 +32,7 @@ CRV,SAVC,CRV,Comodoro Rivadavia,Comodoro Rivadavia
 RGL,SAWG,GAL,Río Gallegos,Río Gallegos
 RGA,SAWE,GRA,Río Grande,Río Grande
 CPC,SAZY,CHA,San Martín de los Andes / Chapelco,San Martín de los Andes
-EQS,SAVV,ESQ,Esquel,Esquel
+EQS,SAVE,ESQ,Esquel,Esquel
 LGS,SAMO,MAL,Malargüe,Malargüe
 AFA,SAMR,SRA,San Rafael,San Rafael
 VME,SAOR,VME,Villa Mercedes,Villa Mercedes
