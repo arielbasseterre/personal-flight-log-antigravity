@@ -175,6 +175,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
     autoridadCertificanteID: '',
     certifierName: '',
   });
+  const [existingCount, setExistingCount] = useState(0);
 
   const reset = useCallback(() => {
     setStep('upload');
@@ -422,6 +423,8 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
             .select('fechaHoraSalida, matriculaAvion, origenID, destinoID')
             .eq('user_id', userId);
 
+          setExistingCount(existingLogs?.length || 0);
+
           if (existingLogs && existingLogs.length > 0) {
             const existingSet = new Set(
               existingLogs.map(l => `${l.fechaHoraSalida}|${l.matriculaAvion}|${l.origenID}|${l.destinoID}`)
@@ -536,6 +539,11 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
     if (!isPaidSubscriber) { setShowUpgradeModal(true); return; }
 
+    if (existingCount + selected.length > 500) {
+      alert("No podés superar los 500 registros. Primero restablecé los registros presionando el botón correspondiente en la parte inferior del historial. Recordá sincronizar previamente con ANAC, de lo contrario los registros se perderán al restablecer.");
+      return;
+    }
+
     if (selected.length > 500) {
       if (!confirm(`Son ${selected.length} registros. La importación puede demorar varios segundos. Se recomienda dividir en lotes de hasta 500 registros. ¿Deseas continuar?`)) return;
     }
@@ -623,6 +631,19 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                 Archivo: <span className="font-medium text-slate-700 dark:text-slate-300">{fileName}</span>
                 {' · '}{rows.length} filas detectadas
               </div>
+
+              {/* Limit warning banner */}
+              {existingCount + rows.length > 420 && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-amber-800 dark:text-amber-400">Límite de registros</p>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-500 mt-0.5 leading-relaxed">
+                      Tenés {existingCount} registros y estás importando {rows.length}. El total ({existingCount + rows.length}) supera los 420 registros recomendados. Al llegar a 500 no podrás cargar más vuelos hasta restablecer la base de datos.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Batch certifier form */}
               {rows.some(r => !r.normalized.autoridadCertificanteID) && (

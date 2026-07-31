@@ -929,6 +929,22 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       return;
     }
 
+    // Verificación de límites
+    if (!editingId && logs.length >= 500) {
+      showAlert("Límite Alcanzado", "Llegaste a 500 registros. Por favor restablece tu base de datos.", 'danger');
+      return;
+    }
+
+    if (!editingId && logs.length >= 420) {
+      askConfirm(
+        "Límite de Capacidad",
+        `Aviso: Estás próximo a alcanzar el límite de 500 registros (tienes ${logs.length}). Al llegar a 500 no podrás guardar más vuelos hasta restablecer la base de datos. ¿Deseas continuar?`,
+        performSave,
+        'warning'
+      );
+      return;
+    }
+
     try {
       await performSave();
     } catch (error: any) {

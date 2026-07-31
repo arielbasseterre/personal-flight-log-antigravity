@@ -1861,7 +1861,17 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         }
       });
 
-      // 3. Obtener max folio_number
+      // 3. Verificar límite de registros por usuario (500)
+      const { count: existingCount } = await supabase
+        .from('flight_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user_id);
+
+      if ((existingCount || 0) + validated.length > 500) {
+        return res.status(400).json({ success: false, error: "No podés superar 500 registros. Primero restablecé los registros presionando el botón correspondiente en la parte inferior del historial. Recordá sincronizar previamente con ANAC, de lo contrario los registros se perderán al restablecer." });
+      }
+
+      // 4. Obtener max folio_number
       const { data: maxFolioData } = await supabase
         .from('flight_logs')
         .select('folio_number')
