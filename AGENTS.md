@@ -39,8 +39,8 @@ Para entender la arquitectura, stack, estructura de directorios, cuentas de serv
 
 ### Archivos clave
 - `src/components/FlightLogTcpPDF.tsx` — PDF 16 columnas, A4 landscape, 15 registros/hoja con paginación
-- `src/components/LibroTcpScreen.tsx` — Componente full (~1947 líneas): Excel export, ANAC sync, historial, reset
-- `src/components/LibroScreen.tsx` — Versión pilotos (~3997 líneas, referencia para sync ANAC)
+- `src/components/LibroTcpScreen.tsx` — Componente full (~2343 líneas): Excel export, ANAC sync, historial, reset
+- `src/components/LibroScreen.tsx` — Versión pilotos (~4159 líneas, referencia para sync ANAC)
 
 ### Paginación (PDF y Excel)
 - `rowsPerPage = 15`, `getCumulativeTotals(pageIndex)` para TOTALES PAGINA ANTERIOR
@@ -64,3 +64,9 @@ Para entender la arquitectura, stack, estructura de directorios, cuentas de serv
 - FOLIO RVA: opcional, warning si vacío al guardar
 - "Restablecer registros": verifica sync ANAC, suma tcp_total_dia/noche/hras_instructor/total_landings, incrementa initial_folio_number, elimina flight_logs con cargoID='5'
 - Sync ANAC TCP: compara por fechaSalida + fechaLlegada + matricula
+
+## Aeropuertos — Fuente única (IMPORTANTE)
+- **`airports.csv` es la ÚNICA fuente de aeropuertos** (64, embebido con `?raw`). La tabla Supabase `airports` fue **ELIMINADA** (2026-07-31). NO usar `supabase.from('airports')`, `dbAirports` ni `airports_cache` (fueron removidos de los screens).
+- **El Calafate = `ECA`** (`FTE,SAWC,ECA` en el CSV). `CAL` es OTRO aeropuerto (Campo Arenal) → nunca mapear FTE→CAL. En `ANAC_MAPPINGS` existe legacy `CAL→ECA` para que vuelos viejos sincronicen bien.
+- **Código canónico guardado = IATA** (FTE queda FTE); la conversión a código ANAC ocurre solo en el sync (`mapAirportCode` + `ANAC_MAPPINGS`).
+- **Import masivo valida aeropuertos**: normaliza origen/destino a IATA (match por IATA/OACI/ANAC/nombre/ciudad); si no resuelve → `Origen desconocido: "X"` / `Destino desconocido: "X"` y la fila queda deseleccionada (misma validación en cliente y server).
