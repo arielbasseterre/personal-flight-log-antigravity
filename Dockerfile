@@ -23,10 +23,9 @@ RUN npm run build
 
 # Sincronizar el reloj al arrancar: ANAC rechaza con "ajusta la hora de su sistema"
 # cuando el reloj del contenedor está desviado (clock drift de Render).
-RUN apt-get update && apt-get install -y ntpdate tzdata
-
-# Zona horaria Argentina (ANAC valida hora local AR)
+ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/Argentina/Buenos_Aires
+RUN apt-get update && apt-get install -y --no-install-recommends ntpdate tzdata
 
 # Exponer el puerto
 EXPOSE 3000
