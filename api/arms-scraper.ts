@@ -228,23 +228,25 @@ export async function scrapeArmsRoster(
     // Asignar input.value directamente NO actualiza el estado interno del Datepicker
     // que ARMS usa al hacer VIEW → usaba el rango por defecto → tabla vacía.
     await page.evaluate(({ from, to }) => {
-      const MONTHS: Record<string, number> = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
-      const setDate = (id: string, val: string) => {
+      const MONTHS = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+      const ids = ['txtFromDate', 'txtToDate'];
+      const vals = [from, to];
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        const val = vals[i];
         const input = document.getElementById(id) as HTMLInputElement | null;
         if (input) input.removeAttribute('readonly');
-        const $ = (window as any).$;
-        const $el = input ? $(input) : null;
+        const w = (window as any);
+        const $el = input ? w.$(input) : null;
         if ($el && $el.datepicker) {
           try {
             const p = val.split('-'); // DD-Mon-YYYY
             $el.datepicker('setDate', new Date(parseInt(p[2], 10), MONTHS[p[1]], parseInt(p[0], 10)));
-            return;
+            continue;
           } catch { /* caer al valor directo */ }
         }
         if (input) input.value = val;
-      };
-      setDate('txtFromDate', from);
-      setDate('txtToDate', to);
+      }
     }, { from: fromDateStr, to: toDateStr });
 
     // Verificar que las fechas quedaron aplicadas en los inputs
