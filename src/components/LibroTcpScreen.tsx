@@ -1289,10 +1289,10 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     );
   };
 
-  const fetchAnacLogs = async (tokenOverride?: string, sessionOverride?: any) => {
+  const fetchAnacLogs = async (tokenOverride?: string, sessionOverride?: any): Promise<AnacLog[] | null> => {
     const tokenToUse = tokenOverride || anacToken;
     const sessionToUse = sessionOverride || anacSession;
-    if (!tokenToUse && !sessionToUse) return [];
+    if (!tokenToUse && !sessionToUse) return null;
     try {
       const response = await fetch(getApiUrl('/api/get-anac-logs-tcp'), {
         method: 'POST',
@@ -1301,10 +1301,10 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       });
       if (response.ok) {
         const data = await response.json();
-        return data.dataSource as AnacLog[];
+        return (data.dataSource as AnacLog[]) || [];
       }
-      return [];
-    } catch { return []; }
+      return null;
+    } catch { return null; }
   };
 
   const compareWithAnac = async (tokenOverride?: any, sessionOverride?: any) => {
@@ -1319,12 +1319,13 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     setIsComparing(true);
     setSyncStatus({ message: 'Obteniendo registros de ANAC...', type: 'info' });
     const remoteLogs = await fetchAnacLogs(tokenToUse, sessionToUse);
-    setAnacLogs(remoteLogs);
-    if (remoteLogs.length === 0) {
-      setSyncStatus({ message: 'No se pudieron obtener registros de ANAC o la lista está vacía.', type: 'error' });
+    setAnacLogs(remoteLogs || []);
+    if (remoteLogs === null) {
+      setSyncStatus({ message: 'No se pudieron obtener registros de ANAC. Verificá tu sesión.', type: 'error' });
       setIsComparing(false);
       return;
     }
+    // remoteLogs puede ser [] (cuenta sin vuelos en ANAC) → se procede: todos van como "nuevos"
 
     const missing: FlightLog[] = [];
     const updates: { log: FlightLog; vueloTripulanteID: number; diffs: string[] }[] = [];
@@ -1606,6 +1607,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       if (finalProcessed > 0) {
         try {
           const remoteLogs = await fetchAnacLogs(tokenToUse, sessionToUse);
+          if (!remoteLogs) return;
           const syncedIds = new Set<string>([...successfulIds, ...updatedIds]);
           for (const id of syncedIds) {
             const localLog = logs.find(l => l.id === id);
