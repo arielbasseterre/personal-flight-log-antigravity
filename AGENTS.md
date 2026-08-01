@@ -85,3 +85,20 @@ Para entender la arquitectura, stack, estructura de directorios, cuentas de serv
 - **`handleSyncANAC`**: FASE 1 crea (lotes 50, sin cambios) → FASE 2 actualiza (Edit). Modal con secciones "Nuevos (a crear)" y "Modificados (a actualizar)". Mensaje "X nuevos, Y actualizados, Z con error".
 - **TCP: NOMBRE CERTIFICANTE se guarda como `observaciones`** (`certifier_name` → `observaciones`); el ROL (`certifier_role_id`) → `autoridadCertificanteID`. Cambios en ambos se detectan vía el detalle.
 - **Aviso al editar** (ambos screens): "Recuerda volver a sincronizar con ANAC para enviar los cambios realizados en este vuelo."
+
+## Regla de oro — Rol del perfil ↔ Payload (IMPORTANTE)
+- `profile.role` = **`piloto_fb`** o **`tcp_fb`** (se setea en el registro). Si el perfil es TCP, **NUNCA** enviar payloads de piloto; si es piloto, **NUNCA** de TCP.
+- **`sync-anac-tcp` descubre el `vueloTripulanteID` con `tipoTrip=TCP`** (¡NO `TM`! Antes usaba TM → agarraba el ID de piloto → los vuelos TCP quedaban asociados al rol equivocado y no aparecían en el portal).
+- Pilotos usan `vueloTripulanteID: 0` en el Create (funciona). El guard server-side por rol está **pendiente** (diferido).
+
+## Producción / Render (IMPORTANTE)
+- **`app.set('trust proxy', true)`** es OBLIGATORIO en Express: Render agrega `X-Forwarded-For` y sin `trust proxy`, `express-rate-limit` lanza `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` → rompía el sync masivo en producción (a local no lo afecta).
+- **Manejador global de errores** al final del server (`app.use((err, req, res, next) => ...)`): evita que un error no manejado **tumbe el proceso** a mitad de un sync largo (se veía un reinicio "Detected service running on port 10000").
+- Diagnóstico de reloj: `[SERVER] Hora del servidor:` al arrancar + `/api/test-connectivity` devuelve `serverTime`/`serverTimeLocal`/`tz` (para verificar clock drift sin Render Shell). Dockerfile sincroniza reloj con `ntpdate` + `TZ=America/Argentina/Buenos_Aires` + `DEBIAN_FRONTEND=noninteractive` (sin esto, `apt-get install tzdata` cuelga el build con un prompt).
+
+## Roster ARMS (`api/arms-scraper.ts` — SOLO V2)
+- **Setear el rango con la API del jQuery UI Datepicker** (`$('#txtFromDate').datepicker('setDate', new Date(...))`), NO asignar `input.value` directo (el datepicker readonly mantiene su valor interno → ARMS usaba el rango por defecto → tabla vacía).
+- **Tras clickear VIEW, esperar a que el grid tenga >1 fila** (polling ~15s): ARMS llena la tabla vía AJAX; capturar antes = tabla vacía (HTML ~1600 chars, 0 tramos).
+- **Parser**: regex de fecha con día `\d{1,2}` (ARMS puede renderizar "1-Aug-2026") + escanear hasta 6 celdas.
+- **GOTCHA esbuild/tsx**: en `page.evaluate`, **NO definir funciones con nombre** adentro (`const setDate = ...` → esbuild inyecta `__name` que no existe en el browser → `ReferenceError: __name is not defined`). Usar **arrows inline sin funciones nombradas internas**. (Los strings rompen el paso de argumentos.)
+- El checkbox de Crew Complement no se toca (solo muestra/oculta nombres de tripulación).
