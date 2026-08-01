@@ -224,21 +224,36 @@ export async function scrapeArmsRoster(
     const toDateStr   = formatArmsDate(lastDay);
     console.log(`[ARMS_SCRAPER] Fechas formateadas: From=${fromDateStr} To=${toDateStr}`);
 
-    // Inyectar directamente via JS (los campos son readonly — jQuery Datepicker)
+    // Setear el rango usando la API del jQuery UI Datepicker (los campos son readonly).
+    // Asignar input.value directamente NO actualiza el estado interno del Datepicker
+    // que ARMS usa al hacer VIEW → usaba el rango por defecto → tabla vacía.
     await page.evaluate(({ from, to }) => {
-      const fromInput = document.getElementById('txtFromDate') as HTMLInputElement | null;
-      const toInput   = document.getElementById('txtToDate')   as HTMLInputElement | null;
-      if (fromInput) {
-        fromInput.removeAttribute('readonly');
-        fromInput.value = from;
-      }
-      if (toInput) {
-        toInput.removeAttribute('readonly');
-        toInput.value = to;
-      }
+      const MONTHS: Record<string, number> = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+      const setDate = (id: string, val: string) => {
+        const input = document.getElementById(id) as HTMLInputElement | null;
+        if (input) input.removeAttribute('readonly');
+        const $ = (window as any).$;
+        const $el = input ? $(input) : null;
+        if ($el && $el.datepicker) {
+          try {
+            const p = val.split('-'); // DD-Mon-YYYY
+            $el.datepicker('setDate', new Date(parseInt(p[2], 10), MONTHS[p[1]], parseInt(p[0], 10)));
+            return;
+          } catch { /* caer al valor directo */ }
+        }
+        if (input) input.value = val;
+      };
+      setDate('txtFromDate', from);
+      setDate('txtToDate', to);
     }, { from: fromDateStr, to: toDateStr });
 
-    console.log('[ARMS_SCRAPER] Fechas configuradas via JS eval.');
+    // Verificar que las fechas quedaron aplicadas en los inputs
+    const dateCheck = await page.evaluate(() => {
+      const f = document.getElementById('txtFromDate') as HTMLInputElement | null;
+      const t = document.getElementById('txtToDate') as HTMLInputElement | null;
+      return { from: f?.value || '', to: t?.value || '' };
+    }).catch(() => ({ from: '', to: '' }));
+    console.log(`[ARMS_SCRAPER] Fechas configuradas via JS eval. Verificación: From=${dateCheck.from} To=${dateCheck.to}`);
 
     // ── PASO 6A: Activar checkbox "Show Crew Complement" ────────────────
     // Este checkbox es INDISPENSABLE: sin él, los nombres de la tripulación
@@ -310,6 +325,40 @@ export async function scrapeArmsRoster(
       throw new Error('No se encontró el botón VIEW (btnView) en la sección de Crew Daily Roster.');
     }
 
+    // ── Esperar a que el grid tenga datos reales (no tiempo fijo) ─────────
+    // ARMS puede llenar la tabla vía AJAX después del VIEW; capturar antes = tabla vacía.
+    const dataSelectors = [
+      'table#SpreadMask_viewTable',
+      'table#sprFlightDuties_viewTable',
+      'table[id*="SpreadMask" i]',
+      'table[id*="FlightDuties" i]',
+      'table#sprDeadHead_viewTable',
+    ];
+    const dataDeadline = Date.now() + 15000;
+    let rowsReady = false;
+    while (Date.now() < dataDeadline && !rowsReady) {
+      try {
+        const rowCount = await page.evaluate((sels) => {
+          for (const s of sels) {
+            const el = document.querySelector(s);
+            if (el) {
+              const rows = el.querySelectorAll('tr').length;
+              if (rows > 1) return rows;
+            }
+          }
+          return 0;
+        }, dataSelectors).catch(() => 0);
+        if (rowCount > 1) {
+          rowsReady = true;
+          console.log(`[ARMS_SCRAPER] Grid con datos listo (${rowCount} filas).`);
+        }
+      } catch { /* continuar polling */ }
+      if (!rowsReady) await page.waitForTimeout(500);
+    }
+    if (!rowsReady) {
+      console.warn('[ARMS_SCRAPER] El grid no mostró filas de datos tras 15s. Se extraerá igual (posible tabla vacía).');
+    }
+
     // ── Extraer HTML completo de la tabla de resultados ──────────────────
     // ARMS renderiza la tabla del roster en distintos contenedores según versión.
     // Usamos los IDs de los controles FarPoint Spread que tienen los datos.
@@ -347,6 +396,10 @@ export async function scrapeArmsRoster(
     }
 
     console.log(`[ARMS_SCRAPER] HTML del roster extraído exitosamente (${tableHtml.length} caracteres).`);
+
+    // Diagnóstico: contar filas y mostrar un snippet para ver si hay datos
+    const trCount = (tableHtml.match(/<tr[ >]/gi) || []).length;
+    console.log(`[ARMS_SCRAPER] Filas (<tr>) en la tabla: ${trCount}. Snippet: ${tableHtml.substring(0, 300)}`);
 
     // ── Capturar cookies para sesiones futuras (cron job) ────────────────
     const storageState = await context.storageState();
@@ -404,10 +457,10 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
     // ── 2.1: Detectar si esta fila introduce una nueva fecha ────────────
     // ARMS usa un <td rowspan="N"> con la fecha al inicio de un grupo de tramos.
     // Dependiendo de la versión de ARMS, la fecha puede estar en la celda 0 o 1.
-    const dateRegex = /(\d{2})[-\/]([A-Za-z]{3}|\d{2})[-\/](\d{4})/;
+    const dateRegex = /(\d{1,2})[-\/]([A-Za-z]{3}|\d{1,2})[-\/](\d{4})/;
     let foundDate = false;
     
-    for (let i = 0; i < Math.min(3, cells.length); i++) {
+    for (let i = 0; i < Math.min(6, cells.length); i++) {
       const cellText = cells[i].innerText.trim();
       const dateMatch = cellText.match(dateRegex);
       if (dateMatch) {
@@ -620,10 +673,10 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
  *          "15/06/2026"  → "2026-06-15"
  */
 function convertArmsDateToISO(raw: string): string {
-  const m = raw.match(/(\d{2})[-\/]([A-Za-z]{3}|\d{2})[-\/](\d{4})/);
+  const m = raw.match(/(\d{1,2})[-\/]([A-Za-z]{3}|\d{1,2})[-\/](\d{4})/);
   if (!m) return '';
 
-  const day   = m[1];
+  const day   = m[1].padStart(2, '0');
   const month = MONTH_MAP[m[2].toLowerCase()] || m[2].padStart(2, '0');
   const year  = m[3];
 

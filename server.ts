@@ -1531,6 +1531,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       // Parsear HTML a estructuras estructuradas
       const rosterEntries = parseArmsRosterHtml(html);
+
+      // Diagnóstico: qué fechas quedaron parseadas
+      if (rosterEntries.length > 0) {
+        const dates = rosterEntries.map((e: any) => e.dateISO).sort();
+        console.log(`[ARMS_SYNC] Fechas parseadas (${dates.length}): ${dates.join(', ')}`);
+      } else {
+        console.warn('[ARMS_SYNC] No se parsearon tramos. Revisar HTML/parser.');
+      }
       
       // Calcular hash SHA-256 para detección de cambios
       const rosterHash = crypto.createHash("sha256").update(JSON.stringify(rosterEntries)).digest("hex");
