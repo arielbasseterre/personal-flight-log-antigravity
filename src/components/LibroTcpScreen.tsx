@@ -103,7 +103,7 @@ const IATA_AIRPORTS: Record<string, { iata: string, name: string }> = {
   'SAVN': { iata: 'VDM', name: 'Viedma' },
   'SAVE': { iata: 'EQS', name: 'Esquel' },
   'SAWG': { iata: 'RGL', name: 'Río Gallegos' },
-  'SAVC': { iata: 'CRV', name: 'Comodoro Rivadavia' },
+  'SAVC': { iata: 'CRD', name: 'Comodoro Rivadavia' },
   'SAWE': { iata: 'RGA', name: 'Río Grande' },
   'SAZY': { iata: 'CPC', name: 'Chapelco / San Martín de los Andes' },
   'SAVY': { iata: 'PMY', name: 'Puerto Madryn' },
@@ -621,7 +621,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
 
       const ANAC_TO_IATA: Record<string, string> = {
         "AER":"AEP","BAI":"BHI","BAR":"BRC","ECA":"FTE","CAT":"CTC",
-        "CBA":"COR","CHA":"CPC","CRR":"CNQ","DOZ":"MDZ","ESQ":"EQS",
+        "CBA":"COR","CHA":"CPC","CRR":"CNQ","CRV":"CRD","DOZ":"MDZ","ESQ":"EQS",
         "GAL":"RGL","GIC":"GPO","GRA":"RGA","IGU":"IGR","JUA":"UAQ",
         "LAR":"IRJ","MAD":"PMY","MAL":"LGS","MDP":"MDQ","NEU":"NQN",
         "OSA":"RSA","PAR":"PRA","POS":"PSS","SAL":"SLA","SIS":"RES",
