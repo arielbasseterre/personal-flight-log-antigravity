@@ -953,6 +953,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         }
       }
 
+      const _ok = results.filter((r: any) => r.status === 'success').length;
+      const _err = results.filter((r: any) => r.status === 'error');
+      console.log(`[SYNC_ANAC] Resumen: ${_ok} exitosos de ${results.length} (${_err.length} errores)`);
+      if (_err.length > 0) {
+        const _sample = _err.slice(0, 3).map((r: any) => typeof r.error === 'string' ? r.error.substring(0, 200) : JSON.stringify(r.error)?.substring(0, 200));
+        console.log(`[SYNC_ANAC] Errores de ANAC (muestra): ${_sample.join(' | ')}`);
+      }
+
       res.json({ results });
     } catch (error: any) {
       console.error("Sync error:", error);
@@ -1022,6 +1030,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           console.error("[EDIT_ANAC] Error:", itemError.response?.status, itemError.response?.data || itemError.message);
           results.push({ id: log.id, status: "error", error: itemError.response?.data || itemError.message });
         }
+      }
+
+      const _ok = results.filter((r: any) => r.status === 'success').length;
+      const _err = results.filter((r: any) => r.status === 'error');
+      console.log(`[EDIT_ANAC] Resumen: ${_ok} exitosos de ${results.length} (${_err.length} errores)`);
+      if (_err.length > 0) {
+        const _sample = _err.slice(0, 3).map((r: any) => typeof r.error === 'string' ? r.error.substring(0, 200) : JSON.stringify(r.error)?.substring(0, 200));
+        console.log(`[EDIT_ANAC] Errores de ANAC (muestra): ${_sample.join(' | ')}`);
       }
 
       res.json({ results });
@@ -1289,6 +1305,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         }
       }
 
+      const _ok = results.filter((r: any) => r.status === 'success').length;
+      const _err = results.filter((r: any) => r.status === 'error');
+      console.log(`[SYNC_ANAC_TCP] Resumen: ${_ok} exitosos de ${results.length} (${_err.length} errores)`);
+      if (_err.length > 0) {
+        const _sample = _err.slice(0, 3).map((r: any) => typeof r.error === 'string' ? r.error.substring(0, 200) : JSON.stringify(r.error)?.substring(0, 200));
+        console.log(`[SYNC_ANAC_TCP] Errores de ANAC (muestra): ${_sample.join(' | ')}`);
+      }
+
       res.json({ results });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1357,6 +1381,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           console.error("[EDIT_ANAC_TCP] Error:", itemError.response?.status, itemError.response?.data || itemError.message);
           results.push({ id: log.id, status: "error", error: itemError.response?.data || itemError.message });
         }
+      }
+
+      const _ok = results.filter((r: any) => r.status === 'success').length;
+      const _err = results.filter((r: any) => r.status === 'error');
+      console.log(`[EDIT_ANAC_TCP] Resumen: ${_ok} exitosos de ${results.length} (${_err.length} errores)`);
+      if (_err.length > 0) {
+        const _sample = _err.slice(0, 3).map((r: any) => typeof r.error === 'string' ? r.error.substring(0, 200) : JSON.stringify(r.error)?.substring(0, 200));
+        console.log(`[EDIT_ANAC_TCP] Errores de ANAC (muestra): ${_sample.join(' | ')}`);
       }
 
       res.json({ results });
