@@ -304,6 +304,7 @@ const persistAnacVueloId = async (logId: string, anacResponseData: any): Promise
 };
 
 const app = express();
+app.set('trust proxy', true); // Render está detrás de un proxy: evita ERR_ERL_UNEXPECTED_X_FORWARDED_FOR en express-rate-limit
 app.use(express.json({ limit: '5mb' }));
 
 // --- Helmet: seguridad HTTP headers (producción con CSP, dev sin CSP para Vite HMR) ---
@@ -3355,6 +3356,13 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       }
     });
   }
+
+// Manejador global de errores: evita que un error no manejado tumbe el proceso (devuelve 500 JSON)
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("[ERROR]", err.stack || err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: process.env.NODE_ENV === "production" ? "Error interno del servidor" : err.message });
+});
 
 // Start the server if not in a serverless environment like Vercel
 if (!process.env.VERCEL) {
