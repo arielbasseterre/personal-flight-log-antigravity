@@ -227,34 +227,40 @@ export async function scrapeArmsRoster(
     // Setear el rango usando la API del jQuery UI Datepicker (los campos son readonly).
     // Asignar input.value directamente NO actualiza el estado interno del Datepicker
     // que ARMS usa al hacer VIEW → usaba el rango por defecto → tabla vacía.
-    await page.evaluate(({ from, to }) => {
-      const MONTHS = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
-      const ids = ['txtFromDate', 'txtToDate'];
-      const vals = [from, to];
-      for (let i = 0; i < ids.length; i++) {
-        const id = ids[i];
-        const val = vals[i];
-        const input = document.getElementById(id) as HTMLInputElement | null;
-        if (input) input.removeAttribute('readonly');
-        const w = (window as any);
-        const $el = input ? w.$(input) : null;
-        if ($el && $el.datepicker) {
-          try {
-            const p = val.split('-'); // DD-Mon-YYYY
-            $el.datepicker('setDate', new Date(parseInt(p[2], 10), MONTHS[p[1]], parseInt(p[0], 10)));
-            continue;
-          } catch { /* caer al valor directo */ }
+    // Se usa un STRING en evaluate para evitar helpers de esbuild (__name) que no existen en el browser.
+    await page.evaluate(
+      `({ from, to }) => {
+        const MONTHS = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+        const ids = ['txtFromDate', 'txtToDate'];
+        const vals = [from, to];
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i];
+          const val = vals[i];
+          const input = document.getElementById(id);
+          if (input) input.removeAttribute('readonly');
+          const w = window;
+          const $el = (input && typeof w.$ === 'function') ? w.$(input) : null;
+          if ($el && $el.datepicker) {
+            try {
+              const p = val.split('-'); // DD-Mon-YYYY
+              $el.datepicker('setDate', new Date(parseInt(p[2], 10), MONTHS[p[1]], parseInt(p[0], 10)));
+              continue;
+            } catch (e) {}
+          }
+          if (input) input.value = val;
         }
-        if (input) input.value = val;
-      }
-    }, { from: fromDateStr, to: toDateStr });
+      }`,
+      { from: fromDateStr, to: toDateStr }
+    );
 
     // Verificar que las fechas quedaron aplicadas en los inputs
-    const dateCheck = await page.evaluate(() => {
-      const f = document.getElementById('txtFromDate') as HTMLInputElement | null;
-      const t = document.getElementById('txtToDate') as HTMLInputElement | null;
-      return { from: f?.value || '', to: t?.value || '' };
-    }).catch(() => ({ from: '', to: '' }));
+    const dateCheck = (await page.evaluate(
+      `() => {
+        const f = document.getElementById('txtFromDate');
+        const t = document.getElementById('txtToDate');
+        return { from: f ? f.value : '', to: t ? t.value : '' };
+      }`
+    ).catch(() => ({ from: '', to: '' }))) as { from: string; to: string };
     console.log(`[ARMS_SCRAPER] Fechas configuradas via JS eval. Verificación: From=${dateCheck.from} To=${dateCheck.to}`);
 
     // ── PASO 6A: Activar checkbox "Show Crew Complement" ────────────────
@@ -340,16 +346,19 @@ export async function scrapeArmsRoster(
     let rowsReady = false;
     while (Date.now() < dataDeadline && !rowsReady) {
       try {
-        const rowCount = await page.evaluate((sels) => {
-          for (const s of sels) {
-            const el = document.querySelector(s);
-            if (el) {
-              const rows = el.querySelectorAll('tr').length;
-              if (rows > 1) return rows;
+        const rowCount = (await page.evaluate(
+          `(sels) => {
+            for (const s of sels) {
+              const el = document.querySelector(s);
+              if (el) {
+                const rows = el.querySelectorAll('tr').length;
+                if (rows > 1) return rows;
+              }
             }
-          }
-          return 0;
-        }, dataSelectors).catch(() => 0);
+            return 0;
+          }`,
+          dataSelectors
+        ).catch(() => 0)) as number;
         if (rowCount > 1) {
           rowsReady = true;
           console.log(`[ARMS_SCRAPER] Grid con datos listo (${rowCount} filas).`);
