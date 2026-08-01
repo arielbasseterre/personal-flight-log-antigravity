@@ -1126,7 +1126,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       let tripulanteID = Number(req.body.vueloTripulanteID) || 0;
       if (!tripulanteID) {
         try {
-          const discoverUrl = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TM&sortField=fechaSalida&sortDirection=DESC&pageNumber=1&rowsPerPage=1&mostrarIngresados=true&solicitudFoliadoId=null`;
+          const discoverUrl = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TCP&sortField=fechaSalida&sortDirection=DESC&pageNumber=1&rowsPerPage=1&mostrarIngresados=true&solicitudFoliadoId=null`;
           const discoverRes = await axios.get(discoverUrl, {
             headers: {
               "Cookie": cookieHeader,
