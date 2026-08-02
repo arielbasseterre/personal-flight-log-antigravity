@@ -580,11 +580,29 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           if (error) { op.retryCount++; if (op.retryCount >= 5) removeFromQueue(op.logId); continue; }
           removeFromQueue(op.logId);
         } catch (err) { op.retryCount++; if (op.retryCount >= 5) removeFromQueue(op.logId); }
+      } else if (op.type === 'delete') {
+        try {
+          const { error } = await supabase.from('flight_logs').delete().eq('id', op.remoteId);
+          if (error) {
+            op.retryCount++;
+            if (op.retryCount >= 5) removeFromQueue(op.remoteId);
+            continue;
+          }
+          removeFromQueue(op.remoteId);
+        } catch (err) {
+          op.retryCount++;
+          if (op.retryCount >= 5) removeFromQueue(op.remoteId);
+        }
       }
     }
     setPendingOps(getQueue());
+    await refreshData();
     setIsSyncingQueue(false);
   };
+
+  // Ref para evitar stale closure en listeners/auto-sync
+  const processQueueRef = useRef<() => Promise<void>>(async () => {});
+  processQueueRef.current = processQueue;
 
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void;
@@ -773,14 +791,29 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
     try { localStorage.setItem('tcp_flight_log_active_tab', activeTab); } catch {}
   }, [activeTab]);
 
+  // Auto-sync de la cola offline al montar (si hay ops pendientes y estamos online)
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    setPendingOps(getQueue());
+    if (navigator.onLine && getQueue().length > 0) {
+      processQueueRef.current();
+    }
+  }, []);
+
+  // Listeners de conexión + auto-sync al reconectar/focus (usa ref para evitar stale closure)
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      processQueueRef.current();
+    };
     const handleOffline = () => setIsOnline(false);
+    const handleFocus = () => { if (navigator.onLine) processQueueRef.current(); };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleFocus);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -1100,7 +1133,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           createdAt: new Date().toISOString(),
           retryCount: 0
         });
-        setLogs(prev => [...prev, { ...logToSave, id: localId }]);
+        setLogs(prev => [...prev, { ...logToSave, id: localId, _pending: true }]);
       }
       
       setPendingOps(getQueue());
@@ -1150,6 +1183,14 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       `Fecha: ${fecha} ${hora}\nRuta: ${route}\nMatrícula: ${log.matriculaAvion}\n\n⚠️ Si el vuelo ya fue sincronizado con ANAC, deberás eliminar manualmente el registro en el portal de ANAC, ya que la app no elimina datos de ANAC.\n\n¿Estás seguro? Esta acción no se puede deshacer.`,
       async () => {
         if (!supabase) return;
+
+        if (!navigator.onLine) {
+          addToQueue({ type: 'delete', remoteId: logId, createdAt: new Date().toISOString(), retryCount: 0 });
+          setLogs(prev => prev.filter(l => l.id !== logId));
+          setPendingOps(getQueue());
+          return;
+        }
+
         try {
           await supabase.from('flight_logs').delete().eq('id', logId);
           setLogs(prev => prev.filter(l => l.id !== logId));
