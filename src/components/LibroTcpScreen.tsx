@@ -1883,7 +1883,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
             `${String(a.getUTCHours()).padStart(2, '0')}:${String(a.getUTCMinutes()).padStart(2, '0')}`,
             finSigla, log.Marca_Modelo || '', log.matriculaAvion, log.folio_rva ?? '',
             hDia, hNoche, log.aterrizajes, instructorHrs || '', log.Marca_Modelo || '',
-            `${(hDia + hNoche).toFixed(1)} ${log.observaciones || ''}`
+            log.observaciones || ''
           ];
 
           rowData.forEach((val, c) => {

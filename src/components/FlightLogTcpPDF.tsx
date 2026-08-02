@@ -337,7 +337,7 @@ export const FlightLogTcpPDF = ({ logs, profile }: { logs: FlightLog[]; profile?
                     <View style={[styles.cell, { width: col.tipoAero }]}><Text style={[styles.cellText, { fontSize: 5 }]}>{log.Marca_Modelo || ''}</Text></View>
                     <View style={[styles.cell, { width: col.cert, borderRightWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: 2 }]}>
                       <Text style={[styles.cellText, { fontSize: 5, textAlign: 'left' }]}>
-                        {`${(hDia + hNoche).toFixed(1)}  ${log.observaciones || ''}`}
+                        {log.observaciones || ''}
                       </Text>
                     </View>
                   </View>
