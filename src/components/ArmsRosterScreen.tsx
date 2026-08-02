@@ -1919,51 +1919,76 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   // ╚═════════════════════════════════════════════════════════════════════╝
   const loadCachedRoster = useCallback(async () => {
     setInitialLoading(true);
-    
+
     // Primero intentar cargar desde caché local para acceso offline inmediato
     const cacheKey = `roster_cache_${userId}_${year}_${month}`;
     const cachedStr = localStorage.getItem(cacheKey);
     let hasLocalCache = false;
-    
+    let localSyncedAt: string | null = null;
+
     if (cachedStr) {
       try {
         const cachedData = JSON.parse(cachedStr);
         setEntries(cachedData.entries || []);
         setLastSynced(cachedData.synced_at || null);
+        localSyncedAt = cachedData.synced_at || null;
         hasLocalCache = true;
       } catch (e) {
         console.error("Error parsing local roster cache", e);
       }
     }
 
+    // Consultar Supabase vía servidor (usa SUPABASE_SERVICE_ROLE_KEY → siempre puede leer,
+    // sin depender de RLS). Así, si el roster se sincronizó en otro dispositivo, se detecta
+    // automáticamente la versión más actualizada y se muestra sin volver a sincronizar con ARMS.
     try {
-      const { data, error } = await supabase
-        .from('arms_roster')
-        .select('roster_json, synced_at')
-        .eq('user_id', userId)
-        .eq('month', month)
-        .eq('year', year)
-        .maybeSingle();
+      const res = await fetch(`${getApiUrl('/api/arms/roster')}?user_id=${encodeURIComponent(userId)}&month=${month}&year=${year}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
 
-      if (error) {
-         throw error;
-      }
+      if (data.success && data.roster && data.roster.length > 0) {
+        const serverTime = data.syncedAt ? new Date(data.syncedAt).getTime() : 0;
+        const localTime = localSyncedAt ? new Date(localSyncedAt).getTime() : 0;
 
-      if (data?.roster_json) {
-        setEntries(data.roster_json as ArmsDayEntry[]);
-        setLastSynced(data.synced_at);
-        // Guardar en caché local para el futuro
-        localStorage.setItem(cacheKey, JSON.stringify({
-          entries: data.roster_json,
-          synced_at: data.synced_at
-        }));
+        // Mostrar la versión más actualizada automáticamente
+        if (!hasLocalCache || serverTime > localTime) {
+          setEntries(data.roster as ArmsDayEntry[]);
+          setLastSynced(data.syncedAt);
+          // Guardar en caché local para el futuro
+          localStorage.setItem(cacheKey, JSON.stringify({
+            entries: data.roster,
+            synced_at: data.syncedAt
+          }));
+        }
       } else if (!hasLocalCache) {
         setEntries([]);
         setLastSynced(null);
       }
     } catch (e: any) {
-      console.error('[ARMS_UI] Error cargando roster desde base de datos:', e.message);
-      // Si falla (ej. sin conexión), mantenemos lo que ya cargamos desde localStorage
+      console.error('[ARMS_UI] Error cargando roster desde el servidor:', e.message);
+      // Fallback: intentar lectura directa desde Supabase (requiere RLS configurada en arms_roster)
+      try {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from('arms_roster')
+            .select('roster_json, synced_at')
+            .eq('user_id', userId)
+            .eq('month', month)
+            .eq('year', year)
+            .maybeSingle();
+          if (!error && data?.roster_json) {
+            setEntries(data.roster_json as ArmsDayEntry[]);
+            setLastSynced(data.synced_at);
+            localStorage.setItem(cacheKey, JSON.stringify({
+              entries: data.roster_json,
+              synced_at: data.synced_at
+            }));
+          }
+        }
+      } catch (e2: any) {
+        console.error('[ARMS_UI] Fallback directo a Supabase falló:', e2.message);
+      }
+      // Si falla todo (ej. sin conexión), mantenemos lo que ya cargamos desde localStorage
     } finally {
       setInitialLoading(false);
     }
