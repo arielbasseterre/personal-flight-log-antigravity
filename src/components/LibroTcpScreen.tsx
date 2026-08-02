@@ -2127,33 +2127,33 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
               </CardContent>
             </Card>
 
+            <div className="space-y-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">3- DETALLE PARA DDJJ DE HORAS DE VUELO</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Los totales en esta sección pueden ser utilizados para compararlos con el 3- DDJJ de horas de vuelo en el portal de ANAC</p>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
                 <CardContent className="p-4">
                   <p className="text-xs text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">Horas Día</p>
-                  <p className="text-2xl font-black text-blue-700 dark:text-blue-300">{grandTotalDia.toFixed(1)}</p>
-                  <p className="text-[10px] text-blue-500/70">Inicial: {initialDia.toFixed(1)}</p>
+                  <p className="text-2xl font-black text-blue-700 dark:text-blue-300">{totalDayHours.toFixed(1)}</p>
                 </CardContent>
               </Card>
               <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border-indigo-200 dark:border-indigo-700">
                 <CardContent className="p-4">
                   <p className="text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">Horas Noche</p>
-                  <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300">{grandTotalNoche.toFixed(1)}</p>
-                  <p className="text-[10px] text-indigo-500/70">Inicial: {initialNoche.toFixed(1)}</p>
+                  <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300">{totalNightHours.toFixed(1)}</p>
                 </CardContent>
               </Card>
               <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200 dark:border-amber-700">
                 <CardContent className="p-4">
                   <p className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">Aterrizajes</p>
-                  <p className="text-2xl font-black text-amber-700 dark:text-amber-300">{grandTotalLandings}</p>
-                  <p className="text-[10px] text-amber-500/70">Inicial: {initialLandings}</p>
+                  <p className="text-2xl font-black text-amber-700 dark:text-amber-300">{totalLandings}</p>
                 </CardContent>
               </Card>
               <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200 dark:border-emerald-700">
                 <CardContent className="p-4">
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Instructor TCP</p>
-                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{grandTotalInstructor.toFixed(1)}</p>
-                  <p className="text-[10px] text-emerald-500/70">Inicial: {initialInstructor.toFixed(1)}</p>
+                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{totalInstructorHours.toFixed(1)}</p>
                 </CardContent>
               </Card>
             </div>
@@ -2172,6 +2172,63 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                 </ResponsiveContainer>
               </CardContent>
             </Card>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">Últimos Registros</h3>
+              {[...tcpLogs].sort((a, b) => {
+                const dateA = new Date(a.fechaHoraSalida).getTime();
+                const dateB = new Date(b.fechaHoraSalida).getTime();
+                if (dateA !== dateB) return dateB - dateA;
+                return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+              }).slice(0, 3).map((log) => (
+                <Card key={log.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                        <PlaneTakeoff size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {(() => {
+                          const depISO = log.fechaHoraSalida || '';
+                          const arrISO = log.fechaHoraLlegada || '';
+                          const date = depISO ? new Date(depISO) : null;
+                          return (
+                            <>
+                              <div className="font-semibold text-sm">
+                                {log.origenID || (log as any).origin_ad || '---'} → {log.destinoID || (log as any).destination_ad || '---'}
+                              </div>
+                              <div className="text-[10px] flex items-center gap-2 mt-1">
+                                <span className="text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
+                                  {depISO ? depISO.slice(11, 16) : ((log as any).departure_time_utc || '--:--')}
+                                </span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                                  {arrISO ? arrISO.slice(11, 16) : ((log as any).arrival_time_utc || '--:--')}
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-400 font-medium ml-1">
+                                  {date ? `${date.getUTCDate()}/${date.getUTCMonth() + 1}/${date.getUTCFullYear()}` : '--/--/--'}
+                                  {' • '}{log.matriculaAvion || (log as any).registration || 'S/M'}
+                                </span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="outline" className="text-[10px] uppercase">
+                        {FLIGHT_PURPOSES.find((f: any) => f.key === String(log.finalidadID))?.sigla || log.tipoVueloID || 'VUELO'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {tcpLogs.length === 0 && (
+                <div className="text-center py-6">
+                  <FileText size={40} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-sm text-slate-400">No hay vuelos registrados aún</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="nuevo">
@@ -2511,6 +2568,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                   </div>
                 </div>
 
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 pt-2">TUS HORAS TOTALES (horas cargadas en tu perfil + horas cargadas en la app)</p>
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div className="p-4 bg-emerald-600/10 border border-emerald-600/30 rounded-xl">
                     <p className="text-xs font-bold text-emerald-600">TOTAL DÍA</p>
