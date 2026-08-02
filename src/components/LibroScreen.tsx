@@ -3040,13 +3040,16 @@ const resolveToAnac = (input: string | undefined) => {
               >
                 <div className="flex items-center gap-2">
                   <BarChart3 size={14} className="text-blue-500" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">Detalle por Categoría</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">3- DETALLE PARA DDJJ DE HORAS DE VUELO</span>
                 </div>
                 <ChevronRight
                   size={16}
                   className={`text-slate-400 transition-transform duration-300 ${showDetailedStats ? 'rotate-90' : ''}`}
                 />
               </button>
+              <p className="px-4 pb-2 text-[10px] text-slate-500 dark:text-slate-400">
+                Los totales en esta sección pueden ser utilizados para compararlos con el 3- DDJJ de horas de vuelo en el portal de ANAC
+              </p>
               <AnimatePresence initial={false}>
                 {showDetailedStats && (
                   <motion.div
