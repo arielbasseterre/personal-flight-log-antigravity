@@ -365,6 +365,12 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
           if (val && typeof val === 'object' && 'result' in val && val.result !== null && val.result !== undefined) {
             return String(val.result).trim();
           }
+          // Celdas de fecha/hora: usar el valor UTC (el serial de Excel es sin zona horaria).
+          // String(Date) depende del TZ del navegador y aplica offsets históricos (ej. -4:16 en
+          // Argentina para fechas base 1899), lo que corría las horas ~20h en el import.
+          if (val instanceof Date && !isNaN(val.getTime())) {
+            return val.toISOString();
+          }
           return String(val ?? '').trim();
         };
 
@@ -422,6 +428,9 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
           }
           const fechaSalida = new Date(Date.UTC(detectedYear, month - 1, day, salH, salM));
           const fechaLlegada = new Date(Date.UTC(detectedYear, month - 1, day, lleH, lleM));
+          if (fechaLlegada < fechaSalida) {
+            fechaLlegada.setUTCDate(fechaLlegada.getUTCDate() + 1);
+          }
           const fechaSalStr = fechaSalida.toISOString();
           const fechaLleStr = fechaLlegada.toISOString();
 
