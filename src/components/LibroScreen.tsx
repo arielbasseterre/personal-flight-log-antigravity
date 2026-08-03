@@ -2079,7 +2079,7 @@ const resolveToAnac = (input: string | undefined) => {
         "AER":"AEP","BAR":"BRC","ECA":"FTE","CAT":"CTC","BCA":"BHI",
         "CBA":"COR","CHP":"CPC","CRR":"CNQ","CRV":"CRD","DOZ":"MDZ","ESQ":"EQS",
         "GAL":"RGL","GPI":"GPO","GRA":"RGA","IGU":"IGR","JUA":"UAQ",
-        "LAR":"IRJ","MAD":"PMY","MLG":"LGS","MDP":"MDQ","NEU":"NQN",
+        "LAR":"IRJ","DRY":"PMY","MLG":"LGS","MDP":"MDQ","NEU":"NQN",
         "OSA":"RSA","PAR":"PRA","POS":"PSS","RYD":"VME","SAL":"SLA","SIS":"RES",
         "SRA":"AFA","SVO":"SFN","TRH":"TMM","TRE":"REL","UIS":"LUQ",
         "USU":"USH","VIE":"VDM",

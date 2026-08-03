@@ -115,7 +115,7 @@ const ANAC_AIRPORT_MAPPINGS: Record<string, string> = {
   "BHI": "BCA", "SAZB": "BCA", // Bahía Blanca
   "MDQ": "MDP", "SAZM": "MDP", // Mar del Plata
   "REL": "TRE", "SAVT": "TRE", // Trelew
-  "PMY": "MAD", "SAVY": "MAD", // Puerto Madryn
+              "PMY": "DRY", "SAVY": "DRY", // Puerto Madryn
   "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV", // Comodoro Rivadavia
   "RGL": "GAL", "SAWG": "GAL", // Río Gallegos
   "RGA": "GRA", "SAWE": "GRA", // Río Grande
@@ -823,7 +823,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "BHI": "BCA", "SAZB": "BCA", // Bahía Blanca
               "MDQ": "MDP", "SAZM": "MDP", // Mar del Plata
               "REL": "TRE", "SAVT": "TRE", // Trelew
-              "PMY": "MAD", "SAVY": "MAD", // Puerto Madryn
+  "PMY": "DRY", "SAVY": "DRY", // Puerto Madryn
               "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV", // Comodoro Rivadavia
               "RGL": "GAL", "SAWG": "GAL", // Río Gallegos
               "RGA": "GRA", "SAWE": "GRA", // Río Grande
@@ -1271,7 +1271,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "BHI": "BCA", "SAZB": "BCA",
               "MDQ": "MDP", "SAZM": "MDP",
               "REL": "TRE", "SAVT": "TRE",
-              "PMY": "MAD", "SAVY": "MAD",
+              "PMY": "DRY", "SAVY": "DRY",
               "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV",
               "RGL": "GAL", "SAWG": "GAL",
               "RGA": "GRA", "SAWE": "GRA",

@@ -55,7 +55,7 @@ export default async function handler(req: any, res: any) {
             "BHI": "BCA", "SAZB": "BCA",
             "MDQ": "MDP", "SAZM": "MDP",
             "REL": "TRE", "SAVT": "TRE",
-            "PMY": "MAD", "SAVY": "MAD",
+            "PMY": "DRY", "SAVY": "DRY",
             "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV",
             "RGL": "GAL", "SAWG": "GAL",
             "RGA": "GRA", "SAWE": "GRA",
