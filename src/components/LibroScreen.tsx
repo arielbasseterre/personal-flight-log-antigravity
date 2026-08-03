@@ -1068,6 +1068,46 @@ const resolveToAnac = (input: string | undefined) => {
     setShowPendingModal(true);
   };
 
+  // Auditoría de duplicados en ANAC: agrupa los registros remotos por
+  // fechaHoraSalida+Llegada+matrícula y reporta los grupos con más de 1 registro.
+  const auditAnacDuplicates = async () => {
+    const tokenToUse = anacToken;
+    const sessionToUse = anacSession;
+    if (!tokenToUse && !sessionToUse) {
+      setShowSyncDialog(true);
+      return;
+    }
+    setSyncStatus({ message: 'Auditando duplicados en ANAC...', type: 'info' });
+    const remoteLogs = await fetchAnacLogs(tokenToUse, sessionToUse);
+    if (remoteLogs === null) {
+      showAlert("Error", "No se pudo obtener el listado de ANAC. Verificá tu sesión.", 'danger');
+      return;
+    }
+    const groups = new Map<string, any[]>();
+    remoteLogs.forEach((r: any) => {
+      const k = `${(r.fechaSalida || '').substring(0, 16)}|${(r.fechaLlegada || '').substring(0, 16)}|${normalizeMatCompare(r.matricula)}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(r);
+    });
+    const dups = Array.from(groups.values()).filter(g => g.length > 1);
+    setSyncStatus({
+      message: `Auditoría: ${remoteLogs.length} registros en ANAC, ${dups.length} grupos duplicados`,
+      type: dups.length > 0 ? 'warning' : 'success'
+    });
+    if (dups.length === 0) {
+      showAlert("Auditoría ANAC", `Se encontraron ${remoteLogs.length} registros en ANAC y NO se detectaron duplicados por fecha+matrícula.`, 'info');
+    } else {
+      const sample = dups.slice(0, 5).map(g =>
+        `${(g[0].fechaSalida || '').substring(0, 16)} ${g[0].matricula} — ${g.length} registros`
+      ).join('\n');
+      showAlert(
+        `Duplicados: ${dups.length}`,
+        `Se detectaron ${dups.length} grupos duplicados (misma fecha+matrícula).\n${sample}\n${dups.length > 5 ? `… y ${dups.length - 5} más.\n` : ''}\nTotal registros ANAC: ${remoteLogs.length}.`,
+        'warning'
+      );
+    }
+  };
+
   const handleSyncANAC = async (tokenOverride?: string, sessionOverride?: any, logsToSyncOverride?: FlightLog[]) => {
     if (!supabase || !profile) return;
     const tokenToUse = tokenOverride || anacToken;
@@ -1111,7 +1151,7 @@ const resolveToAnac = (input: string | undefined) => {
     const edits = pendingUpdates || [];
 
     // Partir en lotes de 50
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 20;
     const totalToProcess = allLogs.length + edits.length;
     let successfulIds = new Set<string>();
     let updatedIds = new Set<string>();
@@ -1137,6 +1177,8 @@ const resolveToAnac = (input: string | undefined) => {
 
         while (!batchOk && attempts < maxAttempts) {
           attempts++;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 180000);
           try {
             const response = await fetch(getApiUrl('/api/sync-anac'), {
               method: 'POST',
@@ -1147,17 +1189,20 @@ const resolveToAnac = (input: string | undefined) => {
                 storageState: sessionToUse,
                 logs_to_sync: batch
               }),
+              signal: controller.signal,
             });
+            clearTimeout(timeoutId);
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Error del servidor');
 
             if (data.results) {
               data.results.forEach((r: any) => {
-                if (r.status === 'success') successfulIds.add(r.id);
+                if (r.status === 'success' || r.status === 'already_exists') successfulIds.add(r.id);
               });
             }
             batchOk = true;
           } catch (e: any) {
+            clearTimeout(timeoutId);
             if (attempts >= maxAttempts) {
               console.warn(`[SYNC] Lote ${batchIndex} falló tras ${maxAttempts} intentos: ${e.message}`);
             } else {
@@ -1187,6 +1232,8 @@ const resolveToAnac = (input: string | undefined) => {
 
           while (!batchOk && attempts < maxAttempts) {
             attempts++;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
             try {
               const response = await fetch(getApiUrl('/api/edit-anac'), {
                 method: 'POST',
@@ -1197,7 +1244,9 @@ const resolveToAnac = (input: string | undefined) => {
                   storageState: sessionToUse,
                   edits: batch
                 }),
+                signal: controller.signal,
               });
+              clearTimeout(timeoutId);
               const data = await response.json();
               if (!response.ok) throw new Error(data.error || 'Error del servidor');
 
@@ -1214,6 +1263,7 @@ const resolveToAnac = (input: string | undefined) => {
               }
               batchOk = true;
             } catch (e: any) {
+              clearTimeout(timeoutId);
               if (attempts >= maxAttempts) {
                 console.warn(`[SYNC_EDIT] Lote ${editBatchIndex} falló tras ${maxAttempts} intentos: ${e.message}`);
               } else {
@@ -4472,6 +4522,10 @@ const resolveToAnac = (input: string | undefined) => {
               <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
                 <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowPendingModal(false)}>
                   Cerrar
+                </Button>
+                <Button variant="outline" className="flex-1 rounded-xl gap-2" onClick={auditAnacDuplicates} disabled={isSyncing}>
+                  <AlertTriangle size={14} className="text-amber-500" />
+                  Auditar duplicados
                 </Button>
                 {(pendingLogs.length + pendingUpdates.length) > 0 && syncStatus.type !== 'success' && (
                   <Button 

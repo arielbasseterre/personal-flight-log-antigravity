@@ -176,6 +176,60 @@ const buildAnacTcpPayload = (log: any) => {
   };
 };
 
+// ─── Dedup idempotente para sync ANAC ──────────────────────────────────────
+// El envío masivo reintenta lotes completos si la respuesta se pierde (timeout/red),
+// lo que podía duplicar en ANAC vuelos ya creados. Antes de crear cada vuelo se
+// verifica si ya existe (fechaHoraSalida+Llegada+matrícula) en el listado ANAC del
+// usuario y contra los ya creados en esta misma request.
+const normalizeMatAnac = (m: any) => String(m || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+const localAnacKey = (log: any) => {
+  let s = "", e = "";
+  try { s = new Date(log.fechaHoraSalida).toISOString().substring(0, 16); } catch { }
+  try { e = new Date(log.fechaHoraLlegada).toISOString().substring(0, 16); } catch { }
+  return `${s}|${e}|${normalizeMatAnac(log.matriculaAvion)}`;
+};
+const remoteAnacKey = (r: any) =>
+  `${(r.fechaSalida || "").substring(0, 16)}|${(r.fechaLlegada || "").substring(0, 16)}|${normalizeMatAnac(r.matricula)}`;
+
+const fetchAllAnacLogs = async (cookieHeader: string, tipoTrip: "TCP" | "TM") => {
+  const allLogs: any[] = [];
+  let page = 1;
+  let hasMore = true;
+  const baseHeaders = {
+    "Cookie": cookieHeader,
+    "X-Requested-With": "XMLHttpRequest",
+    "Accept": "application/json, text/plain, */*",
+    "Origin": "https://cad.anac.gob.ar",
+    "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+  };
+  while (hasMore) {
+    const url = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=${tipoTrip}&sortField=fechaSalida&sortDirection=DESC&pageNumber=${page}&rowsPerPage=100&mostrarIngresados=true&solicitudFoliadoId=null`;
+    let anacResponse;
+    try {
+      anacResponse = await axios.get(url, { headers: baseHeaders, timeout: 15000 });
+    } catch (err: any) {
+      if (err.code === 'ENOTFOUND' || err.code === 'ECONNABORTED' || (err.response && err.response.status === 404)) {
+        const fallbackUrl = `https://cadam.anac.gob.ar/Cadam/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=${tipoTrip}&sortField=fechaSalida&sortDirection=DESC&pageNumber=${page}&rowsPerPage=100&mostrarIngresados=true&solicitudFoliadoId=null`;
+        anacResponse = await axios.get(fallbackUrl, {
+          headers: { "Cookie": cookieHeader, "X-Requested-With": "XMLHttpRequest", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36" },
+          timeout: 15000
+        });
+      } else {
+        throw err;
+      }
+    }
+    const pageData = anacResponse.data?.dataSource || anacResponse.data;
+    if (Array.isArray(pageData) && pageData.length > 0) {
+      allLogs.push(...pageData);
+      page++;
+    } else {
+      hasMore = false;
+    }
+  }
+  return allLogs;
+};
+
 const buildAnacPilotPayload = (log: any) => {
   let authId = String(log.autoridadCertificanteID || "15");
   let obs = log.observaciones || "";
@@ -708,8 +762,25 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         return dateA - dateB;
       });
 
+      // [DEDUP] Listar vuelos existentes de ANAC para no duplicar por reintentos/doble envío.
+      // Best-effort: si falla la consulta, se continúa sin dedup (no rompe el sync).
+      let anacLogs: any[] = [];
+      try {
+        anacLogs = await fetchAllAnacLogs(cookieHeader, "TM");
+      } catch (e: any) {
+        console.warn("[SYNC_ANAC] No se pudo obtener listado ANAC para dedup:", (e as any).message);
+      }
+      const anacExisting = new Set(anacLogs.map(remoteAnacKey));
+      const anacCreated = new Set<string>();
+
       for (const log of sortedLogs) {
         try {
+          const key = localAnacKey(log);
+          if (anacExisting.has(key) || anacCreated.has(key)) {
+            results.push({ id: log.id, status: "already_exists" });
+            continue;
+          }
+          anacCreated.add(key);
           // Exact payload mapping based on your model provided in screenshot
           let authId = String(log.autoridadCertificanteID || "15");
           let obs = log.observaciones || "";
@@ -1142,31 +1213,20 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       console.log(`[SYNC_ANAC_TCP] Iniciando sincronización TCP con ${storageState ? 'sesión completa' : 'token simple'}`);
 
-      // Descubrir vueloTripulanteID del usuario desde sus vuelos existentes en ANAC
+      // Descubrir vueloTripulanteID + listar vuelos existentes (para dedup idempotente)
       let tripulanteID = Number(req.body.vueloTripulanteID) || 0;
-      if (!tripulanteID) {
-        try {
-          const discoverUrl = `https://cad.anac.gob.ar/foliadoweb/api/VueloTripulante/GetPagedList?descripcion=&tipoTrip=TCP&sortField=fechaSalida&sortDirection=DESC&pageNumber=1&rowsPerPage=1&mostrarIngresados=true&solicitudFoliadoId=null`;
-          const discoverRes = await axios.get(discoverUrl, {
-            headers: {
-              "Cookie": cookieHeader,
-              "X-Requested-With": "XMLHttpRequest",
-              "Accept": "application/json, text/plain, */*",
-              "Origin": "https://cad.anac.gob.ar",
-              "Referer": "https://cad.anac.gob.ar/foliadoweb/VueloTripulante/Index",
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            },
-            timeout: 15000
-          });
-          const first = discoverRes.data?.dataSource?.[0];
-          if (first?.vueloTripulanteID) {
-            tripulanteID = first.vueloTripulanteID;
-            console.log(`[SYNC_ANAC_TCP] vueloTripulanteID descubierto: ${tripulanteID}`);
-          }
-        } catch (e) {
-          console.warn("[SYNC_ANAC_TCP] No se pudo descubrir vueloTripulanteID:", (e as any).message);
+      let anacLogs: any[] = [];
+      try {
+        anacLogs = await fetchAllAnacLogs(cookieHeader, "TCP");
+        if (!tripulanteID && anacLogs[0]?.vueloTripulanteID) {
+          tripulanteID = anacLogs[0].vueloTripulanteID;
+          console.log(`[SYNC_ANAC_TCP] vueloTripulanteID descubierto: ${tripulanteID}`);
         }
+      } catch (e: any) {
+        console.warn("[SYNC_ANAC_TCP] No se pudo obtener listado ANAC para dedup:", (e as any).message);
       }
+      const anacExisting = new Set(anacLogs.map(remoteAnacKey));
+      const anacCreated = new Set<string>();
 
       const sortedLogs = [...logs].sort((a: any, b: any) => {
         return new Date(a.fechaHoraSalida || 0).getTime() - new Date(b.fechaHoraSalida || 0).getTime();
@@ -1174,6 +1234,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       for (const log of sortedLogs) {
         try {
+          // [DEDUP] Evitar duplicados por reintento de lote / doble envío: si el vuelo
+          // ya existe en ANAC o ya se creó en esta request, se omite.
+          const key = localAnacKey(log);
+          if (anacExisting.has(key) || anacCreated.has(key)) {
+            results.push({ id: log.id, status: "already_exists" });
+            continue;
+          }
+          anacCreated.add(key);
           const mapAirportCode = (code: string) => {
             const c = code.trim().toUpperCase();
             const ANAC_MAPPINGS: Record<string, string> = {
