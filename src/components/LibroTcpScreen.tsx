@@ -638,12 +638,12 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
       }
 
       const ANAC_TO_IATA: Record<string, string> = {
-        "AER":"AEP","BAI":"BHI","BAR":"BRC","ECA":"FTE","CAT":"CTC",
-        "CBA":"COR","CHA":"CPC","CRR":"CNQ","CRV":"CRD","DOZ":"MDZ","ESQ":"EQS",
-        "GAL":"RGL","GIC":"GPO","GRA":"RGA","IGU":"IGR","JUA":"UAQ",
-        "LAR":"IRJ","MAD":"PMY","MAL":"LGS","MDP":"MDQ","NEU":"NQN",
-        "OSA":"RSA","PAR":"PRA","POS":"PSS","SAL":"SLA","SIS":"RES",
-        "SRA":"AFA","SVO":"SFN","TRH":"TMM","TRW":"REL","UIS":"LUQ",
+        "AER":"AEP","BAR":"BRC","ECA":"FTE","CAT":"CTC","BCA":"BHI",
+        "CBA":"COR","CHP":"CPC","CRR":"CNQ","CRV":"CRD","DOZ":"MDZ","ESQ":"EQS",
+        "GAL":"RGL","GPI":"GPO","GRA":"RGA","IGU":"IGR","JUA":"UAQ",
+        "LAR":"IRJ","MAD":"PMY","MLG":"LGS","MDP":"MDQ","NEU":"NQN",
+        "OSA":"RSA","PAR":"PRA","POS":"PSS","RYD":"VME","SAL":"SLA","SIS":"RES",
+        "SRA":"AFA","SVO":"SFN","TRH":"TMM","TRE":"REL","UIS":"LUQ",
         "USU":"USH","VIE":"VDM",
       };
 

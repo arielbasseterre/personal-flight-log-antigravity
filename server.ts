@@ -92,7 +92,7 @@ const ANAC_AIRPORT_MAPPINGS: Record<string, string> = {
   "AEP": "AER", "SABE": "AER", // Aeroparque
   "EZE": "EZE", "SAEZ": "EZE", // Ezeiza
   "COR": "CBA", "SACO": "CBA", // Córdoba
-  "MDZ": "DOZ", "SAMM": "DOZ", // Mendoza
+  "MDZ": "DOZ", "SAME": "DOZ", // Mendoza
   "BRC": "BAR", "SAZS": "BAR", // Bariloche
   "IGR": "IGU", "SARI": "IGU", // Puerto Iguazú
   "SLA": "SAL", "SASA": "SAL", // Salta
@@ -112,18 +112,20 @@ const ANAC_AIRPORT_MAPPINGS: Record<string, string> = {
   "PRA": "PAR", "SAAP": "PAR", // Paraná
   "ROS": "ROS", "SAAR": "ROS", // Rosario
   "VDM": "VIE", "SAVN": "VIE", // Viedma
-  "BHI": "BAI", "SAZB": "BAI", // Bahía Blanca
+  "BHI": "BCA", "SAZB": "BCA", // Bahía Blanca
   "MDQ": "MDP", "SAZM": "MDP", // Mar del Plata
-  "REL": "TRW", "SAVT": "TRW", // Trelew
+  "REL": "TRE", "SAVT": "TRE", // Trelew
   "PMY": "MAD", "SAVY": "MAD", // Puerto Madryn
   "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV", // Comodoro Rivadavia
   "RGL": "GAL", "SAWG": "GAL", // Río Gallegos
   "RGA": "GRA", "SAWE": "GRA", // Río Grande
-  "CPC": "CHA", "SAZY": "CHA", // Chapelco / San Martín de los Andes
+  "CPC": "CHP", "SAZY": "CHP", // Chapelco / San Martín de los Andes
   "EQS": "ESQ", "SAVV": "ESQ", // Esquel
-  "LGS": "MAL", "SAMO": "MAL", // Malargüe
+  "LGS": "MLG", "SAMM": "MLG", // Malargüe
   "AFA": "SRA", "SAMR": "SRA", // San Rafael
   "RSA": "OSA", "SAWR": "OSA", // Santa Rosa
+  "GPO": "GPI", "SAZG": "GPI", // General Pico
+  "VME": "RYD", "SAOR": "RYD", // Villa Mercedes
   // Internacionales → OACI (código 4 letras)
   "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
   "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
@@ -727,7 +729,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "AEP": "AER", "SABE": "AER", // Aeroparque
               "EZE": "EZE", "SAEZ": "EZE", // Ezeiza
               "COR": "CBA", "SACO": "CBA", // Córdoba
-              "MDZ": "DOZ", "SAMM": "DOZ", // Mendoza
+              "MDZ": "DOZ", "SAME": "DOZ", // Mendoza
               "BRC": "BAR", "SAZS": "BAR", // Bariloche
               "IGR": "IGU", "SARI": "IGU", // Puerto Iguazú
               "SLA": "SAL", "SASA": "SAL", // Salta
@@ -747,18 +749,20 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "PRA": "PAR", "SAAP": "PAR", // Paraná
               "ROS": "ROS", "SAAR": "ROS", // Rosario
               "VDM": "VIE", "SAVN": "VIE", // Viedma
-              "BHI": "BAI", "SAZB": "BAI", // Bahía Blanca
+              "BHI": "BCA", "SAZB": "BCA", // Bahía Blanca
               "MDQ": "MDP", "SAZM": "MDP", // Mar del Plata
-              "REL": "TRW", "SAVT": "TRW", // Trelew
+              "REL": "TRE", "SAVT": "TRE", // Trelew
               "PMY": "MAD", "SAVY": "MAD", // Puerto Madryn
               "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV", // Comodoro Rivadavia
               "RGL": "GAL", "SAWG": "GAL", // Río Gallegos
               "RGA": "GRA", "SAWE": "GRA", // Río Grande
-              "CPC": "CHA", "SAZY": "CHA", // Chapelco / San Martín de los Andes
+              "CPC": "CHP", "SAZY": "CHP", // Chapelco / San Martín de los Andes
               "EQS": "ESQ", "SAVV": "ESQ", // Esquel
-              "LGS": "MAL", "SAMO": "MAL", // Malargüe
+              "LGS": "MLG", "SAMM": "MLG", // Malargüe
               "AFA": "SRA", "SAMR": "SRA", // San Rafael
               "RSA": "OSA", "SAWR": "OSA", // Santa Rosa
+              "GPO": "GPI", "SAZG": "GPI", // General Pico
+              "VME": "RYD", "SAOR": "RYD", // Villa Mercedes
               // Internacionales → OACI (código 4 letras)
               "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
               "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
@@ -1176,7 +1180,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "AEP": "AER", "SABE": "AER",
               "EZE": "EZE", "SAEZ": "EZE",
               "COR": "CBA", "SACO": "CBA",
-              "MDZ": "DOZ", "SAMM": "DOZ",
+              "MDZ": "DOZ", "SAME": "DOZ",
               "BRC": "BAR", "SAZS": "BAR",
               "IGR": "IGU", "SARI": "IGU",
               "SLA": "SAL", "SASA": "SAL",
@@ -1196,18 +1200,20 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               "PRA": "PAR", "SAAP": "PAR",
               "ROS": "ROS", "SAAR": "ROS",
               "VDM": "VIE", "SAVN": "VIE",
-              "BHI": "BAI", "SAZB": "BAI",
+              "BHI": "BCA", "SAZB": "BCA",
               "MDQ": "MDP", "SAZM": "MDP",
-              "REL": "TRW", "SAVT": "TRW",
+              "REL": "TRE", "SAVT": "TRE",
               "PMY": "MAD", "SAVY": "MAD",
               "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV",
               "RGL": "GAL", "SAWG": "GAL",
               "RGA": "GRA", "SAWE": "GRA",
-              "CPC": "CHA", "SAZY": "CHA",
+              "CPC": "CHP", "SAZY": "CHP",
               "EQS": "ESQ", "SAVV": "ESQ",
-              "LGS": "MAL", "SAMO": "MAL",
+              "LGS": "MLG", "SAMM": "MLG",
               "AFA": "SRA", "SAMR": "SRA",
               "RSA": "OSA", "SAWR": "OSA",
+              "GPO": "GPI", "SAZG": "GPI",
+              "VME": "RYD", "SAOR": "RYD",
               "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
               "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
               "SSA": "SBSV", "MCZ": "SBMO", "REC": "SBRF", "FOR": "SBFZ",
