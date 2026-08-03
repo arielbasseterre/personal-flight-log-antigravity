@@ -98,10 +98,38 @@ const normalizeMatricula = (input: string): string => {
 
 const parseTime = (val: string): [number, number] => {
   if (!val) return [0, 0];
-  const iso = val.match(/T(\d{1,2}):(\d{2})/);
+  const s = String(val).trim();
+  const iso = s.match(/T(\d{1,2}):(\d{2})/);
   if (iso) return [parseInt(iso[1]), parseInt(iso[2])];
-  const withColon = val.match(/\b(\d{1,2}):(\d{2})\b/);
+  const ampm = s.match(/\b(\d{1,2}):(\d{2})\s*(am|pm)\b/i);
+  if (ampm) {
+    let h = parseInt(ampm[1]) % 12;
+    if (/pm/i.test(ampm[3])) h += 12;
+    return [h, parseInt(ampm[2])];
+  }
+  const withColon = s.match(/\b(\d{1,2}):(\d{2})\b/);
   if (withColon) return [parseInt(withColon[1]), parseInt(withColon[2])];
+  // Fracción de día (celda hora numérica sin fecha): "0.027..." = 00:39
+  const frac = s.match(/^\d*\.\d+$/);
+  if (frac) {
+    const n = parseFloat(s);
+    if (n >= 0 && n < 1) {
+      const totalMin = Math.round(n * 24 * 60);
+      return [Math.floor(totalMin / 60) % 24, totalMin % 60];
+    }
+  }
+  // Número compacto: "39" = 00:39, "0039" = 00:39, "2330" = 23:30
+  const num = s.match(/^\d{1,4}$/);
+  if (num) {
+    const digits = num[0];
+    if (digits.length <= 2) {
+      const m = parseInt(digits, 10);
+      return m < 60 ? [0, m] : [0, 0];
+    }
+    const h = parseInt(digits.slice(0, digits.length - 2), 10);
+    const m = parseInt(digits.slice(-2), 10);
+    return h < 24 && m < 60 ? [h, m] : [0, 0];
+  }
   return [0, 0];
 };
 
@@ -287,10 +315,17 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
             return String(c).trim();
           });
 
-          // Check for year in this row (e.g. "AÑO\n2024" in merged cell)
+          // Check for year in this row (e.g. "AÑO\n2024" in merged cell).
+          // Solo se toma el año de celdas tipo "AÑO" o de un año exacto suelto,
+          // para no capturar años que aparecen dentro de otro texto (n° de serie, etc.)
           text.forEach(t => {
-            const yMatch = t.match(/\b(20[2-9]\d)\b/);
-            if (yMatch) detectedYear = parseInt(yMatch[1]);
+            const trimmed = String(t ?? '').trim();
+            if (/A[ÑÑ]O/i.test(trimmed)) {
+              const y = trimmed.match(/(20\d{2})/);
+              if (y) detectedYear = parseInt(y[1]);
+            } else if (/^20\d{2}$/.test(trimmed)) {
+              detectedYear = parseInt(trimmed);
+            }
           });
 
           // Count how many columns in this row match known patterns
@@ -382,6 +417,9 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
           const day = parseInt(dia) || 1;
           const [salH, salM] = parseTime(horaSalida);
           const [lleH, lleM] = parseTime(horaLlegada);
+          if ((horaSalida && salH === 0 && salM === 0) || (horaLlegada && lleH === 0 && lleM === 0)) {
+            console.warn(`[IMPORT] Hora sin parsear (quedará 00:00): salida="${horaSalida}" llegada="${horaLlegada}" (fila ${allRows.indexOf(row) + 1})`);
+          }
           const fechaSalida = new Date(Date.UTC(detectedYear, month - 1, day, salH, salM));
           const fechaLlegada = new Date(Date.UTC(detectedYear, month - 1, day, lleH, lleM));
           const fechaSalStr = fechaSalida.toISOString();
