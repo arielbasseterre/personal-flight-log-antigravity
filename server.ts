@@ -387,10 +387,7 @@ app.use((req, res, next) => {
     'https://personal-flight-log-backend.onrender.com',
     'capacitor://localhost',
     'http://localhost',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
     'http://localhost:5173',
-    'http://127.0.0.1:5173',
   ];
   const origin = req.headers.origin;
   if (origin && allowedOrigins.includes(origin)) {
@@ -444,8 +441,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           '--disable-dev-shm-usage',
           '--disable-gpu',
           '--disable-software-rasterizer',
-          '--disable-features=IsolateOrigins,site-per-process',
-          '--disable-blink-features=AutomationControlled'
+          '--disable-features=IsolateOrigins,site-per-process'
         ]
       });
       }
@@ -577,62 +573,9 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     }
   });
 
-  // ── Dev-only proxy: reenviar los endpoints ANAC a Render en modo desarrollo ──
-  // ANAC a veces rechaza el login desde la IP/navegador local con "usuario o password
-  // incorrectos" aunque las credenciales sean correctas. En dev reenviamos estos
-  // endpoints al backend desplegado (VITE_API_URL) para que corran desde la IP de
-  // Render. Es mismo origen (la app local llama /api relativo) => sin CORS.
-  if (process.env.NODE_ENV !== "production" && process.env.VITE_API_URL) {
-    const DEV_RENDER_BASE = process.env.VITE_API_URL.replace(/\/$/, "");
-    const DEV_ANAC_PATHS = [
-      "/api/auth-anac",
-      "/api/get-anac-logs",
-      "/api/get-anac-logs-tcp",
-      "/api/get-anac-log-detail",
-      "/api/sync-anac",
-      "/api/sync-anac-tcp",
-      "/api/edit-anac",
-      "/api/edit-anac-tcp",
-    ];
-    app.use(async (req, res, next) => {
-      if (req.method !== "POST" || !DEV_ANAC_PATHS.includes(req.path)) return next();
-      try {
-        const target = `${DEV_RENDER_BASE}${req.path}`;
-        console.log(`[DEV_PROXY] Reenviando ${req.path} -> ${target}`);
-        const upstream = await fetch(target, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(req.body || {}),
-        });
-        res.status(upstream.status);
-        const ct = upstream.headers.get("content-type");
-        if (ct) res.setHeader("Content-Type", ct);
-        res.flushHeaders();
-        if (upstream.body) {
-          const reader = upstream.body.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(Buffer.from(value));
-            }
-          } finally {
-            reader.releaseLock();
-          }
-        }
-        res.end();
-      } catch (e: any) {
-        console.error(`[DEV_PROXY] Error reenviando ${req.path}:`, e.message);
-        if (!res.headersSent) res.status(502).json({ error: `[DEV_PROXY] ${e.message}` });
-        else res.end();
-      }
-    });
-  }
-
   // --- ANAC Auth API (Playwright) ---
   app.post("/api/auth-anac", async (req, res) => {
-    const { user_id, password, rememberMe } = req.body;
-    const cuil = String(req.body.cuil || '').replace(/\D/g, '');
+    const { user_id, cuil, password, rememberMe } = req.body;
 
     if (!user_id || !cuil || !password) {
       return res.status(400).json({ error: "user_id, cuil y password son requeridos" });
@@ -646,10 +589,21 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       res.write(JSON.stringify({ type: 'progress', message, progress }) + '\n');
     };
     sendProgress('Verificando conexión con el portal ANAC...', 10);
+    let context;
     try {
       sendProgress('Preparando navegador...', 20);
       const browser = await getBrowser();
+      
+      context = await browser.newContext({
+        ignoreHTTPSErrors: true,
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        viewport: { width: 1280, height: 720 },
+        locale: "es-AR",
+        timezoneId: "America/Argentina/Buenos_Aires"
+      });
 
+      const page = await context.newPage();
+      
       // Pre-check DNS rápido para evitar timeout de 30s si ANAC está bloqueado desde Render
       const ANAC_DOMAINS = ['cad.anac.gob.ar', 'cadam.anac.gob.ar'];
       let anacUrl: string | null = null;
@@ -669,139 +623,87 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       if (!anacUrl) {
         throw new Error("No se puede conectar con el portal ANAC desde este servidor. Verifica que cad.anac.gob.ar sea accesible.");
       }
+      
+      sendProgress('Iniciando navegador seguro...', 25);
+      console.log(`[AUTH_ANAC] Navegando a ${anacUrl}...`);
+      await page.goto(anacUrl, { waitUntil: "domcontentloaded" });
 
-      // Intento de login con reintento: ANAC a veces rechaza por timing/anti-bot
-      // aunque las credenciales sean correctas (login intermitente). Un segundo
-      // intento con contexto fresco suele resolverlo.
-      const attemptLogin = async (): Promise<any> => {
-        const ctx = await browser.newContext({
-          ignoreHTTPSErrors: true,
-          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-          viewport: { width: 1280, height: 720 },
-          locale: "es-AR",
-          timezoneId: "America/Argentina/Buenos_Aires"
-        });
-        try {
-          const page = await ctx.newPage();
-          // Reducir detección de automatización (ANAC a veces rechaza con "usuario/contraseña incorrectos")
-          await page.addInitScript(() => {
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-          });
+      await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
 
-          sendProgress('Iniciando navegador seguro...', 25);
-          console.log(`[AUTH_ANAC] Navegando a ${anacUrl}...`);
-          await page.goto(anacUrl, { waitUntil: "domcontentloaded" });
-          await page.waitForSelector("#Username", { state: "visible", timeout: 15000 });
+      sendProgress('Accediendo al portal ANAC...', 40);
+      console.log("[AUTH_ANAC] Completando credenciales...");
+      await page.type("#Username", cuil, { delay: 50 });
+      await page.type("#Password", password, { delay: 50 });
 
-          sendProgress('Accediendo al portal ANAC...', 40);
-          console.log("[AUTH_ANAC] Completando credenciales...");
-          await page.type("#Username", cuil, { delay: 40 });
-          await page.type("#Password", password, { delay: 40 });
+      sendProgress('Enviando credenciales...', 55);
+      console.log("[AUTH_ANAC] Enviando formulario...");
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "load", timeout: 60000 }).catch(() => {}),
+        page.click("#loginButton")
+      ]);
 
-          // Verificar que los campos quedaron cargados (evita race si la página recarga
-          // entre el llenado y el submit, que termina mandando vacío => "usuario/contraseña incorrectos")
-          await page.waitForTimeout(250);
-          const uname = await page.inputValue('#Username').catch(() => '');
-          const pword = await page.inputValue('#Password').catch(() => '');
-          if (String(uname).replace(/\D/g, '') !== cuil) await page.fill('#Username', cuil);
-          if (pword !== password) await page.fill('#Password', password);
-
-          sendProgress('Enviando credenciales...', 55);
-          console.log("[AUTH_ANAC] Enviando formulario...");
-          await page.waitForSelector('#loginButton', { state: 'visible', timeout: 5000 }).catch(() => {});
-          await page.waitForTimeout(200);
-          await Promise.all([
-            page.waitForNavigation({ waitUntil: "load", timeout: 60000 }).catch(() => {}),
-            page.click("#loginButton")
-          ]);
-
-          sendProgress('Esperando respuesta de ANAC...', 75);
-          // --- VALIDACIÓN DE ÉXITO (Solo cookies reales de portal) ---
-          let hasAuthCookie = false;
-          for (let i = 0; i < 20; i++) {
-            const cookies = await ctx.cookies();
-            hasAuthCookie = cookies.some(c =>
-              c.name.includes("Auth.ANAC") ||
-              c.name.includes("ASPXROLES")
-            );
-            if (hasAuthCookie) break;
-            console.log(`[AUTH_ANAC] Verificando cookie de sesión... (Intento ${i + 1}/20)`);
-            await page.waitForTimeout(250);
-          }
-
-          if (!hasAuthCookie) {
-            // ── Diagnóstico ampliado: ver qué muestra ANAC para esta cuenta ──
-            let urlStr = '';
-            try { urlStr = page.url(); } catch {}
-            const portalErrors: string[] = [];
-            try {
-              const els = await page.locator(".text-danger, .validation-summary-errors li, .validation-summary-errors").all();
-              for (const el of els) {
-                const t = (await el.innerText().catch(() => '')).trim();
-                if (t) portalErrors.push(t);
-              }
-            } catch {}
-            let hasCaptcha = false;
-            let hasPasswordChange = false;
-            let hasSecurity = false;
-            try { hasCaptcha = await page.locator('iframe[src*="captcha"], .g-recaptcha, [id*="captcha"], [name*="captcha"]').count() > 0; } catch {}
-            try { hasPasswordChange = await page.locator('input#NewPassword, input#ConfirmPassword, [id*="newPassword"], [id*="new_password"], input#Password').count() >= 2; } catch {}
-            try { hasSecurity = await page.locator('[id*="security"], [id*="pregunta"], [id*="question"], [id*="desafio"], [id*="challenge"]').count() > 0; } catch {}
-            let screenshotB64 = '';
-            let screenshotPath = '';
-            try { screenshotB64 = (await page.screenshot({ type: 'jpeg', quality: 50 })).toString('base64').substring(0, 500); } catch {}
-            try {
-              const shot = await page.screenshot({ type: 'png' });
-              screenshotPath = `anac-login-fail-${Date.now()}.png`;
-              await fs.writeFile(screenshotPath, shot);
-            } catch {}
-            const pageTitle = await page.title().catch(() => '');
-
-            console.error(`[AUTH_ANAC] Login fallido para CUIL: ${cuil}`);
-            console.error(`[AUTH_ANAC] URL post-submit: ${urlStr || '(vacía)'}`);
-            console.error(`[AUTH_ANAC] Título de página: ${pageTitle}`);
-            console.error(`[AUTH_ANAC] Mensajes de validación: ${JSON.stringify(portalErrors)}`);
-            console.error(`[AUTH_ANAC] Detección: captcha=${hasCaptcha} passwordChange=${hasPasswordChange} security=${hasSecurity}`);
-            console.error(`[AUTH_ANAC] Screenshot guardado: ${screenshotPath || '(no se pudo)'} (base64 truncado: ${screenshotB64})`);
-
-            const detailMsg = [
-              portalErrors.length ? `Mensajes ANAC: ${portalErrors.join(' | ')}` : 'Sin mensajes de validación en la página',
-              `URL: ${urlStr || '(vacía)'}`,
-              hasCaptcha ? 'SE DETECTÓ CAPTCHA' : '',
-              hasPasswordChange ? 'SE DETECTÓ FORMULARIO DE CAMBIO DE CONTRASEÑA' : '',
-              hasSecurity ? 'SE DETECTÓ PREGUNTA DE SEGURIDAD' : ''
-            ].filter(Boolean).join(' | ');
-
-            throw new Error(portalErrors[0] || `No se pudo detectar la sesión del portal. Verifica tus datos. [${detailMsg}]`);
-          }
-
-          console.log("[AUTH_ANAC] Login exitoso confirmado.");
-          sendProgress('Guardando sesión...', 90);
-          const ss = await ctx.storageState();
-          console.log(`[AUTH_ANAC] Finalizado. Cookies capturadas: ${ss.cookies.length}`);
-          return ss;
-        } catch (e) {
-          await ctx.close().catch(() => {});
-          throw e;
-        }
-      };
-
-      let storageState: any = null;
-      let lastErr: any = null;
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          storageState = await attemptLogin();
-          break;
-        } catch (e: any) {
-          lastErr = e;
-          console.warn(`[AUTH_ANAC] Intento ${attempt}/2 falló: ${e.message}`);
-          if (attempt < 2) {
-            sendProgress('Reintentando inicio de sesión...', 30);
-            await new Promise(r => setTimeout(r, 1500));
-          }
-        }
+      sendProgress('Esperando respuesta de ANAC...', 75);
+      // --- VALIDACIÓN DE ÉXITO (Solo cookies reales de portal) ---
+      let hasAuthCookie = false;
+      
+      // Polling más fino y rápido: 20 chequeos de 250ms (mismo tiempo total, pero reacciona el doble de rápido)
+      for (let i = 0; i < 20; i++) {
+        const cookies = await context.cookies();
+        hasAuthCookie = cookies.some(c => 
+          c.name.includes("Auth.ANAC") || 
+          c.name.includes("ASPXROLES")
+        );
+        if (hasAuthCookie) break;
+        console.log(`[AUTH_ANAC] Verificando cookie de sesión... (Intento ${i + 1}/20)`);
+        await page.waitForTimeout(250); // esperar 250ms antes del próximo chequeo
       }
-      if (!storageState) throw lastErr;
+
+      if (!hasAuthCookie) {
+        // ── Diagnóstico ampliado: ver qué muestra ANAC para esta cuenta ──
+        let urlStr = '';
+        try { urlStr = page.url(); } catch {}
+        const portalErrors: string[] = [];
+        try {
+          const els = await page.locator(".text-danger, .validation-summary-errors li, .validation-summary-errors").all();
+          for (const el of els) {
+            const t = (await el.innerText().catch(() => '')).trim();
+            if (t) portalErrors.push(t);
+          }
+        } catch {}
+        let hasCaptcha = false;
+        let hasPasswordChange = false;
+        let hasSecurity = false;
+        try { hasCaptcha = await page.locator('iframe[src*="captcha"], .g-recaptcha, [id*="captcha"], [name*="captcha"]').count() > 0; } catch {}
+        try { hasPasswordChange = await page.locator('input#NewPassword, input#ConfirmPassword, [id*="newPassword"], [id*="new_password"], input#Password').count() >= 2; } catch {}
+        try { hasSecurity = await page.locator('[id*="security"], [id*="pregunta"], [id*="question"], [id*="desafio"], [id*="challenge"]').count() > 0; } catch {}
+        let screenshotB64 = '';
+        try { screenshotB64 = (await page.screenshot({ type: 'jpeg', quality: 50 })).toString('base64').substring(0, 500); } catch {}
+        const pageTitle = await page.title().catch(() => '');
+
+        console.error(`[AUTH_ANAC] Login fallido para CUIL: ${cuil}`);
+        console.error(`[AUTH_ANAC] URL post-submit: ${urlStr || '(vacía)'}`);
+        console.error(`[AUTH_ANAC] Título de página: ${pageTitle}`);
+        console.error(`[AUTH_ANAC] Mensajes de validación: ${JSON.stringify(portalErrors)}`);
+        console.error(`[AUTH_ANAC] Detección: captcha=${hasCaptcha} passwordChange=${hasPasswordChange} security=${hasSecurity}`);
+        console.error(`[AUTH_ANAC] Screenshot (truncado): ${screenshotB64}`);
+
+        const detailMsg = [
+          portalErrors.length ? `Mensajes ANAC: ${portalErrors.join(' | ')}` : 'Sin mensajes de validación en la página',
+          `URL: ${urlStr || '(vacía)'}`,
+          hasCaptcha ? 'SE DETECTÓ CAPTCHA' : '',
+          hasPasswordChange ? 'SE DETECTÓ FORMULARIO DE CAMBIO DE CONTRASEÑA' : '',
+          hasSecurity ? 'SE DETECTÓ PREGUNTA DE SEGURIDAD' : ''
+        ].filter(Boolean).join(' | ');
+
+        throw new Error(portalErrors[0] || `No se pudo detectar la sesión del portal. Verifica tus datos. [${detailMsg}]`);
+      }
+
+      console.log("[AUTH_ANAC] Login exitoso confirmado.");
+
+      sendProgress('Guardando sesión...', 90);
+      // Capturar cookies y localStorage
+      const storageState = await context.storageState();
+      console.log(`[AUTH_ANAC] Finalizado. Cookies capturadas: ${storageState.cookies.length}`);
 
       // Persistencia en Supabase
       if (rememberMe) {
@@ -817,11 +719,14 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         } catch (e) {}
       }
 
+      // Solo cerramos el contexto (la pestaña), NO el navegador completo
+      await context.close();
       sendProgress('¡Sesión capturada correctamente!', 100);
       res.write(JSON.stringify({ type: 'success', storageState }) + '\n');
       res.end();
 
     } catch (error: any) {
+      if (context) await context.close();
       console.error("[AUTH_ANAC] Error:", error.message);
       res.write(JSON.stringify({ type: 'error', message: error.message }) + '\n');
       res.end();
