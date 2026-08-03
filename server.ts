@@ -444,7 +444,8 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           '--disable-dev-shm-usage',
           '--disable-gpu',
           '--disable-software-rasterizer',
-          '--disable-features=IsolateOrigins,site-per-process'
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--disable-blink-features=AutomationControlled'
         ]
       });
       }
@@ -630,6 +631,10 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         });
         try {
           const page = await ctx.newPage();
+          // Reducir detección de automatización (ANAC a veces rechaza con "usuario/contraseña incorrectos")
+          await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+          });
 
           sendProgress('Iniciando navegador seguro...', 25);
           console.log(`[AUTH_ANAC] Navegando a ${anacUrl}...`);
@@ -691,7 +696,13 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
             try { hasPasswordChange = await page.locator('input#NewPassword, input#ConfirmPassword, [id*="newPassword"], [id*="new_password"], input#Password').count() >= 2; } catch {}
             try { hasSecurity = await page.locator('[id*="security"], [id*="pregunta"], [id*="question"], [id*="desafio"], [id*="challenge"]').count() > 0; } catch {}
             let screenshotB64 = '';
+            let screenshotPath = '';
             try { screenshotB64 = (await page.screenshot({ type: 'jpeg', quality: 50 })).toString('base64').substring(0, 500); } catch {}
+            try {
+              const shot = await page.screenshot({ type: 'png' });
+              screenshotPath = `anac-login-fail-${Date.now()}.png`;
+              await fs.writeFile(screenshotPath, shot);
+            } catch {}
             const pageTitle = await page.title().catch(() => '');
 
             console.error(`[AUTH_ANAC] Login fallido para CUIL: ${cuil}`);
@@ -699,7 +710,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
             console.error(`[AUTH_ANAC] Título de página: ${pageTitle}`);
             console.error(`[AUTH_ANAC] Mensajes de validación: ${JSON.stringify(portalErrors)}`);
             console.error(`[AUTH_ANAC] Detección: captcha=${hasCaptcha} passwordChange=${hasPasswordChange} security=${hasSecurity}`);
-            console.error(`[AUTH_ANAC] Screenshot (truncado): ${screenshotB64}`);
+            console.error(`[AUTH_ANAC] Screenshot guardado: ${screenshotPath || '(no se pudo)'} (base64 truncado: ${screenshotB64})`);
 
             const detailMsg = [
               portalErrors.length ? `Mensajes ANAC: ${portalErrors.join(' | ')}` : 'Sin mensajes de validación en la página',
