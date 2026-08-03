@@ -577,6 +577,58 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     }
   });
 
+  // ── Dev-only proxy: reenviar los endpoints ANAC a Render en modo desarrollo ──
+  // ANAC a veces rechaza el login desde la IP/navegador local con "usuario o password
+  // incorrectos" aunque las credenciales sean correctas. En dev reenviamos estos
+  // endpoints al backend desplegado (VITE_API_URL) para que corran desde la IP de
+  // Render. Es mismo origen (la app local llama /api relativo) => sin CORS.
+  if (process.env.NODE_ENV !== "production" && process.env.VITE_API_URL) {
+    const DEV_RENDER_BASE = process.env.VITE_API_URL.replace(/\/$/, "");
+    const DEV_ANAC_PATHS = [
+      "/api/auth-anac",
+      "/api/get-anac-logs",
+      "/api/get-anac-logs-tcp",
+      "/api/get-anac-log-detail",
+      "/api/sync-anac",
+      "/api/sync-anac-tcp",
+      "/api/edit-anac",
+      "/api/edit-anac-tcp",
+    ];
+    app.use(async (req, res, next) => {
+      if (req.method !== "POST" || !DEV_ANAC_PATHS.includes(req.path)) return next();
+      try {
+        const target = `${DEV_RENDER_BASE}${req.path}`;
+        console.log(`[DEV_PROXY] Reenviando ${req.path} -> ${target}`);
+        const upstream = await fetch(target, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body || {}),
+        });
+        res.status(upstream.status);
+        const ct = upstream.headers.get("content-type");
+        if (ct) res.setHeader("Content-Type", ct);
+        res.flushHeaders();
+        if (upstream.body) {
+          const reader = upstream.body.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(Buffer.from(value));
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        }
+        res.end();
+      } catch (e: any) {
+        console.error(`[DEV_PROXY] Error reenviando ${req.path}:`, e.message);
+        if (!res.headersSent) res.status(502).json({ error: `[DEV_PROXY] ${e.message}` });
+        else res.end();
+      }
+    });
+  }
+
   // --- ANAC Auth API (Playwright) ---
   app.post("/api/auth-anac", async (req, res) => {
     const { user_id, password, rememberMe } = req.body;
