@@ -42,6 +42,7 @@ import {
   getPilotTSMax,
   getTcpTSMax
 } from './utils/aviation';
+import { getApiUrl } from './utils/api';
 import { Screen, CalculationResult, FlightLog, Profile } from './types';
 import { LibroScreen } from './components/LibroScreen';
 import { ProfileScreen } from './components/ProfileScreen';
@@ -1308,6 +1309,8 @@ export default function App() {
   });
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [registerAlert, setRegisterAlert] = useState<{ show: boolean }>({ show: false });
+  // ⚠️ TEMPORAL V2: banner de renovación automática de prueba
+  const [trialRenewalBanner, setTrialRenewalBanner] = useState(false);
   const [paymentModal, setPaymentModal] = useState<{
     show: boolean;
     type: 'success' | 'error';
@@ -1526,6 +1529,23 @@ export default function App() {
         if (data) {
           setProfile(prev => prev ? { ...prev, ...data } : null);
         }
+        // ⚠️ TEMPORAL V2: si la prueba está vencida, renovarla automáticamente +30 días
+        const isTrialUser = !!data && !data.subscription_id && !!data.subscription_end_date;
+        const trialExpired = data?.subscription_end_date ? new Date(data.subscription_end_date).getTime() <= Date.now() : false;
+        if (isTrialUser && trialExpired) {
+          try {
+            const res = await fetch(getApiUrl('/api/trial/auto-renew'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: user.id })
+            });
+            const r = await res.json();
+            if (r.renewed) {
+              setProfile(prev => prev ? { ...prev, subscription_end_date: r.endDate, subscription_status: 'trial' } : prev);
+              setTrialRenewalBanner(true);
+            }
+          } catch { /* silencioso */ }
+        }
       } catch { /* silent */ }
     };
     refreshSub();
@@ -1698,6 +1718,9 @@ export default function App() {
     return new Date() < new Date(profile.subscription_end_date);
   })();
 
+  // ⚠️ TEMPORAL V2: usuario con prueba activa/vencida (no pagó nunca)
+  const appIsTrial = !!profile && !profile.subscription_id && !!profile.subscription_end_date;
+
   const renderScreen = () => {
     switch (screen) {
       case 'home':
@@ -1842,7 +1865,8 @@ export default function App() {
     }
   };
 
-  if (user && !isSubscriptionActive) {
+  // ⚠️ TEMPORAL V2: los usuarios trial nunca ven la pantalla de vencido (se renueva automáticamente)
+  if (user && !isSubscriptionActive && !appIsTrial) {
     return (
       <div className={`min-h-screen w-full max-w-lg mx-auto bg-white dark:bg-[#101622] relative font-sans transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
         <SubscriptionExpiredScreen profile={profile} onLogout={handleLogout} />
@@ -1947,6 +1971,23 @@ export default function App() {
   return (
     <>
       {content}
+      {/* ⚠️ TEMPORAL V2: banner de renovación automática de prueba */}
+      {trialRenewalBanner && (
+        <div className="fixed inset-x-0 top-0 z-[9998]">
+          <div className="bg-blue-600 text-white px-4 py-3 text-sm shadow-lg relative">
+            <button
+              onClick={() => setTrialRenewalBanner(false)}
+              className="absolute top-2.5 right-3 text-white/80 hover:text-white"
+              aria-label="Cerrar"
+            >
+              <X size={18} />
+            </button>
+            <p className="pr-8 leading-relaxed">
+              Debido a la situación de público conocimiento, decidimos renovar automáticamente tu suscripción de prueba por otros 30 días. Seguiremos renovándola hasta que mejore la situación. :) ¡Que sigas disfrutando la app!
+            </p>
+          </div>
+        </div>
+      )}
       <AnimatePresence>
         {showUpdateBanner && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">

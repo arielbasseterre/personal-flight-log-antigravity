@@ -2750,6 +2750,44 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     }
   });
 
+  // ⚠️ TEMPORAL V2: renovación automática de la prueba vencida (+30 días).
+  // Remover al finalizar el período de gracia (ver AGENTS.md "FEATURE TEMPORAL").
+  app.post("/api/trial/auto-renew", async (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ error: "user_id requerido" });
+    }
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_id, subscription_end_date, subscription_status')
+        .eq('id', user_id)
+        .maybeSingle();
+
+      const isTrial = !!profile && !profile.subscription_id && !!profile.subscription_end_date;
+      const expired = profile?.subscription_end_date ? new Date(profile.subscription_end_date).getTime() <= Date.now() : false;
+
+      if (isTrial && expired) {
+        const newEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            subscription_end_date: newEnd.toISOString(),
+            subscription_status: 'trial',
+          })
+          .eq('id', user_id);
+        if (error) throw error;
+        console.log(`[TRIAL_AUTO_RENEW] Prueba renovada +30 días. Usuario ${user_id}, vence ${newEnd.toISOString()}`);
+        return res.json({ renewed: true, endDate: newEnd.toISOString() });
+      }
+
+      return res.json({ renewed: false });
+    } catch (error: any) {
+      console.error("[TRIAL_AUTO_RENEW] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/mercadopago/create-subscription", async (req, res) => {
     const { userId, email, password, firstName, lastName, license, dni, legajo } = req.body;
     if (!email || !password) {

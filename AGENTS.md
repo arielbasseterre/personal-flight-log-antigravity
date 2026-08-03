@@ -15,6 +15,29 @@ El agente **NUNCA** debe ejecutar SQL contra Supabase. El usuario es el **único
 
 - **Actualización del Changelog:** No realices cambios automáticos en la constante `CHANGELOG_DATA` en `src/App.tsx`. Antes de incorporar cualquier registro de cambios al historial, debes preguntar explícitamente al usuario si desea incluir los cambios realizados en dicha sección.
 
+## ⚠️ FEATURE TEMPORAL — Renovación automática de prueba (SOLO V2)
+
+**Contexto:** usuarios de la V2 con dificultades económicas temporales. Período de gracia: cuando la suscripción de **prueba** de un usuario está **vencida** (`subscription_end_date <= now`), al abrir la app se renueva automáticamente por **+30 días** (modo trial) y se muestra un banner. **Solo V2 — la V1 NO recibe estos cambios.**
+
+### Archivos modificados (V2)
+- `server.ts`: endpoint `POST /api/trial/auto-renew` (marcado `// ⚠️ TEMPORAL V2`).
+- `src/App.tsx`:
+  - Estado `trialRenewalBanner`.
+  - Effect `refreshSub`: si es trial vencida → llama al endpoint, actualiza el perfil y muestra el banner.
+  - Gating del screen de vencido: `if (user && !isSubscriptionActive && !appIsTrial)` → los trial nunca ven la pantalla de vencido (los pagos vencidos sí).
+  - Banner descartable renderizado tras `{content}`.
+
+### Cómo removerlo (cuando el usuario lo pida)
+Frase disparadora: **"remové el feature temporal de renovación automática de prueba"**.
+1. En `server.ts`: eliminar el endpoint `app.post("/api/trial/auto-renew", ...)` completo (buscar `TRIAL_AUTO_RENEW`).
+2. En `src/App.tsx`:
+   - Eliminar el estado `trialRenewalBanner`.
+   - Eliminar el bloque `// ⚠️ TEMPORAL V2` dentro del effect `refreshSub` (la llamada a `/api/trial/auto-renew` y `setTrialRenewalBanner(true)`).
+   - Eliminar `appIsTrial` y restaurar el gating original: `if (user && !isSubscriptionActive)`.
+   - Eliminar el banner descartable renderizado tras `{content}`.
+3. Quitar la importación de `getApiUrl` si quedó sin uso.
+4. Build + commit + push de la **V2**. NO tocar la V1.
+
 ## API Keys
 
 Las API keys no están documentadas en texto plano por seguridad.
