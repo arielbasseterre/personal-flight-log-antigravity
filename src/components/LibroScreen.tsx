@@ -512,11 +512,18 @@ const findSecondaryMatch = (local: any, remoteLogs: any[]): any => {
   const localMat = normalizeMatCompare(local.matriculaAvion);
   if (!localMat) return undefined;
   const localStart = new Date(local.fechaHoraSalida).getTime();
+  const localOrigenCodes = localAirportCodes(local.origenID || (local as any).origin_ad);
+  const localDestCodes = localAirportCodes(local.destinoID || (local as any).destination_ad);
   const candidates = remoteLogs.filter(r => {
     if (normalizeMatCompare(r.matricula) !== localMat) return false;
     const rStart = new Date(r.fechaSalida).getTime();
     if (isNaN(rStart)) return false;
-    return Math.abs(rStart - localStart) / 86400000 <= 2;
+    // ±1 día (maneja vuelos que cruzan las 00:00 y cambian el día)
+    if (Math.abs(rStart - localStart) / 86400000 > 1) return false;
+    // Misma ruta (origen+destino) → es el mismo vuelo; excluye vuelos distintos
+    if (routeDiffers(local.origenID || (local as any).origin_ad, localOrigenCodes, r.origenDesc)) return false;
+    if (routeDiffers(local.destinoID || (local as any).destination_ad, localDestCodes, r.destinoDesc)) return false;
+    return true;
   });
   return candidates.length === 1 ? candidates[0] : undefined;
 };
