@@ -2658,6 +2658,42 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     accessToken: process.env.MP_ACCESS_TOKEN || ""
   });
 
+  // Resuelve el email del pagador de MercadoPago (best-effort, nunca lanza).
+  // Prioridad: payment.payer.email → subscription.payer.email → subscription.payer_email
+  // → fallback: búsqueda de pagos APROBADOS por external_reference (la suscripción suele traer payer_email vacío).
+  const resolveMpPayerEmail = async (opts: {
+    payment?: any;
+    subscription?: any;
+    externalRef?: string | null;
+  }): Promise<string | null> => {
+    try {
+      const direct =
+        opts.payment?.payer?.email ||
+        opts.subscription?.payer?.email ||
+        opts.subscription?.payer_email;
+      if (direct) return direct;
+
+      if (!opts.externalRef) return null;
+
+      const accessToken = process.env.MP_ACCESS_TOKEN;
+      const response = await axios.get("https://api.mercadopago.com/v1/payments/search", {
+        params: {
+          external_reference: opts.externalRef,
+          limit: 5,
+          sort: "date_approved",
+          criteria: "desc"
+        },
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      const results = response.data?.results || [];
+      const approved = results.find((p: any) => p.status === "approved");
+      return approved?.payer?.email || null;
+    } catch (error: any) {
+      console.error("[MERCADOPAGO] Error al resolver email del pagador:", error.response?.data || error.message);
+      return null;
+    }
+  };
+
 
   let annualPlan: { id: string; initPoint: string; amount: number } | null = null;
 
@@ -2935,7 +2971,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               subscription_id: subscription.id,
               subscription_end_date: endDate,
               subscription_status: status,
-              mp_payer_email: (subscription as any).payer?.email || (subscription as any).payer_email || null
+              mp_payer_email: await resolveMpPayerEmail({ subscription, externalRef: pendingRegId })
             })
             .eq('id', pendingRegId)
             .select('id')
@@ -2984,7 +3020,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                     subscription_id: subscription.id,
                     subscription_end_date: endDate,
                     subscription_status: status,
-                    mp_payer_email: (subscription as any).payer?.email || (subscription as any).payer_email || null
+                    mp_payer_email: await resolveMpPayerEmail({ subscription, externalRef: pendingRegId })
                   })
                   .eq('id', authUser.user.id)
                   .select('id')
@@ -3007,7 +3043,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                      subscription_id: subscription.id,
                      subscription_end_date: endDate,
                      subscription_status: status,
-                     mp_payer_email: (subscription as any).payer?.email || (subscription as any).payer_email || null
+                     mp_payer_email: await resolveMpPayerEmail({ subscription, externalRef: pendingRegId })
                    });
                 }
               }
@@ -3061,7 +3097,6 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
           if (status === "approved" && externalRef) {
             let endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-            const payerEmail = (payment as any)?.payer?.email || null;
 
             let { data: updatedProfile, error: updateError } = await supabase
               .from('profiles')
@@ -3069,7 +3104,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                 subscription_id: subscriptionId,
                 subscription_end_date: endDate,
                 subscription_status: "authorized",
-                mp_payer_email: payerEmail
+                mp_payer_email: await resolveMpPayerEmail({ payment, externalRef })
               })
               .eq('id', externalRef)
               .select('id')
@@ -3114,7 +3149,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                       subscription_id: subscriptionId,
                       subscription_end_date: endDate,
                       subscription_status: "authorized",
-                      mp_payer_email: payerEmail
+                      mp_payer_email: await resolveMpPayerEmail({ payment, externalRef })
                     })
                     .eq('id', authUser.user.id);
 
@@ -3131,7 +3166,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                        subscription_id: subscriptionId,
                        subscription_end_date: endDate,
                        subscription_status: "authorized",
-                       mp_payer_email: payerEmail
+                       mp_payer_email: await resolveMpPayerEmail({ payment, externalRef })
                      });
                   }
                 }
@@ -3299,7 +3334,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
               subscription_id: sub.id,
               subscription_end_date: endDate,
               subscription_status: sub.status,
-              mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
+              mp_payer_email: await resolveMpPayerEmail({ subscription: sub, externalRef: finalExtRef })
             })
             .eq('id', finalExtRef)
             .select('id')
@@ -3358,7 +3393,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                   subscription_id: sub.id,
                   subscription_end_date: endDate,
                   subscription_status: sub.status,
-                  mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
+                  mp_payer_email: await resolveMpPayerEmail({ subscription: sub, externalRef: finalExtRef })
                 })
                 .eq('id', authUser.user.id)
                 .select('id')
@@ -3381,7 +3416,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                   subscription_id: sub.id,
                   subscription_end_date: endDate,
                   subscription_status: sub.status,
-                  mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
+                  mp_payer_email: await resolveMpPayerEmail({ subscription: sub, externalRef: finalExtRef })
                 });
               }
 
@@ -3418,7 +3453,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
                    subscription_id: sub.id,
                    subscription_end_date: endDate,
                    subscription_status: sub.status,
-                   mp_payer_email: (sub as any).payer?.email || (sub as any).payer_email || null
+                   mp_payer_email: await resolveMpPayerEmail({ subscription: sub, externalRef: finalExtRef })
                 });
              } catch (e) {
                 console.error(e);
