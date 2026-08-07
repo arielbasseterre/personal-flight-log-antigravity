@@ -6,6 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+LIBRO DE VUELO - BONET.xlsx
 
 # Debug/auditoría local (contienen datos scrapeados del portal ARMS)
 arms_debug_*
