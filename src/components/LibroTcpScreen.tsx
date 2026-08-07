@@ -25,6 +25,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { getQueue, addToQueue, removeFromQueue, pendingCount, PendingOp } from '@/src/utils/offlineQueue';
+import { formatCuil } from '@/src/utils/cuil';
 import airportsCsvRaw from '../../airports.csv?raw';
 
 const FLIGHT_PURPOSES = [
@@ -2618,6 +2619,15 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                     value={profile?.email || ''}
                     disabled
                     className="bg-slate-50 dark:bg-slate-800 text-slate-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prof_cuil">CUIL</Label>
+                  <Input
+                    id="prof_cuil"
+                    disabled
+                    className="bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                    value={profile?.cuil ? formatCuil(profile.cuil) : 'No cargado'}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">

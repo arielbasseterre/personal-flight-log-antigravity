@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Profile, FlightLog } from '@/src/types';
 import { supabase } from '@/src/utils/supabase/client';
+import { formatCuil } from '@/src/utils/cuil';
 
 const LICENSE_TYPES = [
   { sigla: 'PPA', label: 'Piloto Privado de Avión' },
@@ -291,6 +292,16 @@ export const ProfileScreen = ({ profile, setProfile, logs, refreshData, loading,
               <div className="space-y-2">
                 <Label htmlFor="prof_dni">DNI / Pasaporte</Label>
                 <Input id="prof_dni" value={profile?.dni || ''} onChange={e => setProfile(prev => prev ? {...prev, dni: e.target.value} : null)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="prof_cuil">CUIL</Label>
+                <Input
+                  id="prof_cuil"
+                  disabled
+                  className="bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                  value={profile?.cuil ? formatCuil(profile.cuil) : 'No cargado'}
+                />
               </div>
 
               <Separator />
