@@ -2812,15 +2812,11 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       if (existingCuilProfile) {
         return res.status(400).json({ error: "El CUIL ya está asociado a otra cuenta" });
       }
-      let existingCuilPending = null;
-      try {
-        const { data: pendingCuil } = await supabase
-          .from('pending_registrations')
-          .select('id')
-          .eq('cuil', cuilNormalized)
-          .maybeSingle();
-        existingCuilPending = pendingCuil || null;
-      } catch (e) {}
+      const { data: existingCuilPending } = await supabase
+        .from('pending_registrations')
+        .select('id')
+        .eq('cuil', cuilNormalized)
+        .maybeSingle();
       if (existingCuilPending) {
         return res.status(400).json({ error: "El CUIL ya está asociado a otra cuenta" });
       }
