@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { supabase } from '../utils/supabase/client';
 import { getApiUrl } from '../utils/api';
 
-export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => void }) => {
+export const AnacAuth = ({ onAuthSuccess, cuil }: { onAuthSuccess?: (session: any) => void; cuil?: string | null }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -10,8 +10,11 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
   const [statusMessage, setStatusMessage] = useState('');
   const loadingRef = useRef(false);
 
+  const storedCuil = (cuil || '').replace(/\D/g, '');
+  const isLocked = storedCuil.length === 11;
+
   const [formData, setFormData] = useState({
-    cuil: '',
+    cuil: storedCuil,
     password: '',
     rememberMe: true
   });
@@ -34,7 +37,7 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: user.id,
-          cuil: formData.cuil,
+          cuil: isLocked ? storedCuil : formData.cuil,
           password: formData.password,
           rememberMe: formData.rememberMe
         })
@@ -107,12 +110,18 @@ export const AnacAuth = ({ onAuthSuccess }: { onAuthSuccess?: (session: any) => 
           <input
             type="text"
             required
-            className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            disabled={isLocked}
+            className={`mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 shadow-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 ${isLocked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : ''}`}
             value={formData.cuil}
             onChange={(e) => setFormData({ ...formData, cuil: e.target.value })}
             placeholder="20XXXXXXXX9"
             autoComplete="username"
           />
+          {isLocked && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              CUIL vinculado a tu cuenta (no editable)
+            </p>
+          )}
         </div>
 
         <div>

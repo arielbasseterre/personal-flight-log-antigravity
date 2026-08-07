@@ -2872,7 +2872,7 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
                 <button onClick={() => setShowSyncDialog(false)} className="p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
               </div>
               <div className="px-6 pb-8">
-                <AnacAuth onAuthSuccess={(session: any) => {
+                <AnacAuth cuil={profile?.cuil} onAuthSuccess={(session: any) => {
                   let authCookie = session.cookies.find((c: any) => c.name === 'Auth.ANAC.localhost' || c.name.includes('.ANAC.') || c.name === 'Auth.ANAC');
                   if (!authCookie) authCookie = session.cookies.find((c: any) => c.name.toLowerCase().includes('auth'));
                   if (authCookie) { setAnacToken(authCookie.value); setAnacSession(null); }

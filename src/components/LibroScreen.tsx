@@ -72,6 +72,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { getQueue, addToQueue, removeFromQueue, pendingCount, PendingOp } from '@/src/utils/offlineQueue';
+import { formatCuil } from '@/src/utils/cuil';
 import airportsCsvRaw from '../../airports.csv?raw';
 
 interface LibroScreenProps {
@@ -4181,6 +4182,16 @@ const resolveToAnac = (input: string | undefined) => {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="prof_cuil">CUIL</Label>
+                  <Input
+                    id="prof_cuil"
+                    disabled
+                    className="bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                    value={profile?.cuil ? formatCuil(profile.cuil) : 'No cargado'}
+                  />
+                </div>
+
                 <Separator />
                 
                 <div className="space-y-4">
@@ -4375,7 +4386,7 @@ const resolveToAnac = (input: string | undefined) => {
               </div>
               
               <div className="px-6 pb-8">
-                <AnacAuth onAuthSuccess={(session) => {
+                <AnacAuth cuil={profile?.cuil} onAuthSuccess={(session) => {
                   
                   // Buscamos la cookie de autenticación (Intentamos varias posibilidades)
                   let authCookie = session.cookies.find((c: any) => 

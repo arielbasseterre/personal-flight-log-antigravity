@@ -20,6 +20,26 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
+// --- CUIL: validación (dígito verificador oficial Módulo 11) y formateo ---
+const isValidCuil = (raw: string): boolean => {
+  const s = (raw || '').replace(/\D/g, '');
+  if (s.length !== 11) return false;
+  const prefix = s.slice(0, 2);
+  if (!['20', '23', '24', '25', '26', '27', '30', '33', '34'].includes(prefix)) return false;
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 10; i++) sum += Number(s[i]) * weights[i];
+  const resto = sum % 11;
+  const dv = resto === 0 ? 0 : resto === 1 ? 9 : 11 - resto;
+  return dv === Number(s[10]);
+};
+
+const formatCuil = (raw: string): string => {
+  const s = (raw || '').replace(/\D/g, '');
+  if (s.length !== 11) return (raw || '').trim();
+  return `${s.slice(0, 2)}-${s.slice(2, 10)}-${s.slice(10)}`;
+};
+
 // Diagnóstico de clock drift (ANAC rechaza con "ajusta la hora de su sistema" si el reloj está desviado)
 console.log("[SERVER] Hora del servidor:", new Date().toISOString(), "| TZ:", process.env.TZ || 'sistema');
 
@@ -577,11 +597,28 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
   app.post("/api/auth-anac", async (req, res) => {
     const { user_id, cuil, password, rememberMe } = req.body;
 
-    if (!user_id || !cuil || !password) {
-      return res.status(400).json({ error: "user_id, cuil y password son requeridos" });
+    if (!user_id || !password) {
+      return res.status(400).json({ error: "user_id y password son requeridos" });
     }
 
-    console.log(`[AUTH_ANAC] Iniciando login para CUIL: ${cuil}`);
+    // El CUIL de la cuenta es autoritativo (se captura en el registro y no es editable).
+    // Para cuentas viejas sin CUIL, se acepta el tipeado y se persiste tras login exitoso.
+    let storedCuil: string | null = null;
+    try {
+      const { data: profileCuil } = await supabase
+        .from('profiles')
+        .select('cuil')
+        .eq('id', user_id)
+        .maybeSingle();
+      storedCuil = profileCuil?.cuil || null;
+    } catch (e) {}
+
+    const effectiveCuil = (storedCuil || (cuil || '')).replace(/\D/g, '');
+    if (!effectiveCuil || effectiveCuil.length !== 11) {
+      return res.status(400).json({ error: "No hay un CUIL válido asociado a esta cuenta" });
+    }
+
+    console.log(`[AUTH_ANAC] Iniciando login para CUIL: ${effectiveCuil}${storedCuil ? ' (cuenta)' : ' (tipeado)'}`);
     res.setHeader('Content-Type', 'application/x-ndjson');
     res.setHeader('Cache-Control', 'no-cache');
     res.flushHeaders();
@@ -632,7 +669,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       sendProgress('Accediendo al portal ANAC...', 40);
       console.log("[AUTH_ANAC] Completando credenciales...");
-      await page.type("#Username", cuil, { delay: 50 });
+      await page.type("#Username", effectiveCuil, { delay: 50 });
       await page.type("#Password", password, { delay: 50 });
 
       sendProgress('Enviando credenciales...', 55);
@@ -680,7 +717,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         try { screenshotB64 = (await page.screenshot({ type: 'jpeg', quality: 50 })).toString('base64').substring(0, 500); } catch {}
         const pageTitle = await page.title().catch(() => '');
 
-        console.error(`[AUTH_ANAC] Login fallido para CUIL: ${cuil}`);
+        console.error(`[AUTH_ANAC] Login fallido para CUIL: ${effectiveCuil}`);
         console.error(`[AUTH_ANAC] URL post-submit: ${urlStr || '(vacía)'}`);
         console.error(`[AUTH_ANAC] Título de página: ${pageTitle}`);
         console.error(`[AUTH_ANAC] Mensajes de validación: ${JSON.stringify(portalErrors)}`);
@@ -699,6 +736,30 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       }
 
       console.log("[AUTH_ANAC] Login exitoso confirmado.");
+
+      // Cuenta vieja sin CUIL: persistir el CUIL tipeado tras login exitoso (queda bloqueado).
+      if (!storedCuil) {
+        try {
+          const { data: otherCuil } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('cuil', effectiveCuil)
+            .neq('id', user_id)
+            .maybeSingle();
+          if (otherCuil) {
+            throw new Error("El CUIL ingresado ya está asociado a otra cuenta");
+          }
+          const { error: cuilSaveError } = await supabase
+            .from('profiles')
+            .update({ cuil: effectiveCuil })
+            .eq('id', user_id);
+          if (cuilSaveError) throw cuilSaveError;
+          console.log(`[AUTH_ANAC] CUIL guardado en la cuenta ${user_id}: ${effectiveCuil}`);
+        } catch (cuilErr: any) {
+          console.error("[AUTH_ANAC] Error al guardar CUIL:", cuilErr.message);
+          throw new Error(cuilErr.message.includes("ya está asociado") ? cuilErr.message : "No se pudo vincular el CUIL a tu cuenta");
+        }
+      }
 
       sendProgress('Guardando sesión...', 90);
       // Capturar cookies y localStorage
@@ -2732,12 +2793,38 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
   };
 
   app.post("/api/mercadopago/register-with-trial", async (req, res) => {
-    const { email, password, firstName, lastName, license, dni, legajo, role } = req.body;
+    const { email, password, firstName, lastName, license, dni, legajo, role, cuil } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email y contraseña son requeridos" });
     }
 
+    const cuilNormalized = (cuil || '').replace(/\D/g, '');
+    if (!isValidCuil(cuilNormalized)) {
+      return res.status(400).json({ error: "El CUIL ingresado no es válido (deben ser 11 dígitos y pasar el dígito verificador)" });
+    }
+
     try {
+      const { data: existingCuilProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('cuil', cuilNormalized)
+        .maybeSingle();
+      if (existingCuilProfile) {
+        return res.status(400).json({ error: "El CUIL ya está asociado a otra cuenta" });
+      }
+      let existingCuilPending = null;
+      try {
+        const { data: pendingCuil } = await supabase
+          .from('pending_registrations')
+          .select('id')
+          .eq('cuil', cuilNormalized)
+          .maybeSingle();
+        existingCuilPending = pendingCuil || null;
+      } catch (e) {}
+      if (existingCuilPending) {
+        return res.status(400).json({ error: "El CUIL ya está asociado a otra cuenta" });
+      }
+
       const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
         email,
         password,
@@ -2762,6 +2849,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           license: license || "",
           dni: dni || "",
           legajo: legajo || "",
+          cuil: cuilNormalized,
           subscription_end_date: trialEnd.toISOString(),
           subscription_status: 'trial',
           subscription_id: null,

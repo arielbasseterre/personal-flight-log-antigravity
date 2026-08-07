@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, UserPlus, Mail, Lock, Plane, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, Plane, ArrowRight, Loader2, CheckCircle, IdCard } from 'lucide-react';
 import { motion } from 'motion/react';
+import { isValidCuil } from '@/src/utils/cuil';
 
 export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => void }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,6 +16,8 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState('');
+  const [cuil, setCuil] = useState('');
+  const [cuilError, setCuilError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgotSent, setForgotSent] = useState(false);
@@ -57,6 +60,11 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
         if (error) throw error;
       } else {
         if (!role) throw new Error("Debes seleccionar tu cargo (Pilotos FB / TCPs FB)");
+        if (!isValidCuil(cuil)) {
+          setCuilError('Ingresá un CUIL válido de 11 dígitos (ej. 20-29327413-5)');
+          setLoading(false);
+          return;
+        }
 
         const response = await fetch('/api/mercadopago/register-with-trial', {
           method: 'POST',
@@ -66,7 +74,8 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
             password,
             firstName,
             lastName,
-            role
+            role,
+            cuil
           })
         });
         const resData = await response.json();
@@ -172,6 +181,32 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
                       </div>
                     </div>
                   </div>
+              )}
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="cuil">CUIL</Label>
+                  <div className="relative">
+                    <IdCard className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <Input
+                      id="cuil"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="20-XXXXXXXX-X"
+                      className="pl-10"
+                      value={cuil}
+                      onChange={(e) => {
+                        setCuil(e.target.value);
+                        setCuilError(null);
+                      }}
+                      required
+                      maxLength={13}
+                    />
+                  </div>
+                  {cuilError && (
+                    <p className="text-xs text-red-500">{cuilError}</p>
+                  )}
+                </div>
               )}
 
               <div className="space-y-2">

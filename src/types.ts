@@ -8,6 +8,7 @@ export interface Profile {
   license: string;
   dni: string;
   legajo: string;
+  cuil?: string | null;
   // Carry-forward totals
   total_airfield_day_pilot?: number | null;
   total_airfield_day_copilot?: number | null;
