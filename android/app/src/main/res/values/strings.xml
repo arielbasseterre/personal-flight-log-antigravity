@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Personal Flight Log</string>
-    <string name="title_activity_main">Personal Flight Log</string>
-    <string name="package_name">com.arielbasseterre.personalflightlog</string>
-    <string name="custom_url_scheme">com.arielbasseterre.personalflightlog</string>
-</resources>

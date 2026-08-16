@@ -1,3 +1,0 @@
-Clean Project (para limpiar el caché de la compilación anterior de nivel 34).
-Generate Signed
-
