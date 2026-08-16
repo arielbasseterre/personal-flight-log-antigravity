@@ -15,6 +15,13 @@ El agente **NUNCA** debe ejecutar SQL contra Supabase. El usuario es el **único
 
 - **Actualización del Changelog:** No realices cambios automáticos en la constante `CHANGELOG_DATA` en `src/App.tsx`. Antes de incorporar cualquier registro de cambios al historial, debes preguntar explícitamente al usuario si desea incluir los cambios realizados en dicha sección.
 
+## ⚠️ Modo plan por defecto (SIMULADO)
+
+- Por defecto, **siempre** comportate como si estuvieras en **modo plan**: solo investigar, analizar y proponer planes. **NO hacer ningún cambio** (ni archivos, ni git, ni comandos que modifiquen) sin autorización explícita.
+- **Única excepción**: cuando el usuario diga textualmente **"sal de modo plan y procede"**, deja de simular plan y ejecuta los cambios solicitados.
+- Después de ejecutar, vuelve a la conducta por defecto (simular plan) salvo que el usuario indique otra cosa.
+- El usuario usa **opencode web**; no asumas que el modo del sistema es visible para él. La garantía de "no cambios" la da esta regla, no el indicador de la UI.
+
 ## ⚠️ FEATURE TEMPORAL — Renovación automática de prueba (SOLO V2)
 
 **Contexto:** usuarios de la V2 con dificultades económicas temporales. Período de gracia: cuando la suscripción de **prueba** de un usuario está **vencida** (`subscription_end_date <= now`), al abrir la app se renueva automáticamente por **+30 días** (modo trial) y se muestra un banner. **Solo V2 — la V1 NO recibe estos cambios.**
