@@ -1812,6 +1812,29 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // TELEGRAM — Código de registro para el bot de avisos de roster ARMS
+  // ═══════════════════════════════════════════════════════════════════════════
+  app.post("/api/telegram/generate-code", async (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ error: "user_id requerido" });
+    }
+    try {
+      const code = crypto.randomBytes(6).toString("hex");
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ telegram_code: code, telegram_code_expires_at: expiresAt })
+        .eq('id', user_id);
+      if (error) throw error;
+      res.json({ success: true, code, expiresAt });
+    } catch (error: any) {
+      console.error("[TELEGRAM_CODE] Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // [DESHABILITADO] CRON JOB: Sincronización automática del Roster
   // ═══════════════════════════════════════════════════════════════════════════
   // La sincronización automática del roster ha sido completamente deshabilitada.

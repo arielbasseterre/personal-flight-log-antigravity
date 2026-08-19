@@ -23,7 +23,7 @@ import {
   Plane, RefreshCw, Clock, Users, ChevronLeft, ChevronRight,
   Shield, Home, AlertCircle, AlertTriangle, Briefcase, X, Eye, EyeOff, HelpCircle,
   Calendar, CalendarMinus, Loader2, Coffee, ArrowRight, Laptop, WifiOff, CheckCircle2,
-  FileText, Download, Settings
+  FileText, Download, Settings, MessageCircle
 } from 'lucide-react';
 import { MisEnlacesModal } from './MisEnlacesModal';
 import type { ArmsDayEntry, ArmsFlightLeg, ArmsCrewMember } from '../types';
@@ -1704,6 +1704,111 @@ function ExportPDFModal({
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MODAL TELEGRAM — Vincular cuenta con el bot de avisos de roster ARMS
+// ═══════════════════════════════════════════════════════════════════════════
+function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const generate = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(getApiUrl('/api/telegram/generate-code'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al generar el código');
+      setCode(data.code);
+      setExpiresAt(data.expiresAt);
+    } catch (e: any) {
+      setError(e.message || 'Ocurrió un error');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    generate();
+  }, [generate]);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="relative w-full max-w-sm bg-white dark:bg-[#1a2233] rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800"
+      >
+        <div className="p-6 text-center space-y-4">
+          <div className="mx-auto w-14 h-14 rounded-full bg-sky-100 dark:bg-sky-500/15 text-sky-500 flex items-center justify-center">
+            <MessageCircle size={26} />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Avisos por Telegram</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            Vinculá tu cuenta para recibir avisos cuando cambie tu programación ARMS. En tu bot de Telegram enviá:
+          </p>
+
+          {loading && (
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+              <Loader2 className="animate-spin" size={16} /> Generando código...
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">{error}</p>
+          )}
+
+          {code && (
+            <div className="space-y-3">
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-dashed border-sky-300 dark:border-sky-700 rounded-xl p-4">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Tu código (30 min)</p>
+                <code className="font-mono text-2xl font-bold text-[#1152d4] dark:text-sky-400 break-all">{code}</code>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg text-left">
+                <code className="font-mono font-semibold">/registrar {code}</code>
+                <br />
+                Enviá ese comando al bot de Telegram para vincular esta cuenta.
+              </p>
+              {expiresAt && (
+                <p className="text-[11px] text-slate-400">
+                  Vence: {new Date(expiresAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+              <button
+                onClick={generate}
+                disabled={loading}
+                className="w-full h-11 rounded-xl text-sm font-semibold text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-500/10 border border-sky-200 dark:border-sky-500/30 disabled:opacity-50"
+              >
+                Regenerar código
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/50">
+          <button
+            onClick={onClose}
+            className="w-full h-12 rounded-xl font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/20"
+          >
+            Cerrar
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // SECCIÓN E: COMPONENTE ROOT — ArmsRosterScreen
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1757,6 +1862,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
   const [showPreferences, setShowPreferences] = useState(false);
   const [showICSExport, setShowICSExport] = useState(false);
   const [showPDFExport, setShowPDFExport] = useState(false);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
 
   // ── Estado de modal de enlaces de calendario ──────────────────────────
   const [showTokensModal, setShowTokensModal] = useState(false);
@@ -2232,6 +2338,13 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                 Exportar
               </button>
             )}
+            <button
+              onClick={() => setShowTelegramModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/30 rounded-full text-sky-600 dark:text-sky-400 text-xs font-semibold hover:bg-sky-500/20 active:scale-[0.96] transition-all"
+            >
+              <MessageCircle size={14} />
+              Telegram
+            </button>
             <button
               onClick={handleSyncClick}
               disabled={syncing}
@@ -2779,6 +2892,16 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
             userId={userId}
             onClose={() => setShowTokensModal(false)}
             onOpenPreferences={() => setShowPreferences(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Telegram (avisos de roster) */}
+      <AnimatePresence>
+        {showTelegramModal && (
+          <TelegramLinkModal
+            userId={userId}
+            onClose={() => setShowTelegramModal(false)}
           />
         )}
       </AnimatePresence>

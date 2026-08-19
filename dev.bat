@@ -11,7 +11,7 @@ timeout /t 2 /nobreak >nul
 echo ========================================
 echo  Reconstruyendo frontend...
 echo ========================================
-cd /d "C:\Users\Ariel\Downloads\personal-flight-log"
+cd /d "C:\Users\Ariel\DESARROLLO DE APPS\personal-flight-log"
 call npx vite build
 
 echo ========================================
