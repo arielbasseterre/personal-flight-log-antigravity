@@ -1758,7 +1758,25 @@ function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () =>
           </div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">Avisos por Telegram</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            Vinculá tu cuenta para recibir avisos cuando cambie tu programación ARMS. En tu bot de Telegram enviá:
+            Vinculá tu cuenta para recibir avisos cuando cambie tu programación ARMS.
+          </p>
+          <a
+            href="https://t.me/flightlog_roster_bot"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+          >
+            <MessageCircle size={15} />
+            Abrir el bot en Telegram (@flightlog_roster_bot)
+          </a>
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/30 text-left">
+            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mb-1">Recordá</p>
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+              Para que el bot pueda revisar tu roster, sincronizá tu roster en la app marcando <b>"recordar sesión"</b>.
+            </p>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            Presioná <b>Start</b> en el bot y enviá:
           </p>
 
           {loading && (
