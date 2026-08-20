@@ -68,7 +68,7 @@ const checkRosters = async () => {
           .maybeSingle();
 
         if (existing && existing.roster_hash && existing.roster_hash !== hash) {
-          await sendMessage(p.telegram_chat_id, "📅 Hay novedades en tu programación ARMS. Actualizá tu roster en la app.");
+          await sendMessage(p.telegram_chat_id, "📅 Hubo cambios en tu programación ARMS. Ya actualizamos tu roster en la app.");
         }
 
         await supabase
