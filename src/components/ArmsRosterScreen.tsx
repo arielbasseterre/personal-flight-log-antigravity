@@ -1712,6 +1712,19 @@ function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () =>
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyCommand = async () => {
+    if (!code) return;
+    const full = `/registrar ${code}`;
+    try {
+      await navigator.clipboard.writeText(full);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -1800,10 +1813,16 @@ function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () =>
                 <code className="font-mono text-2xl font-bold text-[#1152d4] dark:text-sky-400 break-all">{code}</code>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg text-left">
-                <code className="font-mono font-semibold">/registrar {code}</code>
+                <code className="font-mono font-semibold break-all">/registrar {code}</code>
                 <br />
                 Enviá ese comando al bot de Telegram para vincular esta cuenta.
               </p>
+              <button
+                onClick={copyCommand}
+                className="w-full h-10 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              >
+                {copied ? '✅ Comando copiado' : '📋 Copiar comando completo'}
+              </button>
               {expiresAt && (
                 <p className="text-[11px] text-slate-400">
                   Vence: {new Date(expiresAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
