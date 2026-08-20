@@ -172,6 +172,9 @@ const checkRosters = async () => {
 };
 
 const main = async () => {
+  const url = process.env.SUPABASE_URL || "";
+  const ref = url.replace(/^https:\/\//, "").split(".")[0];
+  console.log(`[TELEGRAM_BOT] Iniciando corrida | Supabase ref=${ref} | token set=${!!process.env.TELEGRAM_BOT_TOKEN}`);
   await processCommands();
   await checkRosters();
 };
