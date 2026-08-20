@@ -1773,28 +1773,6 @@ function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () =>
           <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
             Vinculá tu cuenta para recibir avisos cuando cambie tu programación ARMS.
           </p>
-          <a
-            href="https://t.me/flightlog_roster_bot"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.preventDefault();
-              window.open('https://t.me/flightlog_roster_bot', '_blank', 'noopener,noreferrer');
-            }}
-            className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
-          >
-            <MessageCircle size={15} />
-            Abrir el bot en Telegram (@flightlog_roster_bot)
-          </a>
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/30 text-left">
-            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mb-1">Recordá</p>
-            <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
-              Para que el bot pueda revisar tu roster, sincronizá tu roster en la app marcando <b>"recordar sesión"</b>.
-            </p>
-          </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            Presioná <b>Start</b> en el bot y enviá:
-          </p>
 
           {loading && (
             <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
@@ -1813,9 +1791,9 @@ function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () =>
                 <code className="font-mono text-2xl font-bold text-[#1152d4] dark:text-sky-400 break-all">{code}</code>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg text-left">
-                <code className="font-mono font-semibold break-all">/registrar {code}</code>
+                Presioná <b>Start</b> en el bot y enviá este comando:
                 <br />
-                Enviá ese comando al bot de Telegram para vincular esta cuenta.
+                <code className="font-mono font-semibold break-all">/registrar {code}</code>
               </p>
               <button
                 onClick={copyCommand}
@@ -1835,8 +1813,29 @@ function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () =>
               >
                 Regenerar código
               </button>
+
+              <a
+                href="https://t.me/flightlog_roster_bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open('https://t.me/flightlog_roster_bot', '_blank', 'noopener,noreferrer');
+                }}
+                className="flex items-center justify-center gap-1.5 w-full h-11 rounded-xl text-sm font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/20"
+              >
+                <MessageCircle size={16} />
+                Abrir el bot en Telegram (@flightlog_roster_bot)
+              </a>
             </div>
           )}
+
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/30 text-left">
+            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mb-1">Recordá</p>
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+              Para que el bot pueda revisar tu roster, sincronizá tu roster en la app marcando <b>"recordar sesión"</b>.
+            </p>
+          </div>
         </div>
         <div className="p-4 bg-slate-50 dark:bg-slate-800/50">
           <button
