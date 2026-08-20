@@ -6,7 +6,7 @@ import { sendMessage } from "./telegram";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "../api/arms-scraper";
 
 const supabase = createClient(
-  process.env.SUPABASE_URL || "",
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
@@ -72,7 +72,7 @@ const checkRosters = async () => {
 };
 
 const main = async () => {
-  const url = process.env.SUPABASE_URL || "";
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
   const ref = url.replace(/^https:\/\//, "").split(".")[0];
   console.log(`[TELEGRAM_BOT] Iniciando chequeo de roster | Supabase ref=${ref} | token set=${!!process.env.TELEGRAM_BOT_TOKEN}`);
   await checkRosters();
