@@ -1763,8 +1763,12 @@ function TelegramLinkModal({ userId, onClose }: { userId: string; onClose: () =>
           <a
             href="https://t.me/flightlog_roster_bot"
             target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              window.open('https://t.me/flightlog_roster_bot', '_blank', 'noopener,noreferrer');
+            }}
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
           >
             <MessageCircle size={15} />
             Abrir el bot en Telegram (@flightlog_roster_bot)
