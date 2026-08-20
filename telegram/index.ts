@@ -21,6 +21,19 @@ const checkRosters = async () => {
     return;
   }
 
+  const WARN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+  const warn = async (userId: string, chatId: string, message: string) => {
+    const key = `telegram_warn_${userId}`;
+    const { data: prev } = await supabase.from("app_config").select("value").eq("key", key).maybeSingle();
+    const lastWarn = prev?.value ? parseInt(prev.value) : 0;
+    if (Date.now() - lastWarn < WARN_COOLDOWN_MS) {
+      console.log(`[ROSTER_CHECK] Aviso para ${userId} suprimido por cooldown`);
+      return;
+    }
+    await sendMessage(chatId, message);
+    await supabase.from("app_config").upsert({ key, value: String(Date.now()) }, { onConflict: "key" });
+  };
+
   const month = new Date().getMonth() + 1;
   const year = new Date().getFullYear();
   const browser = await chromium.launch();
@@ -35,7 +48,7 @@ const checkRosters = async () => {
           .maybeSingle();
 
         if (!session?.session_data) {
-          await sendMessage(p.telegram_chat_id, "⚠️ No tengo tu sesión de ARMS guardada. Sincronizá tu roster una vez desde la app.");
+          await warn(p.id, p.telegram_chat_id, "⚠️ No tengo tu sesión de ARMS guardada. Sincronizá tu roster una vez desde la app (marcá 'recordar sesión').");
           continue;
         }
 
@@ -64,7 +77,7 @@ const checkRosters = async () => {
       } catch (e: any) {
         console.error(`[ROSTER_CHECK] Error usuario ${p.id}:`, e.message);
         const detalle = (e?.message || "").toString().slice(0, 120);
-        await sendMessage(p.telegram_chat_id, `⚠️ No pude revisar tu programación ARMS.\nDetalle: ${detalle}\n\nSi es de sesión, volvé a sincronizar desde la app.`);
+        await warn(p.id, p.telegram_chat_id, `⚠️ No pude revisar tu programación ARMS (sesión vencida o error).\nDetalle: ${detalle}\n\nRe-sincronizá tu roster en la app marcando 'recordar sesión'.`);
       }
     }
   } finally {
