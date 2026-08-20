@@ -54,6 +54,7 @@ const checkRosters = async () => {
         }
 
         const password = decryptPassword(session.arms_password_enc) || undefined;
+        console.log(`[ROSTER_CHECK] Usuario ${p.id} | password disponible: ${!!password} | arms_password_enc: ${session.arms_password_enc ? "si" : "no"}`);
         const { html } = await scrapeArmsRoster(browser, session.arms_username, password, month, year, session.session_data);
         const entries = parseArmsRosterHtml(html);
         const hash = crypto.createHash("sha256").update(JSON.stringify(entries)).digest("hex");
