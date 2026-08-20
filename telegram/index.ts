@@ -2,7 +2,7 @@ import "dotenv/config";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
-import { sendMessage, getUpdates } from "./telegram";
+import { sendMessage } from "./telegram";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "../api/arms-scraper";
 
 const supabase = createClient(
@@ -10,116 +10,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
-const getLastUpdateId = async (): Promise<number> => {
-  try {
-    const { data } = await supabase
-      .from("app_config")
-      .select("value")
-      .eq("key", "telegram_last_update_id")
-      .maybeSingle();
-    const n = Number(data?.value);
-    return Number.isFinite(n) ? n : 0;
-  } catch {
-    return 0;
-  }
-};
-
-const setLastUpdateId = async (id: number) => {
-  await supabase
-    .from("app_config")
-    .upsert({ key: "telegram_last_update_id", value: String(id) }, { onConflict: "key" });
-};
-
-const processCommands = async () => {
-  const last = await getLastUpdateId();
-  const updates = await getUpdates(last ? last + 1 : 0);
-  if (!updates.length) {
-    console.log("[TELEGRAM] No hay updates pendientes");
-    return;
-  }
-
-  console.log(`[TELEGRAM] Procesando ${updates.length} update(s)`);
-  for (const u of updates) {
-    const msg = u.message;
-    const chatId = msg?.chat?.id;
-    const text = (msg?.text || "").trim();
-    console.log(`[TELEGRAM] update_id=${u.update_id} chat=${chatId} text="${text}"`);
-    if (chatId == null) continue;
-
-    if (text.startsWith("/start")) {
-      await sendMessage(chatId, "👋 Hola! Para vincular tu cuenta enviá:\n/registrar <codigo>\n\nEl código lo generás en la app (sección Roster ARMS).");
-    } else if (text.startsWith("/registrar")) {
-      const parts = text.split(/\s+/);
-      const code = parts[1]?.trim();
-      console.log(`[TELEGRAM] Comando /registrar con codigo="${code}"`);
-      await handleRegistrar(chatId, msg?.from?.username, code);
-    } else {
-      console.log(`[TELEGRAM] Texto no reconocido, ignorado`);
-    }
-  }
-
-  const lastId = updates[updates.length - 1]?.update_id;
-  if (typeof lastId === "number") {
-    await setLastUpdateId(lastId);
-    console.log(`[TELEGRAM] last_update_id guardado: ${lastId}`);
-  }
-};
-
-const handleRegistrar = async (chatId: number, username: string | undefined, code: string | undefined) => {
-  if (!code) {
-    console.log("[TELEGRAM] /registrar sin codigo");
-    await sendMessage(chatId, "Uso correcto: /registrar <codigo>\nGenerá un código en la app, sección Roster ARMS.");
-    return;
-  }
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("id, telegram_code, telegram_code_expires_at")
-    .eq("telegram_code", code)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[TELEGRAM] Error buscando perfil por codigo:", error.message);
-    await sendMessage(chatId, "⚠️ Error interno al vincular. Intentalo más tarde.");
-    return;
-  }
-
-  if (!profile) {
-    console.log(`[TELEGRAM] Codigo "${code}" no encontrado en profiles`);
-    await sendMessage(chatId, "❌ Código inválido. Generá uno nuevo en la app.");
-    return;
-  }
-  if (profile.telegram_code_expires_at && new Date(profile.telegram_code_expires_at) < new Date()) {
-    await sendMessage(chatId, "⏰ El código expiró. Generá uno nuevo en la app.");
-    return;
-  }
-
-  const { error: upErr } = await supabase
-    .from("profiles")
-    .update({
-      telegram_chat_id: String(chatId),
-      telegram_username: username || null,
-      telegram_code: null,
-      telegram_code_expires_at: null,
-    })
-    .eq("id", profile.id);
-
-  if (upErr) {
-    console.error("[TELEGRAM] Error vinculando chat al perfil:", upErr.message);
-    await sendMessage(chatId, "⚠️ Error guardando la vinculación. Intentalo más tarde.");
-    return;
-  }
-
-  console.log(`[TELEGRAM] Perfil ${profile.id} vinculado a chat ${chatId}`);
-  await sendMessage(chatId, "✅ Cuenta vinculada correctamente. Te avisaré cuando haya novedades en tu programación ARMS.");
-};
-
 const checkRosters = async () => {
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, telegram_chat_id")
     .not("telegram_chat_id", "is", null);
 
-  if (!profiles || !profiles.length) return;
+  if (!profiles || !profiles.length) {
+    console.log("[ROSTER_CHECK] No hay usuarios vinculados a Telegram");
+    return;
+  }
 
   const month = new Date().getMonth() + 1;
   const year = new Date().getFullYear();
@@ -174,8 +74,7 @@ const checkRosters = async () => {
 const main = async () => {
   const url = process.env.SUPABASE_URL || "";
   const ref = url.replace(/^https:\/\//, "").split(".")[0];
-  console.log(`[TELEGRAM_BOT] Iniciando corrida | Supabase ref=${ref} | token set=${!!process.env.TELEGRAM_BOT_TOKEN}`);
-  await processCommands();
+  console.log(`[TELEGRAM_BOT] Iniciando chequeo de roster | Supabase ref=${ref} | token set=${!!process.env.TELEGRAM_BOT_TOKEN}`);
   await checkRosters();
 };
 

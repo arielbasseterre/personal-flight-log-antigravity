@@ -14,6 +14,7 @@ import crypto from "crypto";
 import helmet from "helmet";
 import { MercadoPagoConfig, PreApprovalPlan, PreApproval } from "mercadopago";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "./api/arms-scraper";
+import { handleTelegramUpdate } from "./telegram/handlers";
 
 // Fix for ENOTFOUND errors in some environments
 dns.setDefaultResultOrder('ipv4first');
@@ -1832,6 +1833,19 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
       console.error("[TELEGRAM_CODE] Error:", error.message);
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TELEGRAM — Webhook (procesa /start y /registrar al instante)
+  // ═══════════════════════════════════════════════════════════════════════════
+  app.post("/api/telegram/webhook", async (req, res) => {
+    try {
+      const body = req.body;
+      await handleTelegramUpdate(supabase, body);
+    } catch (error: any) {
+      console.error("[TELEGRAM_WEBHOOK] Error:", error.message);
+    }
+    res.status(200).send("OK");
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
