@@ -11,6 +11,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
+const formatDay = (dateISO: string): string => {
+  const [, m, d] = String(dateISO || "").split("-");
+  return `${d}/${m}`;
+};
+
+const changedDaysText = (oldEntries: any[], newEntries: any[]): string => {
+  const byDate = (list: any[]) => {
+    const m = new Map<string, string>();
+    for (const e of list || []) {
+      const d = String(e?.dateISO || "");
+      if (d) m.set(d, JSON.stringify(e));
+    }
+    return m;
+  };
+  const oldM = byDate(oldEntries || []);
+  const newM = byDate(newEntries || []);
+  const changed = new Set<string>();
+  for (const [d, s] of newM) if (!oldM.has(d) || oldM.get(d) !== s) changed.add(d);
+  for (const d of oldM.keys()) if (!newM.has(d)) changed.add(d);
+  const sorted = [...changed].sort();
+  if (!sorted.length) return "";
+  if (sorted.length <= 5) return ` (días: ${sorted.map(formatDay).join(", ")})`;
+  return ` (${sorted.length} días con cambios: ${sorted.slice(0, 3).map(formatDay).join(", ")}…)`;
+};
+
 const checkRosters = async () => {
   const { data: profiles } = await supabase
     .from("profiles")
@@ -61,14 +86,15 @@ const checkRosters = async () => {
 
         const { data: existing } = await supabase
           .from("arms_roster")
-          .select("roster_hash")
+          .select("roster_hash, roster_json")
           .eq("user_id", p.id)
           .eq("month", month)
           .eq("year", year)
           .maybeSingle();
 
         if (existing && existing.roster_hash && existing.roster_hash !== hash) {
-          await sendMessage(p.telegram_chat_id, "📅 Hubo cambios en tu programación ARMS. Ya actualizamos tu roster en la app.");
+          const days = changedDaysText(existing.roster_json, entries);
+          await sendMessage(p.telegram_chat_id, `📅 Hubo cambios en tu programación ARMS${days}. Ya actualizamos tu roster en la app.`);
         }
 
         await supabase
