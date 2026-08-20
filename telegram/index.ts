@@ -63,7 +63,8 @@ const checkRosters = async () => {
           );
       } catch (e: any) {
         console.error(`[ROSTER_CHECK] Error usuario ${p.id}:`, e.message);
-        await sendMessage(p.telegram_chat_id, "⚠️ No pude revisar tu programación ARMS (sesión expirada o error). Volvé a sincronizar desde la app.");
+        const detalle = (e?.message || "").toString().slice(0, 120);
+        await sendMessage(p.telegram_chat_id, `⚠️ No pude revisar tu programación ARMS.\nDetalle: ${detalle}\n\nSi es de sesión, volvé a sincronizar desde la app.`);
       }
     }
   } finally {

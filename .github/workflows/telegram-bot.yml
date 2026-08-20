@@ -34,8 +34,8 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-pw-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Chromium
-        run: npx playwright install chromium
+      - name: Install Chromium (with system deps)
+        run: npx playwright install --with-deps chromium
 
       - name: Run bot
         env:
