@@ -33,12 +33,17 @@ const setLastUpdateId = async (id: number) => {
 const processCommands = async () => {
   const last = await getLastUpdateId();
   const updates = await getUpdates(last ? last + 1 : 0);
-  if (!updates.length) return;
+  if (!updates.length) {
+    console.log("[TELEGRAM] No hay updates pendientes");
+    return;
+  }
 
+  console.log(`[TELEGRAM] Procesando ${updates.length} update(s)`);
   for (const u of updates) {
     const msg = u.message;
     const chatId = msg?.chat?.id;
     const text = (msg?.text || "").trim();
+    console.log(`[TELEGRAM] update_id=${u.update_id} chat=${chatId} text="${text}"`);
     if (chatId == null) continue;
 
     if (text.startsWith("/start")) {
@@ -46,26 +51,40 @@ const processCommands = async () => {
     } else if (text.startsWith("/registrar")) {
       const parts = text.split(/\s+/);
       const code = parts[1]?.trim();
+      console.log(`[TELEGRAM] Comando /registrar con codigo="${code}"`);
       await handleRegistrar(chatId, msg?.from?.username, code);
+    } else {
+      console.log(`[TELEGRAM] Texto no reconocido, ignorado`);
     }
   }
 
   const lastId = updates[updates.length - 1]?.update_id;
-  if (typeof lastId === "number") await setLastUpdateId(lastId);
+  if (typeof lastId === "number") {
+    await setLastUpdateId(lastId);
+    console.log(`[TELEGRAM] last_update_id guardado: ${lastId}`);
+  }
 };
 
 const handleRegistrar = async (chatId: number, username: string | undefined, code: string | undefined) => {
   if (!code) {
+    console.log("[TELEGRAM] /registrar sin codigo");
     await sendMessage(chatId, "Uso correcto: /registrar <codigo>\nGenerá un código en la app, sección Roster ARMS.");
     return;
   }
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, telegram_code, telegram_code_expires_at")
     .eq("telegram_code", code)
     .maybeSingle();
 
+  if (error) {
+    console.error("[TELEGRAM] Error buscando perfil por codigo:", error.message);
+    await sendMessage(chatId, "⚠️ Error interno al vincular. Intentalo más tarde.");
+    return;
+  }
+
   if (!profile) {
+    console.log(`[TELEGRAM] Codigo "${code}" no encontrado en profiles`);
     await sendMessage(chatId, "❌ Código inválido. Generá uno nuevo en la app.");
     return;
   }
@@ -74,7 +93,7 @@ const handleRegistrar = async (chatId: number, username: string | undefined, cod
     return;
   }
 
-  await supabase
+  const { error: upErr } = await supabase
     .from("profiles")
     .update({
       telegram_chat_id: String(chatId),
@@ -84,6 +103,13 @@ const handleRegistrar = async (chatId: number, username: string | undefined, cod
     })
     .eq("id", profile.id);
 
+  if (upErr) {
+    console.error("[TELEGRAM] Error vinculando chat al perfil:", upErr.message);
+    await sendMessage(chatId, "⚠️ Error guardando la vinculación. Intentalo más tarde.");
+    return;
+  }
+
+  console.log(`[TELEGRAM] Perfil ${profile.id} vinculado a chat ${chatId}`);
   await sendMessage(chatId, "✅ Cuenta vinculada correctamente. Te avisaré cuando haya novedades en tu programación ARMS.");
 };
 
