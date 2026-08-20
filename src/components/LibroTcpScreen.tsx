@@ -2116,6 +2116,8 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
   }, [tcpLogs]);
 
   const handleLogout = async () => {
+    localStorage.removeItem('arms_saved_username');
+    localStorage.removeItem('arms_saved_password');
     await supabase?.auth.signOut();
   };
 

@@ -1663,6 +1663,8 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    localStorage.removeItem('arms_saved_username');
+    localStorage.removeItem('arms_saved_password');
     await supabase!.auth.signOut();
   };
 
