@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { sendMessage } from "./telegram";
+import { decryptPassword } from "./crypto";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "../api/arms-scraper";
 
 const supabase = createClient(
@@ -43,7 +44,7 @@ const checkRosters = async () => {
       try {
         const { data: session } = await supabase
           .from("arms_sessions")
-          .select("session_data, arms_username")
+          .select("session_data, arms_username, arms_password_enc")
           .eq("user_id", p.id)
           .maybeSingle();
 
@@ -52,7 +53,8 @@ const checkRosters = async () => {
           continue;
         }
 
-        const { html } = await scrapeArmsRoster(browser, session.arms_username, undefined, month, year, session.session_data);
+        const password = decryptPassword(session.arms_password_enc) || undefined;
+        const { html } = await scrapeArmsRoster(browser, session.arms_username, password, month, year, session.session_data);
         const entries = parseArmsRosterHtml(html);
         const hash = crypto.createHash("sha256").update(JSON.stringify(entries)).digest("hex");
 

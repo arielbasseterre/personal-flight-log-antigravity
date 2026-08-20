@@ -15,6 +15,7 @@ import helmet from "helmet";
 import { MercadoPagoConfig, PreApprovalPlan, PreApproval } from "mercadopago";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "./api/arms-scraper";
 import { handleTelegramUpdate } from "./telegram/handlers";
+import { encryptPassword } from "./telegram/crypto";
 
 // Fix for ENOTFOUND errors in some environments
 dns.setDefaultResultOrder('ipv4first');
@@ -1736,6 +1737,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
             user_id,
             session_data: storageState,
             arms_username: username,
+            arms_password_enc: password ? encryptPassword(password) : undefined,
             updated_at: new Date().toISOString()
           }, { onConflict: 'user_id' });
 

@@ -43,4 +43,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ARMS_PASSWORD_SECRET: ${{ secrets.ARMS_PASSWORD_SECRET }}
         run: npx tsx telegram/index.ts
