@@ -17,19 +17,12 @@ const formatDay = (dateISO: string): string => {
 };
 
 const changedDaysText = (oldEntries: any[], newEntries: any[]): string => {
-  const byDate = (list: any[]) => {
-    const m = new Map<string, string>();
-    for (const e of list || []) {
-      const d = String(e?.dateISO || "");
-      if (d) m.set(d, JSON.stringify(e));
-    }
-    return m;
-  };
-  const oldM = byDate(oldEntries || []);
-  const newM = byDate(newEntries || []);
+  const dates = (list: any[]) => new Set((list || []).map((e) => String(e?.dateISO || "")).filter(Boolean));
+  const oldSet = dates(oldEntries);
+  const newSet = dates(newEntries);
   const changed = new Set<string>();
-  for (const [d, s] of newM) if (!oldM.has(d) || oldM.get(d) !== s) changed.add(d);
-  for (const d of oldM.keys()) if (!newM.has(d)) changed.add(d);
+  for (const d of newSet) if (!oldSet.has(d)) changed.add(d);
+  for (const d of oldSet) if (!newSet.has(d)) changed.add(d);
   const sorted = [...changed].sort();
   if (!sorted.length) return "";
   if (sorted.length <= 5) return ` (días: ${sorted.map(formatDay).join(", ")})`;
