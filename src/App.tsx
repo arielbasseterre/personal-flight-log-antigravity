@@ -1430,6 +1430,21 @@ export default function App() {
           first_name: profileData.first_name || authUser?.user_metadata?.first_name || authUser?.user_metadata?.full_name?.split(' ')[0] || '',
           last_name: profileData.last_name || authUser?.user_metadata?.last_name || authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
         };
+
+        // Sanitizar totales de horas: las sumas de floats (ej. restablecer registros) pueden
+        // dejar valores como 27.900000000000002. Las horas se manejan en décimas OACI.
+        const roundH = (v: any) => (v == null ? null : Math.round(Number(v) * 10) / 10);
+        const HOUR_PROFILE_FIELDS = [
+          'initial_total_hours', 'grand_total_hours',
+          'total_airfield_day_pilot', 'total_airfield_day_copilot', 'total_airfield_night_pilot', 'total_airfield_night_copilot',
+          'total_cross_country_day_pilot', 'total_cross_country_day_copilot', 'total_cross_country_night_pilot', 'total_cross_country_night_copilot',
+          'total_instruction_time', 'total_multi_engine', 'total_jet', 'total_turboprop', 'total_ag_application',
+          'total_ifr_real_pilot', 'total_ifr_real_copilot', 'total_ifr_hood',
+          'total_sim_instructor', 'total_sim_student',
+          'tcp_total_dia', 'tcp_total_noche', 'tcp_horas_instructor',
+        ];
+        HOUR_PROFILE_FIELDS.forEach(f => { finalProfile[f] = roundH(finalProfile[f]); });
+        finalProfile.total_landings = finalProfile.total_landings == null ? null : Math.round(Number(finalProfile.total_landings));
       } else if (!profileError) {
         console.log("No record found in profiles table. Using auth metadata as fallback.");
         // Initialize from auth if no DB record exists yet

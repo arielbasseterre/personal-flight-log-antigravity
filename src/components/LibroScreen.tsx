@@ -1386,6 +1386,20 @@ const resolveToAnac = (input: string | undefined) => {
           newTotals.total_cross_country_night_pilot + newTotals.total_cross_country_night_copilot +
           newTotals.total_instruction_time + newTotals.total_sim_instructor + newTotals.total_sim_student;
 
+        // Redondear a 1 decimal (las horas se manejan en décimas OACI) para evitar
+        // errores de punto flotante como 27.900000000000002.
+        const round1 = (n: number) => Math.round((Number(n) || 0) * 10) / 10;
+        const HOUR_TOTAL_FIELDS = [
+          'total_airfield_day_pilot', 'total_airfield_day_copilot', 'total_airfield_night_pilot', 'total_airfield_night_copilot',
+          'total_cross_country_day_pilot', 'total_cross_country_day_copilot', 'total_cross_country_night_pilot', 'total_cross_country_night_copilot',
+          'total_instruction_time', 'total_multi_engine', 'total_jet', 'total_turboprop', 'total_ag_application',
+          'total_ifr_real_pilot', 'total_ifr_real_copilot', 'total_ifr_hood',
+          'total_sim_instructor', 'total_sim_student',
+        ];
+        HOUR_TOTAL_FIELDS.forEach(f => { newTotals[f] = round1(newTotals[f]); });
+        newTotals.total_landings = Math.round(Number(newTotals.total_landings) || 0);
+        newTotals.grand_total_hours = round1(newTotals.grand_total_hours);
+
         const { error: updateError } = await supabase
           .from('profiles')
           .update(newTotals)
