@@ -2588,18 +2588,23 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         if (diffDays > 365) errs.push('Fecha de salida fuera de rango (>1 año)');
       }
     } catch { errs.push('Fechas inválidas'); }
-    const resolvedOrigen = resolveAirportCodeServer(log.origenID);
-    const resolvedDest = resolveAirportCodeServer(log.destinoID);
-    if (log.origenID && !resolvedOrigen) errs.push(`Origen desconocido: "${log.origenID}"`);
-    if (log.destinoID && !resolvedDest) errs.push(`Destino desconocido: "${log.destinoID}"`);
-    if (!log.origenID) errs.push('Origen requerido');
-    if (!log.destinoID) errs.push('Destino requerido');
-    if (resolvedOrigen) log.origenID = resolvedOrigen;
-    if (resolvedDest) log.destinoID = resolvedDest;
-    if (!log.matriculaAvion) errs.push('Matrícula requerida');
-    const matriculaLetters = (log.matriculaAvion || '').replace(/[^a-zA-Z]/g, '');
-    if (log.matriculaAvion && matriculaLetters.length !== 5)
-      errs.push('Matrícula inválida (debe tener 5 letras, ej: LVABC)');
+    const isSimImport = String(log.tipoVueloID) === '3';
+    // Los vuelos de simulador (ANAC) no tienen aeropuertos ni matrícula: origen/destino van en
+    // "SIM" y matriculaAvion guarda el key del simulador (que no cumple el formato LV-XXX).
+    if (!isSimImport) {
+      const resolvedOrigen = resolveAirportCodeServer(log.origenID);
+      const resolvedDest = resolveAirportCodeServer(log.destinoID);
+      if (log.origenID && !resolvedOrigen) errs.push(`Origen desconocido: "${log.origenID}"`);
+      if (log.destinoID && !resolvedDest) errs.push(`Destino desconocido: "${log.destinoID}"`);
+      if (!log.origenID) errs.push('Origen requerido');
+      if (!log.destinoID) errs.push('Destino requerido');
+      if (resolvedOrigen) log.origenID = resolvedOrigen;
+      if (resolvedDest) log.destinoID = resolvedDest;
+      if (!log.matriculaAvion) errs.push('Matrícula requerida');
+      const matriculaLetters = (log.matriculaAvion || '').replace(/[^a-zA-Z]/g, '');
+      if (log.matriculaAvion && matriculaLetters.length !== 5)
+        errs.push('Matrícula inválida (debe tener 5 letras, ej: LVABC)');
+    }
     if (isNaN(Number(log.horasDia)) || Number(log.horasDia) < 0) errs.push('Horas día inválidas');
     if (isNaN(Number(log.horasNoche)) || Number(log.horasNoche) < 0) errs.push('Horas noche inválidas');
     if (isNaN(Number(log.aterrizajes)) || Number(log.aterrizajes) < 0) errs.push('Aterrizajes inválidos');
@@ -2661,7 +2666,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       // 4. Normalizar y asignar folio_numbers
       validated.forEach(log => {
-        log.matriculaAvion = normalizeMatricula(log.matriculaAvion);
+        if (String(log.tipoVueloID) !== '3') log.matriculaAvion = normalizeMatricula(log.matriculaAvion);
         log.horasDia = String(Number(log.horasDia).toFixed(1));
         log.horasNoche = String(Number(log.horasNoche).toFixed(1));
         log.aterrizajes = Number(log.aterrizajes);

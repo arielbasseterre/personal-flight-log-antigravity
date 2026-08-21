@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from '@/src/utils/supabase/client';
+import { SIMULATOR_LIST } from './simulatorsData';
 import airportsCsvRaw from '../../airports.csv?raw';
 
 const FLIGHT_PURPOSES = [
@@ -39,7 +40,7 @@ const COLUMN_RULES: { pattern: RegExp; field: string; group: 'date' | 'time' | '
   { pattern: /^mes$/i, field: 'mes', group: 'date' },
   { pattern: /hora.*salida|salida|departure/i, field: 'horaSalida', group: 'time' },
   { pattern: /^desde$|origen|from/i, field: 'origenID', group: 'route' },
-  { pattern: /^hasta$|destino|to/i, field: 'destinoID', group: 'route' },
+  { pattern: /^hasta$|destino|\bto\b/i, field: 'destinoID', group: 'route' },
   { pattern: /desde.*hasta|origen.*destino|ruta/i, field: 'origenDestino', group: 'route' },
   { pattern: /hora.*llegada|llegada|arrival/i, field: 'horaLlegada', group: 'time' },
   { pattern: /finalidad|purpose/i, field: 'finalidadID', group: 'other' },
@@ -94,6 +95,24 @@ const normalizeMatricula = (input: string): string => {
   const letters = (input || '').replace(/[^a-zA-Z]/g, '').toUpperCase();
   if (letters.length !== 5) return letters;
   return `${letters.slice(0, 2)}-${letters.slice(2)}`;
+};
+
+// Potencia del motor: acepta "26000", "26,000" y el sufijo "K" ("26K" = 26000, "52K" = 52000).
+const parsePotencia = (val: string): number => {
+  const s = String(val ?? '').trim();
+  if (!s) return 0;
+  const upper = s.toUpperCase();
+  const kMatch = upper.match(/^([\d.,]+)\s*K$/);
+  if (kMatch) {
+    const n = parseFloat(kMatch[1].replace(/,/g, ''));
+    return isNaN(n) ? 0 : Math.round(n * 1000);
+  }
+  if (/^\d{1,3}(,\d{3})+$/.test(s)) {
+    const n = parseFloat(s.replace(/,/g, ''));
+    return isNaN(n) ? 0 : Math.round(n);
+  }
+  const n = parseFloat(s.replace(',', '.'));
+  return isNaN(n) ? 0 : Math.round(n);
 };
 
 const parseTime = (val: string): [number, number] => {
@@ -253,6 +272,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
     autoridadCertificanteID: '',
     certifierName: '',
   });
+  const [certifierRequired, setCertifierRequired] = useState(false);
   const [existingCount, setExistingCount] = useState(0);
 
   const reset = useCallback(() => {
@@ -306,7 +326,10 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
         let origenDestinoStart = -1;
         let origenDestinoEnd = -1;
 
-        for (let ri = 0; ri < Math.min(5, allRows.length); ri++) {
+        // En modo piloto, el formulario oficial tiene los encabezados en filas 4-9 y
+        // DIA/MES recién en la fila 10 (fila de totales). Escaneamos hasta 10 filas.
+        const maxHeaderScan = mode === 'piloto' ? 10 : 5;
+        for (let ri = 0; ri < Math.min(maxHeaderScan, allRows.length); ri++) {
           const row = allRows[ri];
           const text = row.map((c: any) => {
             if (!c) return '';
@@ -357,6 +380,33 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
         }
         if (origenDestinoStart >= 0) colMap.set('origenDestino', origenDestinoStart);
 
+        // --- Modo piloto: mapear por posición las columnas fijas del formulario
+        // oficial (folio). HORA DE SALIDA UTC = col 4 (índice h), y desde ahí:
+        // col 12-19 = SOBRE AERÓDROMO + TRAVESIA (día/noche × piloto/copiloto),
+        // col 20 = aterrizajes, col 21-30 = discriminaciones, col 31 = certificaciones.
+        if (mode === 'piloto' && colMap.has('horaSalida')) {
+          const h = colMap.get('horaSalida')!;
+          colMap.set('airfield_day_pilot', h + 8);
+          colMap.set('airfield_day_copilot', h + 9);
+          colMap.set('airfield_night_pilot', h + 10);
+          colMap.set('airfield_night_copilot', h + 11);
+          colMap.set('cross_country_day_pilot', h + 12);
+          colMap.set('cross_country_day_copilot', h + 13);
+          colMap.set('cross_country_night_pilot', h + 14);
+          colMap.set('cross_country_night_copilot', h + 15);
+          colMap.set('instruccion', h + 17);
+          colMap.set('multi_engine', h + 18);
+          colMap.set('jet', h + 19);
+          colMap.set('turboprop', h + 20);
+          colMap.set('ag_application', h + 21);
+          colMap.set('ifr_real_pilot', h + 22);
+          colMap.set('ifr_real_copilot', h + 23);
+          colMap.set('ifr_hood', h + 24);
+          colMap.set('sim_instructor', h + 25);
+          colMap.set('sim_student', h + 26);
+          colMap.set('observaciones', h + 27);
+        }
+
         // --- Helper: get value from a row using column field name ---
         const getCell = (row: any[], field: string): string => {
           const colIdx = colMap.get(field);
@@ -392,11 +442,21 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
           let destinoID = getCell(row, 'destinoID') || '';
           const matriculaRaw = getCell(row, 'matriculaAvion') || '';
 
-          // Data row check: must have DIA (1-31), MES (1-12), and either matrícula or origen
+          // Vuelo de simulador (ANAC): en el folio de piloto un adiestrador terrestre /
+          // simulador NO tiene aeronave (sin matrícula), sin aterrizajes, y las horas van
+          // en las columnas 29-30 (INSTRUCTOR / PILOTO EN INSTRUCCIÓN). Las horas NO entran
+          // en horasDia/horasNoche: van a sim_instructor / sim_student.
+          const simInstructor = mode === 'piloto' ? (parseFloat(getCell(row, 'sim_instructor')) || 0) : 0;
+          const simStudent = mode === 'piloto' ? (parseFloat(getCell(row, 'sim_student')) || 0) : 0;
+          const isSimFlight = mode === 'piloto' && (simInstructor > 0 || simStudent > 0);
+
+          // Data row check: must have DIA (1-31), MES (1-12), and either matrícula or origen.
+          // Los vuelos de simulador no tienen ni matrícula ni ruta aérea, se detectan aparte.
           const hasDate = /^\d{1,2}$/.test(dia) && /^\d{1,2}$/.test(mes);
           const hasRoute = !!origenID || !!destinoID;
           const hasReg = matriculaRaw.length >= 3;
-          if (!hasDate || (!hasRoute && !hasReg)) continue;
+          if (!hasDate) continue;
+          if (!isSimFlight && !hasRoute && !hasReg) continue;
 
           // Combined origen-destino (DESDE - HASTA) column
           if ((!origenID || !destinoID) && hasOrigenDestino) {
@@ -412,10 +472,38 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
             }
           }
 
+          // En un vuelo de simulador el "DESDE HASTA" es el nombre del centro/escuela de
+          // instrucción (no un aeródromo): va a observaciones y origen/destino quedan en "SIM".
+          let simLugar = '';
+          if (isSimFlight) {
+            simLugar = getCell(row, 'origenDestino') || '';
+            origenID = 'SIM';
+            destinoID = 'SIM';
+          }
+
           const matriculaNorm = normalizeMatricula(matriculaRaw);
           const finalidadVal = resolveFinalidad(getCell(row, 'finalidadID'));
-          const hDia = rawToOACI(parseFloat(getCell(row, 'horasDia')) || 0);
-          const hNoche = rawToOACI(parseFloat(getCell(row, 'horasNoche')) || 0);
+          let hDia = 0;
+          let hNoche = 0;
+          if (mode === 'piloto') {
+            // El formulario de piloto no tiene columnas DE DÍA/NOCHE: las horas salen de
+            // SOBRE AERÓDROMO + TRAVESIA (día/noche × piloto/copiloto).
+            const diaTotal =
+              (parseFloat(getCell(row, 'airfield_day_pilot')) || 0) +
+              (parseFloat(getCell(row, 'airfield_day_copilot')) || 0) +
+              (parseFloat(getCell(row, 'cross_country_day_pilot')) || 0) +
+              (parseFloat(getCell(row, 'cross_country_day_copilot')) || 0);
+            const nocheTotal =
+              (parseFloat(getCell(row, 'airfield_night_pilot')) || 0) +
+              (parseFloat(getCell(row, 'airfield_night_copilot')) || 0) +
+              (parseFloat(getCell(row, 'cross_country_night_pilot')) || 0) +
+              (parseFloat(getCell(row, 'cross_country_night_copilot')) || 0);
+            hDia = rawToOACI(diaTotal);
+            hNoche = rawToOACI(nocheTotal);
+          } else {
+            hDia = rawToOACI(parseFloat(getCell(row, 'horasDia')) || 0);
+            hNoche = rawToOACI(parseFloat(getCell(row, 'horasNoche')) || 0);
+          }
           const aterrizajes = parseInt(getCell(row, 'aterrizajes')) || 0;
           const folioRva = getCell(row, 'folio_rva') || '';
 
@@ -457,18 +545,21 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                 errors.push(`Horas exceden el vuelo. Máximo: ${totalRef.toFixed(1)}h (declaraste ${totalHoras.toFixed(1)}h)`);
             }
           }
-          // Normalizar y validar aeropuertos contra la lista local (airports.csv)
-          const resolvedOrigen = resolveAirportCode(origenID);
-          const resolvedDest = resolveAirportCode(destinoID);
-          if (origenID && !resolvedOrigen) errors.push(`Origen desconocido: "${origenID}"`);
-          if (destinoID && !resolvedDest) errors.push(`Destino desconocido: "${destinoID}"`);
-          if (resolvedOrigen) origenID = resolvedOrigen;
-          if (resolvedDest) destinoID = resolvedDest;
-          if (!origenID) errors.push('Origen requerido');
-          if (!destinoID) errors.push('Destino requerido');
-          const matriculaLetters = (matriculaRaw || '').replace(/[^a-zA-Z]/g, '');
-          if (!matriculaRaw) errors.push('Matrícula requerida');
-          if (matriculaLetters.length !== 5 && matriculaRaw) errors.push('Matrícula inválida');
+          // Normalizar y validar aeropuertos contra la lista local (airports.csv).
+          // Los vuelos de simulador no tienen aeropuertos ni matrícula (ANAC usa simuladorID).
+          if (!isSimFlight) {
+            const resolvedOrigen = resolveAirportCode(origenID);
+            const resolvedDest = resolveAirportCode(destinoID);
+            if (origenID && !resolvedOrigen) errors.push(`Origen desconocido: "${origenID}"`);
+            if (destinoID && !resolvedDest) errors.push(`Destino desconocido: "${destinoID}"`);
+            if (resolvedOrigen) origenID = resolvedOrigen;
+            if (resolvedDest) destinoID = resolvedDest;
+            if (!origenID) errors.push('Origen requerido');
+            if (!destinoID) errors.push('Destino requerido');
+            const matriculaLetters = (matriculaRaw || '').replace(/[^a-zA-Z]/g, '');
+            if (!matriculaRaw) errors.push('Matrícula requerida');
+            if (matriculaLetters.length !== 5 && matriculaRaw) errors.push('Matrícula inválida');
+          }
           if (!finalidadVal) warnings.push('FINALIDAD no reconocida');
           if (mode === 'tcp' && !folioRva) warnings.push('FOLIO RVA vacío');
 
@@ -477,19 +568,19 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
             fechaHoraLlegada: fechaLleStr,
             origenID,
             destinoID,
-            matriculaAvion: matriculaNorm,
-            Marca_Modelo: getCell(row, 'Marca_Modelo') || '',
-            potencia: parseInt(getCell(row, 'potencia')) || 0,
-            clase: getCell(row, 'clase') || (mode === 'tcp' ? '' : 'D'),
-            horasDia: hDia,
-            horasNoche: hNoche,
-            aterrizajes,
+            matriculaAvion: isSimFlight ? '' : matriculaNorm,
+            Marca_Modelo: isSimFlight ? '' : (getCell(row, 'Marca_Modelo') || ''),
+            potencia: isSimFlight ? 0 : parsePotencia(getCell(row, 'potencia')),
+            clase: isSimFlight ? 'D' : (getCell(row, 'clase') || (mode === 'tcp' ? '' : 'D')),
+            horasDia: isSimFlight ? 0 : hDia,
+            horasNoche: isSimFlight ? 0 : hNoche,
+            aterrizajes: isSimFlight ? 0 : aterrizajes,
             finalidadID: finalidadVal || '78',
-            observaciones: getCell(row, 'observaciones') || '',
+            observaciones: isSimFlight ? (simLugar || getCell(row, 'observaciones') || '') : (getCell(row, 'observaciones') || ''),
             folio_rva: folioRva ? parseInt(folioRva) : null,
             tcp_instructor: mode === 'tcp' ? (getCell(row, 'tcp_instructor') === '1' || getCell(row, 'tcp_instructor')?.toLowerCase() === 'si' || getCell(row, 'tcp_instructor')?.toLowerCase() === 'true' || false) : undefined,
-            cargoID: mode === 'tcp' ? '5' : (getCell(row, 'cargoID') || '1'),
-            tipoVueloID: getCell(row, 'tipoVueloID') || '2',
+            cargoID: isSimFlight ? (simInstructor > 0 ? '3' : '6') : (mode === 'tcp' ? '5' : (getCell(row, 'cargoID') || '1')),
+            tipoVueloID: isSimFlight ? '3' : (getCell(row, 'tipoVueloID') || '2'),
           };
 
           if (mode === 'piloto') {
@@ -501,6 +592,33 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
             normalized.cross_country_day_copilot = parseFloat(getCell(row, 'cross_country_day_copilot')) || 0;
             normalized.cross_country_night_pilot = parseFloat(getCell(row, 'cross_country_night_pilot')) || 0;
             normalized.cross_country_night_copilot = parseFloat(getCell(row, 'cross_country_night_copilot')) || 0;
+            normalized.instruccion = parseFloat(getCell(row, 'instruccion')) || 0;
+            normalized.multi_engine = parseFloat(getCell(row, 'multi_engine')) || 0;
+            normalized.jet = parseFloat(getCell(row, 'jet')) || 0;
+            normalized.turboprop = parseFloat(getCell(row, 'turboprop')) || 0;
+            normalized.ag_application = parseFloat(getCell(row, 'ag_application')) || 0;
+            normalized.ifr_real_pilot = parseFloat(getCell(row, 'ifr_real_pilot')) || 0;
+            normalized.ifr_real_copilot = parseFloat(getCell(row, 'ifr_real_copilot')) || 0;
+            normalized.ifr_hood = parseFloat(getCell(row, 'ifr_hood')) || 0;
+            normalized.sim_instructor = parseFloat(getCell(row, 'sim_instructor')) || 0;
+            normalized.sim_student = parseFloat(getCell(row, 'sim_student')) || 0;
+          }
+
+          // Auto-sugerir el simulador/escuela: el usuario puede escribir cualquier nombre en el
+          // Excel, así que intentamos matchearlo contra la lista ANAC de la carga manual y lo
+          // dejamos editable en el preview (matriculaAvion = key del simulador).
+          if (mode === 'piloto' && isSimFlight) {
+            const lugar = (simLugar || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (lugar.length >= 4) {
+              const match = SIMULATOR_LIST.find(s => {
+                const v = (s.value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                return v.length >= 4 && (v.includes(lugar) || lugar.includes(v));
+              });
+              if (match) {
+                normalized.matriculaAvion = match.key;
+                normalized.Marca_Modelo = match.value;
+              }
+            }
           }
 
           parsedRows.push({
@@ -573,10 +691,11 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
     if (!isPaidSubscriber) { setShowUpgradeModal(true); return; }
     setRows(prev => prev.map(r => {
       if (r.id !== rowId) return r;
+      const isSimRow = String(r.normalized.tipoVueloID) === '3';
       const norm = { ...r.normalized, [field]: value };
       const errs: string[] = [];
       const warns: string[] = [];
-      if (field === 'matriculaAvion') {
+      if (field === 'matriculaAvion' && !isSimRow) {
         const normed = normalizeMatricula(value);
         norm.matriculaAvion = normed;
         const letters = (value || '').replace(/[^a-zA-Z]/g, '');
@@ -622,6 +741,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
 
   const autoNormalize = useCallback(() => {
     setRows(prev => prev.map(r => {
+      if (String(r.normalized.tipoVueloID) === '3') return r;
       const raw = r.normalized.matriculaAvion || '';
       const mat = normalizeMatricula(raw);
       const errs = [...r.errors];
@@ -657,6 +777,14 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
     if (selected.length === 0) return;
 
     if (!isPaidSubscriber) { setShowUpgradeModal(true); return; }
+
+    // La autoridad certificante y el nombre del certificante son obligatorios para importar.
+    const missingCertifier = selected.some(r => !r.normalized.autoridadCertificanteID || !String(r.normalized.observaciones || '').trim());
+    if (missingCertifier) {
+      setCertifierRequired(true);
+      return;
+    }
+    setCertifierRequired(false);
 
     if (existingCount + selected.length > 500) {
       setShowLimitModal(true);
@@ -773,9 +901,9 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-[10px]">Autoridad certificante</Label>
+                      <Label className={`text-[10px] ${certifierRequired && !certifierBatch.autoridadCertificanteID ? 'text-red-600 dark:text-red-400' : ''}`}>Autoridad certificante *</Label>
                       <select
-                        className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-xs ring-offset-background"
+                        className={`flex h-8 w-full rounded-lg border bg-background px-2.5 py-1 text-xs ring-offset-background ${certifierRequired && !certifierBatch.autoridadCertificanteID ? 'border-red-500 ring-1 ring-red-500' : 'border-input'}`}
                         value={certifierBatch.autoridadCertificanteID}
                         onChange={e => setCertifierBatch(prev => ({ ...prev, autoridadCertificanteID: e.target.value }))}
                       >
@@ -786,20 +914,25 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px]">Nombre del certificante</Label>
+                      <Label className={`text-[10px] ${certifierRequired && !certifierBatch.certifierName.trim() ? 'text-red-600 dark:text-red-400' : ''}`}>Nombre del certificante *</Label>
                       <Input
-                        className="h-8 text-xs"
+                        className={`h-8 text-xs ${certifierRequired && !certifierBatch.certifierName.trim() ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                         placeholder="Ej: Juan Pérez"
                         value={certifierBatch.certifierName}
                         onChange={e => setCertifierBatch(prev => ({ ...prev, certifierName: e.target.value }))}
                       />
                     </div>
                   </div>
+                  {certifierRequired && (
+                    <p className="text-[10px] font-bold text-red-600 dark:text-red-400">
+                      Para importar completá la autoridad certificante y el nombre del certificante, y presioná "Aplicar a todos los registros".
+                    </p>
+                  )}
                   <Button
                     variant="default"
                     size="sm"
                     className="h-8 text-xs font-bold"
-                    disabled={!certifierBatch.autoridadCertificanteID}
+                    disabled={!certifierBatch.autoridadCertificanteID || !certifierBatch.certifierName.trim()}
                     onClick={() => {
                       setRows(prev => prev.map(r => ({
                         ...r,
@@ -813,6 +946,7 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                           : r.errors,
                         selected: !certifierBatch.certifierName ? r.selected : r.errors.length === 0,
                       })));
+                      setCertifierRequired(false);
                     }}
                   >
                     Aplicar a todos los registros
@@ -895,7 +1029,23 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                             </td>
                             <td className="p-2 font-mono">{a.toISOString().slice(11, 16)}</td>
                             <td className="p-2">
-                              {(() => { const ml = (r.normalized.matriculaAvion || '').replace(/[^a-zA-Z]/g, ''); return (
+                              {String(r.normalized.tipoVueloID) === '3' ? (
+                                <select
+                                  className="w-40 bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 focus:border-blue-500 outline-none text-[10px]"
+                                  value={r.normalized.matriculaAvion || ''}
+                                  onChange={e => {
+                                    const key = e.target.value;
+                                    const sim = SIMULATOR_LIST.find(s => s.key === key);
+                                    updateCell(r.id, 'matriculaAvion', key);
+                                    updateCell(r.id, 'Marca_Modelo', sim?.value || '');
+                                  }}
+                                >
+                                  <option value="">Seleccione simulador...</option>
+                                  {SIMULATOR_LIST.map(sim => (
+                                    <option key={sim.key} value={sim.key}>{sim.value}</option>
+                                  ))}
+                                </select>
+                              ) : (() => { const ml = (r.normalized.matriculaAvion || '').replace(/[^a-zA-Z]/g, ''); return (
                                 <input className={`w-16 bg-transparent border-b border-dashed text-center outline-none ${ml.length !== 5 ? 'border-red-300 text-red-600' : 'border-slate-300 dark:border-slate-600 focus:border-blue-500'}`}
                                   value={r.normalized.matriculaAvion || ''}
                                   onChange={e => updateCell(r.id, 'matriculaAvion', e.target.value.toUpperCase())}
@@ -1007,8 +1157,13 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
                 {rows.filter(r => r.selected).length} de {rows.length} filas seleccionadas
                 {countByStatus.errs > 0 && ` (${countByStatus.errs} con error excluidas)`}
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Button variant="outline" size="sm" onClick={handleClose}>Cancelar</Button>
+                {certifierRequired && (
+                  <span className="text-[10px] font-bold text-red-600 dark:text-red-400 max-w-[140px] leading-tight">
+                    Completá la autoridad certificante para importar
+                  </span>
+                )}
                 <Button size="sm" onClick={handleImport} disabled={rows.filter(r => r.selected).length === 0}>
                   Confirmar importación ({rows.filter(r => r.selected).length})
                 </Button>
