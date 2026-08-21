@@ -3071,11 +3071,17 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           let endDate: string;
           const { data: existingProfileCheck } = await supabase
             .from('profiles')
-            .select('subscription_end_date')
+            .select('subscription_end_date, subscription_id')
             .eq('id', pendingRegId)
             .maybeSingle();
 
-          if (existingProfileCheck?.subscription_end_date && new Date(existingProfileCheck.subscription_end_date) > new Date()) {
+          // Stack SOLO si es una renovación real (ya tiene una suscripción paga distinta a la entrante y con vencimiento futuro).
+          // Evita el doble procesamiento (webhook+callback) que sumaba 2 años y sumar sobre el trial.
+          const isRenewal = existingProfileCheck?.subscription_id &&
+            existingProfileCheck.subscription_id !== subscription.id &&
+            existingProfileCheck.subscription_end_date &&
+            new Date(existingProfileCheck.subscription_end_date) > new Date();
+          if (isRenewal) {
             const existingEnd = new Date(existingProfileCheck.subscription_end_date);
             existingEnd.setFullYear(existingEnd.getFullYear() + 1);
             endDate = existingEnd.toISOString();
@@ -3434,11 +3440,17 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
           let endDate: string;
           const { data: existingProfileCheck } = await supabase
             .from('profiles')
-            .select('subscription_end_date')
+            .select('subscription_end_date, subscription_id')
             .eq('id', finalExtRef)
             .maybeSingle();
 
-          if (existingProfileCheck?.subscription_end_date && new Date(existingProfileCheck.subscription_end_date) > new Date()) {
+          // Stack SOLO si es una renovación real (suscripción paga distinta a la entrante y vencimiento futuro).
+          // Evita el doble procesamiento (webhook+callback) que sumaba 2 años y sumar sobre el trial.
+          const isRenewal = existingProfileCheck?.subscription_id &&
+            existingProfileCheck.subscription_id !== sub.id &&
+            existingProfileCheck.subscription_end_date &&
+            new Date(existingProfileCheck.subscription_end_date) > new Date();
+          if (isRenewal) {
             const existingEnd = new Date(existingProfileCheck.subscription_end_date);
             existingEnd.setFullYear(existingEnd.getFullYear() + 1);
             endDate = existingEnd.toISOString();
