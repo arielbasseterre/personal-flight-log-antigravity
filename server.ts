@@ -3045,7 +3045,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     const { action, data, type } = req.body;
     console.log(`[MERCADOPAGO_WEBHOOK] Action: ${action}, Type: ${type}, Data ID: ${data?.id}`);
 
-    if (type === "subscription" || (action && action.includes("subscription")) || req.body.resource) {
+    if (type === "subscription" || (action && action.includes("subscription"))) {
       try {
         const subscriptionId = data?.id || req.body.resource?.split("/").pop();
         if (!subscriptionId) {
@@ -3185,7 +3185,7 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         console.error("[MERCADOPAGO_WEBHOOK_ERR]", err.stack || err.message);
         return res.status(500).send(err.message);
       }
-    } else if (type === "payment" || (action && action.includes("payment")) || req.body.resource) {
+    } else if (type === "payment" || (action && action.includes("payment")) || (req.body.resource && String(req.body.resource).includes("/payments/"))) {
       try {
         const paymentId = data?.id || req.body.resource?.split("/").pop();
         if (paymentId) {
