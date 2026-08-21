@@ -1379,12 +1379,15 @@ const resolveToAnac = (input: string | undefined) => {
           initial_folio_number: (Number(profile.initial_folio_number) || 1) + 1,
         };
 
-        newTotals.grand_total_hours = (Number(profile.initial_total_hours) || 0) + 
+        // Tras el restablecimiento no quedan vuelos cargados. Las "Horas de inicio" pasan a ser
+        // la sumatoria de Sobre Aeródromo + Travesía del perfil, y las "Horas totales" = inicio
+        // (inicio + 0 vuelos) hasta que se cargue o importe el primer vuelo.
+        newTotals.initial_total_hours =
           newTotals.total_airfield_day_pilot + newTotals.total_airfield_day_copilot +
           newTotals.total_airfield_night_pilot + newTotals.total_airfield_night_copilot +
           newTotals.total_cross_country_day_pilot + newTotals.total_cross_country_day_copilot +
-          newTotals.total_cross_country_night_pilot + newTotals.total_cross_country_night_copilot +
-          newTotals.total_instruction_time + newTotals.total_sim_instructor + newTotals.total_sim_student;
+          newTotals.total_cross_country_night_pilot + newTotals.total_cross_country_night_copilot;
+        newTotals.grand_total_hours = newTotals.initial_total_hours;
 
         // Redondear a 1 decimal (las horas se manejan en décimas OACI) para evitar
         // errores de punto flotante como 27.900000000000002.
@@ -1398,6 +1401,7 @@ const resolveToAnac = (input: string | undefined) => {
         ];
         HOUR_TOTAL_FIELDS.forEach(f => { newTotals[f] = round1(newTotals[f]); });
         newTotals.total_landings = Math.round(Number(newTotals.total_landings) || 0);
+        newTotals.initial_total_hours = round1(newTotals.initial_total_hours);
         newTotals.grand_total_hours = round1(newTotals.grand_total_hours);
 
         const { error: updateError } = await supabase

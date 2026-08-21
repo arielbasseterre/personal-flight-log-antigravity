@@ -2748,6 +2748,39 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
         }
       }
 
+      // Mantener sincronizados los totales del perfil (Horas de inicio / Horas totales) tras
+      // importar: las "Horas totales" = horas de inicio + vuelos cargados.
+      try {
+        const { data: profData } = await supabase
+          .from('profiles')
+          .select('total_airfield_day_pilot, total_airfield_day_copilot, total_airfield_night_pilot, total_airfield_night_copilot, total_cross_country_day_pilot, total_cross_country_day_copilot, total_cross_country_night_pilot, total_cross_country_night_copilot, tcp_total_dia, tcp_total_noche')
+          .eq('id', user_id)
+          .single();
+        const { data: flightData } = await supabase
+          .from('flight_logs')
+          .select('horasDia, horasNoche')
+          .eq('user_id', user_id);
+        const flightSum = (flightData || []).reduce((s, f) => s + (parseFloat(f.horasDia) || 0) + (parseFloat(f.horasNoche) || 0), 0);
+        const r1 = (n: any) => Math.round((Number(n) || 0) * 10) / 10;
+
+        if (mode === 'tcp' && profData) {
+          const tcpTotal = (Number(profData.tcp_total_dia) || 0) + (Number(profData.tcp_total_noche) || 0);
+          await supabase.from('profiles').update({ grand_total_hours: r1(tcpTotal + flightSum) }).eq('id', user_id);
+        } else if (profData) {
+          const initialTotal =
+            (Number(profData.total_airfield_day_pilot) || 0) + (Number(profData.total_airfield_day_copilot) || 0) +
+            (Number(profData.total_airfield_night_pilot) || 0) + (Number(profData.total_airfield_night_copilot) || 0) +
+            (Number(profData.total_cross_country_day_pilot) || 0) + (Number(profData.total_cross_country_day_copilot) || 0) +
+            (Number(profData.total_cross_country_night_pilot) || 0) + (Number(profData.total_cross_country_night_copilot) || 0);
+          await supabase.from('profiles').update({
+            initial_total_hours: r1(initialTotal),
+            grand_total_hours: r1(initialTotal + flightSum),
+          }).eq('id', user_id);
+        }
+      } catch (syncErr: any) {
+        console.error("[IMPORT_LOGS] Error al sincronizar totales del perfil:", syncErr.message);
+      }
+
       res.json({ success: true, inserted, errors, total: logs.length });
     } catch (error: any) {
       console.error("[IMPORT_LOGS_ERR]", error.message);

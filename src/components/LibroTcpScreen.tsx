@@ -1241,6 +1241,8 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           tcp_horas_instructor: parseFloat((Number(profile.tcp_horas_instructor || 0) + logsSumInstructor).toFixed(1)),
           initial_folio_number: (Number(profile.initial_folio_number) || 1) + 1,
         };
+        // Tras el restablecimiento no quedan vuelos: las "Horas totales" = día + noche del perfil.
+        newTotals.grand_total_hours = parseFloat((Number(newTotals.tcp_total_dia || 0) + Number(newTotals.tcp_total_noche || 0)).toFixed(1));
 
         const { error: updateError } = await supabase
           .from('profiles')
