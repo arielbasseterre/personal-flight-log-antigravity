@@ -206,6 +206,15 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
 
 const CHANGELOG_DATA = [
   {
+    date: "20 de Agosto, 2026",
+    version: "1.8.0",
+    items: [
+      "🤖 Avisos de programación por Telegram: vinculá tu cuenta y recibí un aviso automático cada vez que cambie tu programación ARMS, con los días que tuvieron novedades.",
+      "🔗 Registro simple: generá un código en la app (Roster ARMS), enviá /registrar <codigo> al bot y listo. La vinculación se confirma al instante.",
+      "✨ El aviso te indica qué días cambiaron (ej. «días: 19/08, 20/08, 21/08») y ya deja tu roster actualizado, sin que tengas que hacer nada."
+    ]
+  },
+  {
     date: "27 de Julio, 2026",
     version: "1.7.0",
     items: [
