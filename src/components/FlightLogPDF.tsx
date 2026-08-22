@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { 
   Page, 
   Text, 
@@ -229,13 +229,10 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
     const bodyHeight = 45 + 12; // Combined height of sub-header rows
 
     // Column spans Row 2 + Row 3 with a horizontal divider at specific height
-    const renderSplitColumn = (width: number, topText: string, bottomText: string = '', topHeight: number = 45, rightWidth: number = 0.5) => (
+    const renderSplitColumn = (width: number, topText: string, bottomText: string = '', topHeight: number = 45, rightWidth: number = 0.5, bottomWidth: number = 0.5) => (
       <View style={{ width, flexDirection: 'column', borderRightWidth: rightWidth, borderColor: '#000' }}>
-        <View style={[styles.cell, { width: '100%', height: topHeight, borderRightWidth: 0, paddingHorizontal: 1, borderBottomWidth: 0.5 }]}>
+        <View style={[styles.cell, { width: '100%', height: bodyHeight, borderRightWidth: 0, paddingHorizontal: 1 }]}>
           <Text style={[styles.cellText, { fontSize: 5 }]}>{topText}</Text>
-        </View>
-        <View style={[styles.cell, { width: '100%', height: bodyHeight - topHeight, borderRightWidth: 0, borderBottomWidth: 0, paddingHorizontal: 1 }]}>
-          <Text style={styles.cellText}>{bottomText}</Text>
         </View>
       </View>
     );
@@ -280,16 +277,16 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
         <View style={[styles.headerRow, { height: bodyHeight, borderBottomWidth: 1.5 }]}>
           {renderDeepColumn(col.dia, 'DIA', false, 6, 0.5)}
           {renderDeepColumn(col.mes, 'MES', false, 6, 1.5)}
-          {renderSplitColumn(col.salida, 'HORA DE SALIDA UTC', '', 45, 0.5)}
-          {renderSplitColumn(col.desdeh, 'DESDE - HASTA', '', 45, 0.5)}
-          {renderSplitColumn(col.llegada, 'HORA DE LLEGADA UTC', '', 45, 1.5)}
+          {renderSplitColumn(col.salida, 'HORA DE SALIDA UTC', '', 45, 0.5, 0)}
+          {renderSplitColumn(col.desdeh, 'DESDE - HASTA', '', 45, 0.5, 0)}
+          {renderSplitColumn(col.llegada, 'HORA DE LLEGADA UTC', '', 45, 1.5, 0)}
           
           {renderDeepColumn(col.finalidad, ['FINALIDAD', 'DEL VUELO'], true, 5, 1.5)}
           
-          {renderSplitColumn(col.marca, 'MARCA / MODELO', '', 45, 0.5)}
-          {renderSplitColumn(col.matr, 'MATRICULA', '', 45, 0.5)}
-          {renderSplitColumn(col.pot, 'POTENC. IA', '', 45, 0.5)}
-          {renderSplitColumn(col.clase, 'CLASE', '', 45, 1.5)}
+          {renderSplitColumn(col.marca, 'MARCA / MODELO', '', 45, 0.5, 0)}
+          {renderSplitColumn(col.matr, 'MATRICULA', '', 45, 0.5, 0)}
+          {renderSplitColumn(col.pot, 'POTENCIA', '', 45, 0.5, 0)}
+          {renderSplitColumn(col.clase, 'CLASE', '', 45, 1.5, 0)}
 
           {/* Tiempos de Vuelo Hierarchical Column */}
           <View style={{ width: col.vueloP * 8, flexDirection: 'column', borderRightWidth: 1.5, borderColor: '#000' }}>
@@ -495,12 +492,7 @@ export const FlightLogPDF = ({ logs, profile }: Props) => {
               
               <View style={{ flexDirection: 'row', gap: 30 }}>
                 <View style={{ flexDirection: 'row' }}>
-                  <Text style={styles.headerLabel}>LICENCIA: </Text>
-                  <Text style={styles.headerValue}>{profile?.license || ''}</Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row' }}>
-                  <Text style={styles.headerLabel}>Nº </Text>
+                  <Text style={styles.headerLabel}>LICENCIA {profile?.license || ''} Nº: </Text>
                   <Text style={styles.headerValue}>{profile?.dni || ''}</Text>
                 </View>
 
