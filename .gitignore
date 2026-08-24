@@ -7,6 +7,7 @@ coverage/
 .env*
 !.env.example
 LIBRO DE VUELO - BONET.xlsx
+planilla modelo tcp.xlsx
 ~$*.xlsx
 
 # Debug/auditoría local (contienen datos scrapeados del portal ARMS)
