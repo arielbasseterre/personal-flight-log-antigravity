@@ -53,6 +53,7 @@ const COLUMN_RULES: { pattern: RegExp; field: string; group: 'date' | 'time' | '
   { pattern: /aterrizajes|landings/i, field: 'aterrizajes', group: 'times' },
   { pattern: /folio.*rva|folio.*rav|rva/i, field: 'folio_rva', group: 'other' },
   { pattern: /instructor.*tcp|tcp.*instructor/i, field: 'tcp_instructor', group: 'other' },
+  { pattern: /^instructor$/i, field: 'tcp_instructor', group: 'other' },
   { pattern: /tipo.*aeronave/i, field: 'tipoAeronave', group: 'aircraft' },
   { pattern: /certificaciones|observaciones|observations/i, field: 'observaciones', group: 'other' },
   { pattern: /cargo|tripulación|rol/i, field: 'cargoID', group: 'other' },
@@ -578,7 +579,13 @@ export default function BulkImportModal({ open, onClose, mode, userId, isPaidSub
             finalidadID: finalidadVal || '78',
             observaciones: isSimFlight ? (simLugar || getCell(row, 'observaciones') || '') : (getCell(row, 'observaciones') || ''),
             folio_rva: folioRva ? parseInt(folioRva) : null,
-            tcp_instructor: mode === 'tcp' ? (getCell(row, 'tcp_instructor') === '1' || getCell(row, 'tcp_instructor')?.toLowerCase() === 'si' || getCell(row, 'tcp_instructor')?.toLowerCase() === 'true' || false) : undefined,
+            tcp_instructor: mode === 'tcp' ? (() => {
+              const instrVal = getCell(row, 'tcp_instructor') || '';
+              const instrStr = String(instrVal).trim().toLowerCase();
+              const instrNum = parseFloat(instrStr.replace(',', '.'));
+              const isInstructor = instrVal === '1' || ['si', 'sí', 'true', 'x', 'yes'].includes(instrStr) || instrNum > 0;
+              return isInstructor;
+            })() : undefined,
             cargoID: isSimFlight ? (simInstructor > 0 ? '3' : '6') : (mode === 'tcp' ? '5' : (getCell(row, 'cargoID') || '1')),
             tipoVueloID: isSimFlight ? '3' : (getCell(row, 'tipoVueloID') || '2'),
           };
