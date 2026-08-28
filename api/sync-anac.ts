@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import axios from "axios";
+import { getAnacCode } from "../src/utils/anacMappings";
 
 export default async function handler(req: any, res: any) {
   // Solo permitir POST
@@ -24,58 +25,7 @@ export default async function handler(req: any, res: any) {
 
     for (const log of logs) {
       try {
-        const mapAirportCode = (code: string) => {
-          const c = String(code || "").trim().toUpperCase();
-          if (!c) return c;
-          
-          const ANAC_MAPPINGS: Record<string, string> = {
-            "AEP": "AER", "SABE": "AER",
-            "EZE": "EZE", "SAEZ": "EZE",
-            "COR": "CBA", "SACO": "CBA",
-            "MDZ": "DOZ", "SAME": "DOZ",
-            "BRC": "BAR", "SAZS": "BAR",
-            "IGR": "IGU", "SARI": "IGU",
-            "SLA": "SAL", "SASA": "SAL",
-            "NQN": "NEU", "SAZN": "NEU",
-            "TUC": "TUC", "SANT": "TUC",
-            "USH": "USU", "SAWH": "USU",
-            "FTE": "ECA", "SAWC": "ECA", "CAL": "ECA",
-            "JUJ": "JUJ", "SASJ": "JUJ",
-            "PSS": "POS", "SARP": "POS",
-            "CNQ": "CRR", "SARC": "CRR",
-            "RES": "SIS", "SARE": "SIS",
-            "UAQ": "JUA", "SANU": "JUA",
-            "LUQ": "UIS", "SAOU": "UIS",
-            "CTC": "CAT", "SANC": "CAT",
-            "IRJ": "LAR", "SANL": "LAR",
-            "SFN": "SVO", "SAAV": "SVO",
-            "PRA": "PAR", "SAAP": "PAR",
-            "ROS": "ROS", "SAAR": "ROS",
-            "VDM": "VIE", "SAVN": "VIE",
-            "BHI": "BCA", "SAZB": "BCA",
-            "MDQ": "MDP", "SAZM": "MDP",
-            "REL": "TRE", "SAVT": "TRE",
-            "PMY": "DRY", "SAVY": "DRY",
-            "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV",
-            "RGL": "GAL", "SAWG": "GAL",
-            "RGA": "GRA", "SAWE": "GRA",
-            "CPC": "CHP", "SAZY": "CHP",
-            "EQS": "ESQ", "SAVV": "ESQ",
-            "LGS": "MLG", "SAMM": "MLG",
-            "AFA": "SRA", "SAMR": "SRA",
-            "RSA": "OSA", "SAWR": "OSA",
-            "GPO": "GPI", "SAZG": "GPI",
-            "VME": "RYD", "SAOR": "RYD",
-            // Internacionales → OACI
-            "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
-            "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
-            "SSA": "SBSV", "MCZ": "SBMO", "REC": "SBRF", "FOR": "SBFZ",
-            "LIM": "SPJC", "BOG": "SKBO", "UIO": "SEQM", "PTY": "MPTO",
-            "CUN": "MMUN", "MEX": "MMMX", "PUJ": "MDPC", "HAV": "MUHA",
-            "MIA": "KMIA", "JFK": "KJFK", "MAD": "LEMD", "FCO": "LIRF",
-          };
-          return ANAC_MAPPINGS[c] || c;
-        };
+        const mapAirportCode = (code: string) => getAnacCode(code);
 
         const authId = log.autoridadCertificanteID || "15";
         const destID = mapAirportCode(log.destinoID || "AER");

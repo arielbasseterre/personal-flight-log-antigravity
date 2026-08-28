@@ -46,121 +46,15 @@ const formatCuil = (raw: string): string => {
 console.log("[SERVER] Hora del servidor:", new Date().toISOString(), "| TZ:", process.env.TZ || 'sistema');
 
 // --- Aeropuertos: fuente única = airports.csv (ANAC) ---
-let airportsCsvList: any[] | null = null;
-
-const parseAirportsCsvServer = (csvText: string) => {
-  const lines = csvText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  if (lines.length <= 1) return [];
-  const airports: any[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-    if (parts.length < 2) continue;
-    const iata = parts[0]?.trim().replace(/^"|"$/g, '');
-    const icao = parts[1]?.trim().replace(/^"|"$/g, '');
-    const anac = parts[2]?.trim().replace(/^"|"$/g, '');
-    const name = parts[3]?.trim().replace(/^"|"$/g, '');
-    const city = parts[4]?.trim().replace(/^"|"$/g, '');
-    const cleanAnac = anac && anac !== 'N/A' && anac !== '' ? anac.toUpperCase() : null;
-    airports.push({
-      iata_code: iata?.toUpperCase(),
-      icao_code: icao?.toUpperCase(),
-      anac_code: cleanAnac,
-      key_code: cleanAnac || iata?.toUpperCase(),
-      name: name || '',
-      city: city || ''
-    });
-  }
-  return airports;
-};
-
-const ensureAirportsLoaded = async () => {
-  if (airportsCsvList) return;
-  try {
-    const csvText = await fs.readFile(path.join(process.cwd(), 'airports.csv'), 'utf-8');
-    airportsCsvList = parseAirportsCsvServer(csvText);
-  } catch (e: any) {
-    console.error("Error cargando airports.csv:", e.message);
-    airportsCsvList = [];
-  }
-};
-
-const normalizeAirportStr = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-const resolveAirportCodeServer = (value: string): string | null => {
-  if (!value) return null;
-  const raw = String(value).trim();
-  if (!raw) return null;
-  const c = raw.toUpperCase();
-  const list = airportsCsvList || [];
-  const byCode = list.find(a => a.iata_code === c || a.icao_code === c || a.anac_code === c || a.key_code === c);
-  if (byCode) return byCode.iata_code || byCode.key_code;
-  const rawNorm = normalizeAirportStr(raw);
-  if (rawNorm.length >= 3) {
-    const byName = list.find(a => {
-      const nameN = normalizeAirportStr(a.name);
-      const cityN = normalizeAirportStr(a.city);
-      return nameN === rawNorm || cityN === rawNorm || nameN.includes(rawNorm) || cityN.includes(rawNorm);
-    });
-    if (byName) return byName.iata_code || byName.key_code;
-  }
-  return null;
-};
+import { ensureAirportsLoaded, resolveAirportCode } from "./src/utils/airports";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANAC Edit: builders de payload para corregir vuelos ya existentes en ANAC
 // (copian fielmente los builders de los endpoints de Create, sin tocarlos)
 // ─────────────────────────────────────────────────────────────────────────────
-const ANAC_AIRPORT_MAPPINGS: Record<string, string> = {
-  "AEP": "AER", "SABE": "AER", // Aeroparque
-  "EZE": "EZE", "SAEZ": "EZE", // Ezeiza
-  "COR": "CBA", "SACO": "CBA", // Córdoba
-  "MDZ": "DOZ", "SAME": "DOZ", // Mendoza
-  "BRC": "BAR", "SAZS": "BAR", // Bariloche
-  "IGR": "IGU", "SARI": "IGU", // Puerto Iguazú
-  "SLA": "SAL", "SASA": "SAL", // Salta
-  "NQN": "NEU", "SAZN": "NEU", // Neuquén
-  "TUC": "TUC", "SANT": "TUC", // Tucumán
-  "USH": "USU", "SAWH": "USU", // Ushuaia
-  "FTE": "ECA", "SAWC": "ECA", "CAL": "ECA", // El Calafate
-  "JUJ": "JUJ", "SASJ": "JUJ", // Jujuy
-  "PSS": "POS", "SARP": "POS", // Posadas
-  "CNQ": "CRR", "SARC": "CRR", // Corrientes
-  "RES": "SIS", "SARE": "SIS", // Resistencia
-  "UAQ": "JUA", "SANU": "JUA", // San Juan
-  "LUQ": "UIS", "SAOU": "UIS", // San Luis
-  "CTC": "CAT", "SANC": "CAT", // Catamarca
-  "IRJ": "LAR", "SANL": "LAR", // La Rioja
-  "SFN": "SVO", "SAAV": "SVO", // Santa Fe
-  "PRA": "PAR", "SAAP": "PAR", // Paraná
-  "ROS": "ROS", "SAAR": "ROS", // Rosario
-  "VDM": "VIE", "SAVN": "VIE", // Viedma
-  "BHI": "BCA", "SAZB": "BCA", // Bahía Blanca
-  "MDQ": "MDP", "SAZM": "MDP", // Mar del Plata
-  "REL": "TRE", "SAVT": "TRE", // Trelew
-              "PMY": "DRY", "SAVY": "DRY", // Puerto Madryn
-  "CRD": "CRV", "CRV": "CRV", "SAVC": "CRV", // Comodoro Rivadavia
-  "RGL": "GAL", "SAWG": "GAL", // Río Gallegos
-  "RGA": "GRA", "SAWE": "GRA", // Río Grande
-  "CPC": "CHP", "SAZY": "CHP", // Chapelco / San Martín de los Andes
-  "EQS": "ESQ", "SAVV": "ESQ", // Esquel
-  "LGS": "MLG", "SAMM": "MLG", // Malargüe
-  "AFA": "SRA", "SAMR": "SRA", // San Rafael
-  "RSA": "OSA", "SAWR": "OSA", // Santa Rosa
-  "GPO": "GPI", "SAZG": "GPI", // General Pico
-  "VME": "RYD", "SAOR": "RYD", // Villa Mercedes
-  // Internacionales → OACI (código 4 letras)
-  "VVI": "SLVR", "SCL": "SCEL", "MVD": "SUMU", "PDP": "SULS",
-  "ASU": "SGAS", "GRU": "SBGR", "GIG": "SBGL", "FLN": "SBFL",
-  "SSA": "SBSV", "MCZ": "SBMO", "REC": "SBRF", "FOR": "SBFZ",
-  "LIM": "SPJC", "BOG": "SKBO", "UIO": "SEQM", "PTY": "MPTO",
-  "CUN": "MMUN", "MEX": "MMMX", "PUJ": "MDPC", "HAV": "MUHA",
-  "MIA": "KMIA", "JFK": "KJFK", "MAD": "LEMD", "FCO": "LIRF",
-};
+import { ANAC_MAPPINGS, getAnacCode } from "./src/utils/anacMappings";
 
-const mapAnacAirportCode = (code: string) => {
-  const c = (code || "").trim().toUpperCase();
-  return ANAC_AIRPORT_MAPPINGS[c] || c;
-};
+const mapAnacAirportCode = (code: string) => getAnacCode(code);
 
 const buildAnacTcpPayload = (log: any) => {
   const oriID = mapAnacAirportCode(String(log.origenID || ""));
@@ -1731,15 +1625,20 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
 
       // Guardado de sesión para sincronización automática / offline
       if (shouldRemember || sessionData) {
+        const sessionUpsert: any = {
+          user_id,
+          session_data: storageState,
+          arms_username: username,
+          updated_at: new Date().toISOString()
+        };
+        // Solo actualizar arms_password_enc si tenemos password nuevo (primera vez o cambio de credenciales)
+        if (password) {
+          sessionUpsert.arms_password_enc = encryptPassword(password);
+        }
+
         const { error: sessionError } = await supabase
           .from('arms_sessions')
-          .upsert({
-            user_id,
-            session_data: storageState,
-            arms_username: username,
-            arms_password_enc: password ? encryptPassword(password) : undefined,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
+          .upsert(sessionUpsert, { onConflict: 'user_id' });
 
         if (sessionError) {
           console.error("[ARMS_SYNC] Error al guardar sesión de ARMS:", sessionError.message);
@@ -2592,8 +2491,8 @@ app.use("/api/get-anac-logs-tcp", syncLimiter);
     // Los vuelos de simulador (ANAC) no tienen aeropuertos ni matrícula: origen/destino van en
     // "SIM" y matriculaAvion guarda el key del simulador (que no cumple el formato LV-XXX).
     if (!isSimImport) {
-      const resolvedOrigen = resolveAirportCodeServer(log.origenID);
-      const resolvedDest = resolveAirportCodeServer(log.destinoID);
+      const resolvedOrigen = resolveAirportCode(log.origenID);
+      const resolvedDest = resolveAirportCode(log.destinoID);
       if (log.origenID && !resolvedOrigen) errs.push(`Origen desconocido: "${log.origenID}"`);
       if (log.destinoID && !resolvedDest) errs.push(`Destino desconocido: "${log.destinoID}"`);
       if (!log.origenID) errs.push('Origen requerido');

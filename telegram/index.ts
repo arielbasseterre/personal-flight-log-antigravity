@@ -1,7 +1,7 @@
 import "dotenv/config";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { chromium } from "playwright";
+import { chromium, type BrowserContext } from "playwright";
 import { sendMessage } from "./telegram";
 import { decryptPassword } from "./crypto";
 import { scrapeArmsRoster, parseArmsRosterHtml } from "../api/arms-scraper";
@@ -59,6 +59,7 @@ const checkRosters = async () => {
 
   try {
     for (const p of profiles) {
+      let context: BrowserContext | null = null;
       try {
         const { data: session } = await supabase
           .from("arms_sessions")
@@ -73,7 +74,17 @@ const checkRosters = async () => {
 
         const password = decryptPassword(session.arms_password_enc) || undefined;
         console.log(`[ROSTER_CHECK] Usuario ${p.id} | password disponible: ${!!password} | arms_password_enc: ${session.arms_password_enc ? "si" : "no"}`);
-        const { html } = await scrapeArmsRoster(browser, session.arms_username, password, month, year, session.session_data);
+
+        // Crear contexto aislado por usuario (cookies/sesión separadas)
+        context = await browser.newContext({
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          viewport: { width: 1280, height: 900 },
+          locale: 'es-AR',
+          timezoneId: 'America/Argentina/Buenos_Aires',
+          storageState: session.session_data,
+        });
+
+        const { html } = await scrapeArmsRoster(browser, session.arms_username, password, month, year, session.session_data, context);
         const entries = parseArmsRosterHtml(html);
         const hash = crypto.createHash("sha256").update(JSON.stringify(entries)).digest("hex");
 
@@ -100,6 +111,9 @@ const checkRosters = async () => {
         console.error(`[ROSTER_CHECK] Error usuario ${p.id}:`, e.message);
         const detalle = (e?.message || "").toString().slice(0, 120);
         await warn(p.id, p.telegram_chat_id, `⚠️ No pude revisar tu programación ARMS (sesión vencida o error).\nDetalle: ${detalle}\n\nRe-sincronizá tu roster en la app marcando 'recordar sesión'.`);
+      } finally {
+        // Cerrar contexto del usuario (libera cookies), NO el browser
+        if (context) await context.close().catch(() => {});
       }
     }
   } finally {

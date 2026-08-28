@@ -55,25 +55,30 @@ export async function scrapeArmsRoster(
   password?: string,
   month?: number,
   year?: number,
-  sessionData?: any
+  sessionData?: any,
+  context?: BrowserContext
 ): Promise<{ html: string; storageState: any }> {
 
-  let context: BrowserContext | null = null;
+  let ownContext = false;
   
   // Usar mes y año actuales si no se especifican
   const targetMonth = month ?? (new Date().getMonth() + 1);
   const targetYear = year ?? new Date().getFullYear();
 
   try {
-    // ── PASO 0: Crear contexto de navegador aislado ─────────────────────
-    // Cada sync usa su propio contexto para evitar colisiones de cookies.
-    context = await browser.newContext({
-      userAgent:   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      viewport:    { width: 1280, height: 900 },
-      locale:      'es-AR',
-      timezoneId:  'America/Argentina/Buenos_Aires',
-      storageState: sessionData || undefined,
-    });
+    // ── PASO 0: Contexto de navegador ─────────────────────────────────────
+    // Si no se pasa context, crear uno nuevo (compatibilidad sync manual UI).
+    // Si se pasa, usarlo (pool browser cron) — el caller gestiona su ciclo de vida.
+    if (!context) {
+      ownContext = true;
+      context = await browser.newContext({
+        userAgent:   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        viewport:    { width: 1280, height: 900 },
+        locale:      'es-AR',
+        timezoneId:  'America/Argentina/Buenos_Aires',
+        storageState: sessionData || undefined,
+      });
+    }
 
     const page = await context.newPage();
 
@@ -405,13 +410,13 @@ export async function scrapeArmsRoster(
 
     // ── Capturar cookies para sesiones futuras (cron job) ────────────────
     const storageState = await context.storageState();
-    await context.close();
+    if (ownContext) await context.close();
 
     return { html: tableHtml, storageState };
 
   } catch (error) {
-    // Limpieza: cerrar contexto en caso de error
-    if (context) await context.close().catch(() => {});
+    // Limpieza: cerrar contexto solo si lo creamos nosotros
+    if (ownContext && context) await context.close().catch(() => {});
     throw error;
   }
 }
