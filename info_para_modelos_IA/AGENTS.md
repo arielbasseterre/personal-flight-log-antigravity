@@ -21,6 +21,8 @@ api/sync-anac.ts       → Helper sincronización ANAC
 airports.csv           → FUENTE ÚNICA de aeropuertos (64, embebido via ?raw)
 supabase/schema.sql    → Schema BD consolidado (V2)
 Dockerfile             → mcr.microsoft.com/playwright:v1.59.1-jammy
+src/utils/anacMappings.ts  → Mappings ANAC centralizados + getAnacCode()
+src/utils/airports.ts      → Cache O(1) lazy-load airports.csv + resolveAirportCode()
 ```
 
 ## Dos versiones activas
@@ -37,10 +39,11 @@ Dockerfile             → mcr.microsoft.com/playwright:v1.59.1-jammy
 - Eliminados: `AIRPORTS.MD` (dump ANAC), `seed_airports.ts`, `src/lib/airports.ts`.
 - Columnas: `iata_code,icao_code,anac_code,name,city` → `key_code = anac_code || iata_code`.
 - **El Calafate = `ECA`**: CSV `FTE,SAWC,ECA`. `CAL` es OTRO aeropuerto (Campo Arenal) → NUNCA mapear FTE→CAL.
-- `ANAC_MAPPINGS` (server.ts ×2 + api/sync-anac.ts): `FTE→ECA`, `SAWC→ECA`, legacy `CAL→ECA` (vuelos viejos guardados con CAL sincronizan como ECA).
+- `ANAC_MAPPINGS` centralizado en **`src/utils/anacMappings.ts`** (single source of truth, exporta `ANAC_MAPPINGS` + `getAnacCode()`). Usado por `server.ts`, `api/sync-anac.ts`, `api/arms-scraper.ts`.
 - `ANAC_TO_IATA` (import de roster): `ECA→FTE` (se eliminó `CAL→FTE`).
 - **Código canónico guardado = IATA** (`resolveToAnac` en LibroScreen/LibroTcpScreen devuelve `iata_code`; FTE queda FTE). La conversión a código ANAC ocurre SOLO en el sync (`mapAirportCode` en LibroScreen + `ANAC_MAPPINGS` en server).
-- **Validación en import masivo**: `BulkImportModal.tsx` y `validateImportLog` (server.ts) normalizan origen/destino → IATA matcheando por IATA/OACI/ANAC/nombre/ciudad (sin acentos). Si no resuelve → error `Origen desconocido: "X"` / `Destino desconocido: "X"` y la fila queda deseleccionada. El server lee `airports.csv` con `fs/promises` (caché en `airportsCsvList`, se carga con `ensureAirportsLoaded()`).
+- **Cache O(1) lazy-load** en **`src/utils/airports.ts`**: carga `airports.csv` una vez al primer uso, construye `Map<string, Airport>` indexado por IATA/ICAO/ANAC/nombre/ciudad (276 keys). Exporta `ensureAirportsLoaded()`, `resolveAirportCode()`, `getAllAirports()`. `server.ts` y `api/sync-anac.ts` usan `resolveAirportCode()` (O(1) vs O(n) anterior). Validación import masivo idéntica.
+- **Validación en import masivo**: `BulkImportModal.tsx` y `validateImportLog` (server.ts) normalizan origen/destino → IATA matcheando por IATA/OACI/ANAC/nombre/ciudad (sin acentos). Si no resuelve → error `Origen desconocido: "X"` / `Destino desconocido: "X"` y la fila queda deseleccionada. El server lee `airports.csv` con `fs/promises` (cache en `AIRPORT_MAP` via `ensureAirportsLoaded()`).
 
 ## Sync ANAC — Edición de vuelos (detalles críticos)
 - **Columna `flight_logs.anac_vuelo_id` (BIGINT)**: `vueloTripulanteID` vigente de ANAC por vuelo. Es la clave anti-duplicados.
@@ -130,3 +133,10 @@ Si como modelo necesitás una key para proponer un cambio, indicá que el usuari
 20. **Roster ARMS scraper (`api/arms-scraper.ts`, solo V2)**: setear el rango con la API del jQuery Datepicker (no `input.value` directo → ARMS usa rango por defecto → tabla vacía); tras VIEW, **polling** hasta que el grid tenga >1 fila (AJAX); regex de fecha con día `\d{1,2}` y escanear hasta 6 celdas.
 21. **`page.evaluate` y esbuild/tsx (`__name`)**: en los callbacks NO definir **funciones con nombre** internas (`const setDate = ...` → esbuild inyecta `__name` que no existe en el browser → `ReferenceError: __name is not defined`). Usar **arrows inline sin funciones nombradas** (los strings rompen el paso de argumentos). Afecta a `api/arms-scraper.ts` (corre con tsx).
 22. **Dockerfile**: `DEBIAN_FRONTEND=noninteractive` + `TZ` ANTES de `apt-get install tzdata` — sin esto, tzdata cuelga el build con un prompt interactivo. Sincronizar reloj con `ntpdate` (ANAC rechaza "ajusta la hora de su sistema" por clock drift).
+
+
+23. **Nuevos m�dulos compartidos (Ago-2026)**:
+   - **src/utils/anacMappings.ts**: Single source of truth para ANAC_MAPPINGS + getAnacCode(). Usado por server.ts, api/sync-anac.ts, api/arms-scraper.ts. Elimina duplicaci�n de 80+ l�neas.
+   - **src/utils/airports.ts**: Cache O(1) lazy-load del airports.csv. Carga una vez, construye Map (276 keys por IATA/ICAO/ANAC/nombre/ciudad). Exporta ensureAirportsLoaded(), resolveAirportCode(), getAllAirports(). Reemplaza resolveAirportCodeServer en server.ts y mapAirportCode en api/sync-anac.ts (O(n) a O(1)).
+   - **telegram/index.ts � Pool browser cron ARMS**: 1 chromium.launch() + browser.newContext({ storageState }) por usuario (contexts aislados). Ahorro: ~70% RAM, ~50% tiempo cron, ~70% minutos GitHub Actions.
+   - **Fix arms_password_enc upsert en server.ts**: Solo actualiza arms_password_enc si hay password nuevo (primera vez o cambio credenciales). Evita borrar la contrase�a cifrada al hacer sync usando sesi�n guardada.

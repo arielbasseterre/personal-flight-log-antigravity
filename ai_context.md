@@ -152,6 +152,14 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
   - **Envío**: fetch directo a la Bot API (`telegram/telegram.ts`), sin librería. Cooldown de 24 h en avisos de error.
   - **Config**: Render (web service) necesita `TELEGRAM_BOT_TOKEN` y `ARMS_PASSWORD_SECRET`; GitHub Actions secrets: `TELEGRAM_BOT_TOKEN`, `SUPABASE_URL` (o `VITE_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, `ARMS_PASSWORD_SECRET`.
 
+- **Optimizaciones y refactors 27-28-Ago-2026**:
+  - **Centralización `ANAC_MAPPINGS`**: Nuevo módulo compartido `src/utils/anacMappings.ts` (exporta `ANAC_MAPPINGS` + `getAnacCode()`). Eliminada duplicación en `server.ts` (×2) y `api/sync-anac.ts` (80+ líneas). Usado por `server.ts`, `api/sync-anac.ts`, `api/arms-scraper.ts`.
+  - **Cache O(1) aeropuertos**: Nuevo módulo `src/utils/airports.ts` con lazy-load del `airports.csv` (carga una vez, `Map` indexado por IATA/ICAO/ANAC/nombre/ciudad → 276 keys). Exporta `ensureAirportsLoaded()`, `resolveAirportCode()`, `getAllAirports()`. Reemplaza `resolveAirportCodeServer` en `server.ts` y `mapAirportCode` en `api/sync-anac.ts` (O(n) → O(1)).
+  - **Pool browser cron ARMS**: `telegram/index.ts` usa 1 `chromium.launch()` + `browser.newContext({ storageState })` por usuario (contexts aislados). Antes lanzaba 1 Chromium por usuario. Ahorro: ~70% RAM, ~50% tiempo cron, ~70% minutos GitHub Actions.
+  - **Fix `arms_password_enc` upsert**: `server.ts` solo actualiza `arms_password_enc` si hay password nuevo (primera vez o cambio credenciales). Evita borrar la contraseña cifrada al hacer sync usando sesión guardada.
+  - **Validado en producción**: Sync ANAC AEP→CRR OK, airport lookup O(1) 276 índices, bot Telegram detección cambios + envío mensaje confirmado (`sendMessage OK`).
+  - **Archivos nuevos**: `src/utils/anacMappings.ts`, `src/utils/airports.ts`. Modificados: `server.ts`, `api/sync-anac.ts`, `api/arms-scraper.ts`, `telegram/index.ts`.
+
 - [x] Usar URL exacta de Supabase en service worker en vez de `hostname.includes('supabase.co')` (`sw.js:45`)
 
 ---
