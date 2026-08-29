@@ -187,7 +187,7 @@ const BottomNav = ({ currentScreen, setScreen, role }: { currentScreen: Screen, 
 );
 
 const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, onBack?: () => void, darkMode: boolean, toggleDarkMode: () => void }) => (
-  <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#101622]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#2d3748] px-4 pb-4 pt-safe-area-inset-top transition-colors">
+  <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#101622]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#2d3748] px-4 pb-4 pt-safe-area-inset-top pt-16 transition-colors">
     <div className="flex items-center justify-between max-w-lg mx-auto">
       {onBack ? (
         <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
@@ -196,7 +196,7 @@ const Header = ({ title, onBack, darkMode, toggleDarkMode }: { title: string, on
       ) : (
         <div className="w-10" />
       )}
-      <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
+      <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white mt-4">{title}</h1>
       <div className="w-10" />
     </div>
   </header>
