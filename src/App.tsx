@@ -1754,8 +1754,8 @@ export default function App() {
       case 'pilotos':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
-            <Header title="Calculadora de Pilotos" onBack={() => setScreen('home')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-            <div className="flex-1 overflow-y-auto">
+            <Header title="Calculadora de Pilotos" darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+            <div className="flex-1 overflow-y-auto pt-4">
               <PilotCalculator />
             </div>
           </div>
@@ -1763,8 +1763,8 @@ export default function App() {
       case 'tcp':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
-            <Header title="Calculadora TCP Art. 18" onBack={() => setScreen('home')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-            <div className="flex-1 overflow-y-auto">
+            <Header title="Calculadora TCP Art. 18" darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+            <div className="flex-1 overflow-y-auto pt-4">
               <TcpCalculator />
             </div>
           </div>
@@ -1795,16 +1795,10 @@ export default function App() {
             <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
               <Header 
                 title="Libro de Vuelo TCP" 
-                onBack={() => {
-                  localStorage.removeItem('draft_flight_log_form');
-                  localStorage.removeItem('draft_flight_log_editing_id');
-                  localStorage.removeItem('draft_flight_log_active_tab');
-                  setScreen('home');
-                }} 
                 darkMode={darkMode} 
                 toggleDarkMode={toggleDarkMode} 
               />
-              <div className="flex flex-col flex-1 overflow-y-auto">
+<div className="flex flex-col flex-1 overflow-y-auto pt-4">
                 {!user ? (
                   <AuthScreen onRegisterSuccess={() => setRegisterAlert({ show: true })} />
                 ) : (
@@ -1827,16 +1821,10 @@ export default function App() {
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
             <Header 
               title="Libro de Vuelo" 
-              onBack={() => {
-                localStorage.removeItem('draft_flight_log_form');
-                localStorage.removeItem('draft_flight_log_editing_id');
-                localStorage.removeItem('draft_flight_log_active_tab');
-                setScreen('home');
-              }} 
               darkMode={darkMode} 
               toggleDarkMode={toggleDarkMode} 
             />
-            <div className="flex flex-col flex-1 overflow-y-auto">
+            <div className="flex flex-col flex-1 overflow-y-auto pt-4">
               {!user ? (
                 <AuthScreen onRegisterSuccess={() => setRegisterAlert({ show: true })} />
               ) : (
@@ -1857,8 +1845,8 @@ export default function App() {
       case 'roster':
         return (
           <div className="flex flex-col h-full bg-white dark:bg-[#101622] transition-colors">
-            <Header title="Mi Roster ARMS" onBack={() => setScreen('home')} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-            <div className="flex-1 overflow-y-auto">
+            <Header title="Mi Roster ARMS" darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+            <div className="flex-1 overflow-y-auto pt-4">
               {!user ? (
                 <AuthScreen onRegisterSuccess={() => setRegisterAlert({ show: true })} />
               ) : (
