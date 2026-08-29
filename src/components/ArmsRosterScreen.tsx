@@ -2388,7 +2388,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               {syncing ? 'Sincronizando...' : 'Sincronizar'}
             </button>
           </div>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] font-bold">
+          <p className="text-[14px] text-white uppercase tracking-[0.2em] font-bold mt-6">
             Calendario
           </p>
         </div>
