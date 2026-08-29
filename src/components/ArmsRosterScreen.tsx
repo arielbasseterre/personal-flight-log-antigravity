@@ -2358,17 +2358,11 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
     <div className="flex flex-col min-h-[100dvh] bg-slate-50 dark:bg-[#101622] text-slate-900 dark:text-white pb-24">
 
       {/* ════════════════════════════════════════════════════════════════
-           HEADER STICKY — Título + Botón Sincronizar
+           HEADER STICKY — Botones centrados + Subtítulo
          ════════════════════════════════════════════════════════════════ */}
       <div className="sticky top-0 z-40 bg-slate-50 dark:bg-[#101622]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#2d3748] px-4 py-4">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] font-bold">
-              Roster ARMS
-            </p>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Mi Calendario</h1>
-          </div>
-          <div className="flex items-center gap-2">
+<div className="flex flex-col items-center justify-center max-w-lg mx-auto">
+          <div className="flex items-center justify-center gap-2 flex-wrap">
             {processedEntries.length > 0 && (
               <button
                 onClick={() => setShowExportMenu(true)}
@@ -2394,6 +2388,9 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
               {syncing ? 'Sincronizando...' : 'Sincronizar'}
             </button>
           </div>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] font-bold">
+            Calendario
+          </p>
         </div>
       </div>
 
