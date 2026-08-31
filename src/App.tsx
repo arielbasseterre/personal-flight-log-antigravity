@@ -1298,10 +1298,37 @@ const SubscriptionExpiredScreen = ({ profile, onLogout }: { profile: Profile | n
 
 export default function App() {
   const [screen, setScreen_] = useState<Screen>('home');
-  const [user, setUser] = useState<RawUser | null>(null);
+  const [user, setUser] = useState<RawUser | null>(() => {
+    try {
+      const cached = localStorage.getItem('cached_user');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [authLoading, setAuthLoading] = useState(true);
-  const [logs, setLogs] = useState<FlightLog[]>([]);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [logs, setLogs] = useState<FlightLog[]>(() => {
+    try {
+      const cachedUser = localStorage.getItem('cached_user');
+      if (cachedUser) {
+        const u = JSON.parse(cachedUser);
+        const l = localStorage.getItem(`logs_cache_${u.id}`);
+        return l ? JSON.parse(l) : [];
+      }
+    } catch {}
+    return [];
+  });
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    try {
+      const cachedUser = localStorage.getItem('cached_user');
+      if (cachedUser) {
+        const u = JSON.parse(cachedUser);
+        const p = localStorage.getItem(`profile_cache_${u.id}`);
+        return p ? JSON.parse(p) : null;
+      }
+    } catch {}
+    return null;
+  });
 
   const setScreen = useCallback((s: Screen) => {
     setScreen_(prev => {
@@ -1497,39 +1524,56 @@ export default function App() {
 
   // Helper: cachear usuario en localStorage para recuperación offline
   const cacheUser = (u: any) => {
-    if (u) localStorage.setItem('cached_user', JSON.stringify(u));
-    else localStorage.removeItem('cached_user');
+    if (u) {
+      localStorage.setItem('cached_user', JSON.stringify(u));
+    }
+    // NOTA: No eliminar 'cached_user' si u es null aquí.
+    // Únicamente handleLogout y un evento explícito SIGNED_OUT limpian 'cached_user'.
   };
 
   useEffect(() => {
     let lastUserId: string | null = null;
 
+    const getStoredUser = (): RawUser | null => {
+      try {
+        const cached = localStorage.getItem('cached_user');
+        return cached ? JSON.parse(cached) : null;
+      } catch {
+        return null;
+      }
+    };
+
     // Check active session
-    supabase?.auth.getSession().then(({ data: { session }, error }) => {
+    supabase?.auth.getSession().then(({ data: { session } }) => {
       const activeUser = session?.user ?? null;
       
-      // Si hay error de red (offline) y no hay sesión, intentar recuperar de cache
-      if (error && !navigator.onLine && !activeUser) {
-        const cached = localStorage.getItem('cached_user');
-        if (cached) {
-          try {
-            const cachedUser = JSON.parse(cached);
-            setUser(cachedUser);
-            lastUserId = cachedUser.id;
-            fetchData(cachedUser.id);
-            setAuthLoading(false);
-            return;
-          } catch { /* cache corrupto */ }
-        }
-      }
-      
-      setUser(activeUser);
-      cacheUser(activeUser);
-      setAuthLoading(false);
       if (activeUser) {
+        setUser(activeUser);
+        cacheUser(activeUser);
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
+      } else {
+        // No hay sesión activa devuelta por Supabase (ej: token expirado / offline).
+        // Preservar usuario guardado en caché si existe (recuperación offline).
+        const cachedUser = getStoredUser();
+        if (cachedUser) {
+          setUser(cachedUser);
+          lastUserId = cachedUser.id;
+          fetchData(cachedUser.id);
+        } else {
+          setUser(null);
+        }
       }
+      setAuthLoading(false);
+    }).catch(() => {
+      // Fallo de red en getSession (modo avión)
+      const cachedUser = getStoredUser();
+      if (cachedUser) {
+        setUser(cachedUser);
+        lastUserId = cachedUser.id;
+        fetchData(cachedUser.id);
+      }
+      setAuthLoading(false);
     });
 
     // Listen for auth changes
@@ -1541,28 +1585,29 @@ export default function App() {
       }
       const activeUser = session?.user ?? null;
       
-      // Offline: no limpiar usuario si la sesión falla por red
-      if (!activeUser && !navigator.onLine) {
-        const cached = localStorage.getItem('cached_user');
-        if (cached) {
-          try {
-            const cachedUser = JSON.parse(cached);
-            setUser(cachedUser);
-            lastUserId = cachedUser.id;
-            fetchData(cachedUser.id);
-            return;
-          } catch { /* cache corrupto */ }
-        }
-      }
-      
-      setUser(activeUser);
-      cacheUser(activeUser);
       if (activeUser) {
+        setUser(activeUser);
+        cacheUser(activeUser);
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
-      } else {
+      } else if (_event === 'SIGNED_OUT') {
+        // Cierre de sesión voluntario / explícito
+        localStorage.removeItem('cached_user');
+        setUser(null);
         setProfile(null);
         setLogs([]);
+      } else {
+        // Para eventos donde session es null pero no hubo un SIGNED_OUT explícito (ej. error de refresh offline)
+        const cachedUser = getStoredUser();
+        if (cachedUser) {
+          setUser(cachedUser);
+          lastUserId = cachedUser.id;
+          fetchData(cachedUser.id);
+        } else {
+          setUser(null);
+          setProfile(null);
+          setLogs([]);
+        }
       }
     }) || { data: { subscription: { unsubscribe: () => { } } } };
 
@@ -1726,6 +1771,14 @@ export default function App() {
   const handleLogout = async () => {
     localStorage.removeItem('arms_saved_username');
     localStorage.removeItem('arms_saved_password');
+    localStorage.removeItem('cached_user');
+    if (user?.id) {
+      localStorage.removeItem(`profile_cache_${user.id}`);
+      localStorage.removeItem(`logs_cache_${user.id}`);
+    }
+    setUser(null);
+    setProfile(null);
+    setLogs([]);
     await supabase!.auth.signOut();
   };
 
