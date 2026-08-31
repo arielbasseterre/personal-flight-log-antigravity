@@ -150,6 +150,12 @@
   --sidebar-ring: #a3a3a3;
 }
 
+/* Prevent native pull-to-refresh on Android PWA */
+html, body, #root {
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+}
+
 /* Safe area insets for mobile screens (iOS notches & home indicators) */
 .pb-safe-area-inset-bottom {
   padding-bottom: env(safe-area-inset-bottom);

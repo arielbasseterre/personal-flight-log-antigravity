@@ -1495,18 +1495,40 @@ export default function App() {
     }
   };
 
+  // Helper: cachear usuario en localStorage para recuperación offline
+  const cacheUser = (u: any) => {
+    if (u) localStorage.setItem('cached_user', JSON.stringify(u));
+    else localStorage.removeItem('cached_user');
+  };
+
   useEffect(() => {
     let lastUserId: string | null = null;
 
     // Check active session
-    supabase?.auth.getSession().then(({ data: { session } }) => {
+    supabase?.auth.getSession().then(({ data: { session }, error }) => {
       const activeUser = session?.user ?? null;
+      
+      // Si hay error de red (offline) y no hay sesión, intentar recuperar de cache
+      if (error && !navigator.onLine && !activeUser) {
+        const cached = localStorage.getItem('cached_user');
+        if (cached) {
+          try {
+            const cachedUser = JSON.parse(cached);
+            setUser(cachedUser);
+            lastUserId = cachedUser.id;
+            fetchData(cachedUser.id);
+            setAuthLoading(false);
+            return;
+          } catch { /* cache corrupto */ }
+        }
+      }
+      
       setUser(activeUser);
+      cacheUser(activeUser);
       setAuthLoading(false);
       if (activeUser) {
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
-
       }
     });
 
@@ -1518,11 +1540,26 @@ export default function App() {
         return;
       }
       const activeUser = session?.user ?? null;
+      
+      // Offline: no limpiar usuario si la sesión falla por red
+      if (!activeUser && !navigator.onLine) {
+        const cached = localStorage.getItem('cached_user');
+        if (cached) {
+          try {
+            const cachedUser = JSON.parse(cached);
+            setUser(cachedUser);
+            lastUserId = cachedUser.id;
+            fetchData(cachedUser.id);
+            return;
+          } catch { /* cache corrupto */ }
+        }
+      }
+      
       setUser(activeUser);
+      cacheUser(activeUser);
       if (activeUser) {
         lastUserId = activeUser.id;
         fetchData(activeUser.id);
-
       } else {
         setProfile(null);
         setLogs([]);
