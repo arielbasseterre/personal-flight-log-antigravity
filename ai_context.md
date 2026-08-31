@@ -376,3 +376,17 @@ ALTER TABLE app_config DISABLE ROW LEVEL SECURITY;
 
 ### ðŸ”µ Bajo
 - [x] ~~Eliminar inyeccion de `window.VITE_SUPABASE_ANON_KEY` y `window.VITE_SUPABASE_URL` del servidor~~ â€” No aplica: Render no expone `VITE_*` en build time
+-   * * U I / U X   f i x e s   ( A g o - 2 0 2 6 ) * * :  
+     -   * * A r m s R o s t e r S c r e e n   h e a d e r   r e s t r u c t u r e * * :   E l i m i n a d o s   " R o s t e r   A R M S "   y   " M i   C a l e n d a r i o "   d e l   h e a d e r   s t i c k y .   B o t o n e s   ( E x p o r t a r ,   T e l e g r a m ,   S i n c r o n i z a r )   c e n t r a d o s   h o r i z o n t a l m e n t e   ( ` f l e x   i t e m s - c e n t e r   j u s t i f y - c e n t e r   g a p - 2   f l e x - w r a p ` ) .   S u b t Ã ­ t u l o   " C a l e n d a r i o "   ( 1 4 p x ,   b l a n c o ,   m t - 6 )   m o v i d o   d e b a j o   d e   l o s   b o t o n e s   d e n t r o   d e l   f l e x - c o l .  
+     -   * * H e a d e r   s p a c i n g   f i x   ( t o d a s   l a s   p a n t a l l a s   c o n   H e a d e r   c o m p a r t i d o ) * * :   ` p t - 1 6 `   ( 6 4 p x )   e n   H e a d e r   +   ` m t - 4 `   ( 1 6 p x )   e n   ` < h 1 > `   t Ã ­ t u l o   â      ~ 8 0 p x   s e p a r a c i Ã ³ n   d e l   b o r d e   s u p e r i o r .   A f e c t a :   P i l o t o s ,   T C P ,   L i b r o   T C P ,   L i b r o   P i l o t o ,   R o s t e r ,   C h a n g e l o g .  
+     -   * * F l e c h a s   r e t r o c e s o   r e m o v i d a s * * :   E l i m i n a d o   ` o n B a c k `   d e l   H e a d e r   e n   P i l o t o s ,   T C P ,   L i b r o   ( T C P   y   P i l o t o ) ,   R o s t e r .   N a v e g a c i Ã ³ n   s o l o   v Ã ­ a   b a r r a   i n f e r i o r .   C o m p o n e n t e   H e a d e r   y a   m a n e j a   c a s o   s i n   ` o n B a c k `   ( e s p a c i a d o r   ` w - 1 0 `   p a r a   m a n t e n e r   c e n t r a d o ) .  
+     -   * * E s p a c i a d o   c o n t e n i d o * * :   ` p t - 4 `   a g r e g a d o   a   c o n t e n e d o r e s   ` f l e x - 1   o v e r f l o w - y - a u t o `   e n   P i l o t o s ,   T C P ,   R o s t e r ,   L i b r o   ( T C P   y   P i l o t o ) .  
+  
+ -   * * S u p a b a s e   p e r f o r m a n c e   i s s u e s   d o c u m e n t a d o s   ( A g o - 2 0 2 6 ) * * :  
+     -   ` f e t c h D a t a `   e n   A p p . t s x :   5   q u e r i e s   s e c u e n c i a l e s   ( a u t h   â      l o g s   â      f a l l b a c k   l o g s   â      p r o f i l e   â      f a l l b a c k   e m a i l )   s i n   l Ã ­ m i t e   n i   p a r a l e l i s m o  
+     -   Q u e r y   ` f l i g h t _ l o g s `   s i n   L I M I T   â      t r a e   T O D O S   l o s   l o g s   d e l   u s u a r i o  
+     -   S i n   A b o r t C o n t r o l l e r / t i m e o u t   â      q u e r i e s   p u e d e n   c o l g a r s e   i n d e f i n i d a m e n t e   ( e x p l i c a   " S i n c r o n i z a n d o . . . "   i n f i n i t o )  
+     -   ` s u p a b a s e ! `   f o r c e   u n w r a p   e n   ` h a n d l e L o g o u t `   ( A p p . t s x : 1 6 9 2 )   â      r o m p e   s i   c l i e n t   e s   n u l l  
+     -   C a t c h   s i l e n c i o s o   e n   ` r e f r e s h S u b `   ( l Ã ­ n e a   1 5 7 3 )   o c u l t a   e r r o r e s   r e a l e s  
+     -   F i x e s   r e c o m e n d a d o s :   L I M I T   5 0 ,   P r o m i s e . a l l   p a r a   p a r a l e l i z a r ,   A b o r t C o n t r o l l e r   1 5 s ,   o p t i o n a l   c h a i n i n g ,   l o g g i n g   d e   e r r o r e s  
+ 
