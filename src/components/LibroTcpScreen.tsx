@@ -1360,6 +1360,20 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
 
   const compareWithAnac = async (tokenOverride?: any, sessionOverride?: any) => {
     const actualToken = typeof tokenOverride === 'string' ? tokenOverride : undefined;
+    
+    if (!navigator.onLine) {
+      setConfirmModal({
+        show: true,
+        title: 'Sin conexión a internet',
+        message: 'La sincronización con la ANAC requiere una conexión activa a internet. Por favor, desactivá el modo avión o conectate a una red Wi-Fi o datos móviles e intentalo nuevamente.',
+        type: 'warning',
+        isAlert: true,
+        confirmText: 'Entendido',
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, show: false }))
+      });
+      return;
+    }
+
     const tokenToUse = actualToken || anacToken;
     const sessionToUse = sessionOverride || anacSession;
     if (!tokenToUse && !sessionToUse) {
@@ -1518,6 +1532,19 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
   };
 
   const handleSyncANAC = async (tokenOverride?: string, sessionOverride?: any, logsToSyncOverride?: FlightLog[]) => {
+    if (!navigator.onLine) {
+      setConfirmModal({
+        show: true,
+        title: 'Sin conexión a internet',
+        message: 'La sincronización con la ANAC requiere una conexión activa a internet. Por favor, desactivá el modo avión o conectate a una red Wi-Fi o datos móviles e intentalo nuevamente.',
+        type: 'warning',
+        isAlert: true,
+        confirmText: 'Entendido',
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, show: false }))
+      });
+      return;
+    }
+
     const actualToken = typeof tokenOverride === 'string' ? tokenOverride : undefined;
     const tokenToUse = actualToken || anacToken;
     const sessionToUse = sessionOverride || anacSession;

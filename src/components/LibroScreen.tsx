@@ -929,6 +929,19 @@ const resolveToAnac = (input: string | undefined) => {
     // Si se llama desde un onClick de React, tokenOverride será un objeto Event, no un string.
     const actualToken = typeof tokenOverride === 'string' ? tokenOverride : undefined;
     
+    if (!navigator.onLine) {
+      setConfirmModal({
+        show: true,
+        title: 'Sin conexión a internet',
+        message: 'La sincronización con la ANAC requiere una conexión activa a internet. Por favor, desactivá el modo avión o conectate a una red Wi-Fi o datos móviles e intentalo nuevamente.',
+        type: 'warning',
+        isAlert: true,
+        confirmText: 'Entendido',
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, show: false }))
+      });
+      return;
+    }
+
     const tokenToUse = actualToken || anacToken;
     const sessionToUse = sessionOverride || anacSession;
 
@@ -1091,6 +1104,20 @@ const resolveToAnac = (input: string | undefined) => {
 
   const handleSyncANAC = async (tokenOverride?: string, sessionOverride?: any, logsToSyncOverride?: FlightLog[]) => {
     if (!supabase || !profile) return;
+
+    if (!navigator.onLine) {
+      setConfirmModal({
+        show: true,
+        title: 'Sin conexión a internet',
+        message: 'La sincronización con la ANAC requiere una conexión activa a internet. Por favor, desactivá el modo avión o conectate a una red Wi-Fi o datos móviles e intentalo nuevamente.',
+        type: 'warning',
+        isAlert: true,
+        confirmText: 'Entendido',
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, show: false }))
+      });
+      return;
+    }
+
     const tokenToUse = tokenOverride || anacToken;
     const sessionToUse = sessionOverride || anacSession;
     if (!tokenToUse && !sessionToUse) {
