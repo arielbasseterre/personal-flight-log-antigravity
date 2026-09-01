@@ -25,7 +25,8 @@ const ELEMENT_TIMEOUT = 15000; // Timeout de espera de elementos (15s)
 // ─── MAPEO DE MESES (Inglés → Numérico) ──────────────────────────────────
 const MONTH_MAP: Record<string, string> = {
   jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+  jul: '07', aug: '08', sep: '09', sept: '09', september: '09', set: '09', setiembre: '09', septiembre: '09',
+  oct: '10', nov: '11', dec: '12', dic: '12', ene: '01', abr: '04', ago: '08',
 };
 
 
@@ -464,7 +465,7 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
     // ── 2.1: Detectar si esta fila introduce una nueva fecha ────────────
     // ARMS usa un <td rowspan="N"> con la fecha al inicio de un grupo de tramos.
     // Dependiendo de la versión de ARMS, la fecha puede estar en la celda 0 o 1.
-    const dateRegex = /(\d{1,2})[-\/]([A-Za-z]{3}|\d{1,2})[-\/](\d{4})/;
+    const dateRegex = /(\d{1,2})[-\/]([A-Za-z]{3,9}|\d{1,2})[-\/](\d{2,4})/;
     let foundDate = false;
     
     for (let i = 0; i < Math.min(6, cells.length); i++) {
@@ -482,8 +483,8 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
     if (!currentDateISO) continue;
 
     // ── 2.2: Identificar el tipo de tarea de esta fila ────────────
-    // Buscar la celda que contiene el código de tarea (OP, DH, OFF, STB, NDA, OTH, GTR, LEAVE)
-    const taskCell = findCellContaining(cells, /\b(OP|DH|OFF|STB|STBY|NDA|OTH|GTR|LEAVE)\b/i);
+    // Buscar la celda que contiene el código de tarea (OP, DH, OFF, R-OFF, STB, NDA, OTH, GTR, LEAVE, etc.)
+    const taskCell = findCellContaining(cells, /(?:OP|DH|OFF|STB|STBY|NDA|OTH|GTR|LEAVE|SIM|CFT|MED|TRG|GROUND|COURSE|DUTY|DUT|CHK|CHECK|FLT|VAC|SICK|REST)/i);
     const rawTask  = taskCell?.innerText.trim() || '';
 
     // Si no hay task reconocible, es una fila de cabecera/separador — saltar
@@ -680,12 +681,15 @@ export function parseArmsRosterHtml(html: string): ArmsDayEntry[] {
  *          "15/06/2026"  → "2026-06-15"
  */
 function convertArmsDateToISO(raw: string): string {
-  const m = raw.match(/(\d{1,2})[-\/]([A-Za-z]{3}|\d{1,2})[-\/](\d{4})/);
+  const m = raw.match(/(\d{1,2})[-\/]([A-Za-z]{3,9}|\d{1,2})[-\/](\d{2,4})/);
   if (!m) return '';
 
   const day   = m[1].padStart(2, '0');
   const month = MONTH_MAP[m[2].toLowerCase()] || m[2].padStart(2, '0');
-  const year  = m[3];
+  let year    = m[3];
+  if (year.length === 2) {
+    year = `20${year}`;
+  }
 
   return `${year}-${month}-${day}`;
 }
@@ -696,7 +700,7 @@ function convertArmsDateToISO(raw: string): string {
  * Reglas de clasificación (orden de prioridad):
  *   - Contiene "OP"                      → FLIGHT_OP (vuelo operativo)
  *   - Contiene "DH"                      → FLIGHT_DH (deadhead/posicionamiento)
- *   - Exactamente "OFF"                  → OFF (día libre)
+ *   - Contiene "OFF" (e.g. R-OFF, D-OFF) → OFF (día libre)
  *   - Contiene "LAYOVER"                 → LAYOVER (pernocte fuera de base)
  *   - Contiene "STB"/"STBY"/"NDA" solos  → STANDBY (guardia)
  *   - Cualquier otro                     → UNKNOWN
@@ -706,13 +710,13 @@ function classifyArmsTask(task: string): ArmsDayEntry['eventType'] {
 
   if (t.includes('OP'))                              return 'FLIGHT_OP';
   if (t.includes('DH'))                              return 'FLIGHT_DH';
-  if (t === 'OFF')                                   return 'OFF';
+  if (t.includes('OFF'))                             return 'OFF';
   if (t.includes('LAYOVER'))                         return 'LAYOVER';
   if (t.includes('STB') || t.includes('STBY'))       return 'STANDBY';
-  if (t.includes('GTR'))                             return 'GTR';
+  if (t.includes('GTR') || t.includes('SIM') || t.includes('TRG') || t.includes('COURSE') || t.includes('MED')) return 'GTR';
   if (t.includes('NDA') && !t.includes('LAYOVER'))   return 'NDA';
   if (t.includes('OTH'))                             return 'NDA';
-  if (t.includes('LEAVE'))                           return 'LEAVE';
+  if (t.includes('LEAVE') || t.includes('VAC'))      return 'LEAVE';
 
   return 'UNKNOWN';
 }

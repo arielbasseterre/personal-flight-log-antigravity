@@ -75,6 +75,11 @@ const isLeaveEntry = (entry: ArmsDayEntry | null | undefined): boolean => {
   return entry.eventType === 'LEAVE' || entry.rawTask?.toUpperCase().startsWith('LEAVE');
 };
 
+const isOffEntry = (entry: ArmsDayEntry | null | undefined): boolean => {
+  if (!entry) return false;
+  return entry.eventType === 'OFF' || Boolean(entry.rawTask?.toUpperCase().includes('OFF'));
+};
+
 /**
  * Marcador visual que aparece debajo del número de día.
  * Cada tipo de evento tiene su propio ícono y color:
@@ -90,6 +95,10 @@ function DayMarker({ entry }: { entry: ArmsDayEntry }) {
 
   if (isLeaveEntry(entry)) {
     return <CalendarMinus size={22} className="text-red-400" />;
+  }
+
+  if (isOffEntry(entry)) {
+    return <Home size={22} className="text-emerald-400" />;
   }
 
   switch (entry.eventType) {
@@ -644,7 +653,7 @@ const getActivitySummary = (entry: ArmsDayEntry | null | undefined): string => {
     const leaveMatch = rawTask.match(/leave\s*-\s*(.*)/i);
     return `Licencia: ${leaveMatch ? leaveMatch[1].trim() : rawTask}`;
   }
-  if (entry.eventType === 'OFF') return 'Libre';
+  if (isOffEntry(entry)) return 'Libre';
   if (entry.eventType === 'LAYOVER') {
     let s = `Layover (${entry.layoverAirport || '—'})`;
     if (entry.layoverDuration) s += `\nDuración: ${entry.layoverDuration}`;
@@ -1999,7 +2008,7 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
       const isLeave = isLeaveEntry(e);
       if (isLeave) {
         leaves++;
-      } else if (e.eventType === 'OFF') {
+      } else if (isOffEntry(e)) {
         offDays++;
       } else if (e.eventType === 'STANDBY') {
         standby++;
@@ -2599,14 +2608,16 @@ export function ArmsRosterScreen({ userId }: { userId: string }) {
                 </motion.div>
               )}
 
-              {/* ── CASO: DÍA LIBRE (OFF) ────────────────────────────── */}
-              {selectedEntry.eventType === 'OFF' && !isLeaveEntry(selectedEntry) && (
+              {/* ── CASO: DÍA LIBRE (OFF / R-OFF / etc.) ────────────────────────────── */}
+              {isOffEntry(selectedEntry) && !isLeaveEntry(selectedEntry) && (
                 <div className="flex items-center gap-4 p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
                   <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
                     <Home size={18} className="text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-emerald-300">Día libre en base</p>
+                    <p className="text-sm font-bold text-emerald-300">
+                      Día libre en base {selectedEntry.rawTask && selectedEntry.rawTask !== 'OFF' ? `(${selectedEntry.rawTask})` : ''}
+                    </p>
                     <p className="text-[11px] text-emerald-400/60">Descanso programado</p>
                   </div>
                 </div>
