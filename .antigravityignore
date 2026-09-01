@@ -1,0 +1,17 @@
+# Exclusión de dependencias y compilados
+node_modules/
+dist/
+build/
+coverage/
+
+# Documentos pesados y manuales binarios
+*.pdf
+*.docx
+
+# Hojas de cálculo y binarios de referencia
+*.xlsx
+
+# Logs y temporales de depuración
+*.log
+arms_debug_*
+supabase/.temp/
