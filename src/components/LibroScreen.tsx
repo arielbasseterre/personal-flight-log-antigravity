@@ -58,6 +58,7 @@ import {
 } from 'recharts';
 import { FlightLog, Profile, AnacLog } from '@/src/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { PwaInstallBanner } from './PwaInstallBanner';
 import { Checkbox } from '@/components/ui/checkbox';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -3059,6 +3060,8 @@ const resolveToAnac = (input: string | undefined) => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4 m-0">
+            <PwaInstallBanner />
+
             {/* ANAC Sync Card */}
             <Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/30 dark:bg-blue-900/10 shadow-sm">
               <CardContent className="pt-4 px-4 pb-4">

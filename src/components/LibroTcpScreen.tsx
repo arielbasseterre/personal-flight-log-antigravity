@@ -19,6 +19,7 @@ import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { FlightLogTcpPDF } from './FlightLogTcpPDF';
 import { AnacAuth } from './AnacAuth';
 import BulkImportModal from './BulkImportModal';
+import { PwaInstallBanner } from './PwaInstallBanner';
 import { supabase } from '@/src/utils/supabase/client';
 import { getApiUrl } from '@/src/utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -2215,6 +2216,8 @@ export const LibroTcpScreen = ({ logs, setLogs, profile, setProfile, refreshData
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4 m-0">
+            <PwaInstallBanner />
+
             {/* ANAC Sync Card */}
             <Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/30 dark:bg-blue-900/10 shadow-sm">
               <CardContent className="pt-4 px-4 pb-4">
