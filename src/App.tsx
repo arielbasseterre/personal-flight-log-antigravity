@@ -53,6 +53,7 @@ import { AnacAuth } from './components/AnacAuth';
 import { ArmsRosterScreen } from './components/ArmsRosterScreen';
 import { PdfViewer } from './components/PdfViewer';
 import { LibroTcpScreen } from './components/LibroTcpScreen';
+import { PwaInstallBanner } from './components/PwaInstallBanner';
 
 import { supabase } from './utils/supabase/client';
 import { User as RawUser } from '@supabase/supabase-js';
@@ -437,6 +438,9 @@ const HomeScreen = ({ onEnter, onGoToTcp, onViewNorms, onGoToLibro, onGoToRoster
     </div>
 
     <div className="flex-1 overflow-y-auto pb-44">
+      <div className="px-4 pt-4 pb-0">
+        <PwaInstallBanner />
+      </div>
       <div className="p-4">
         <div
           className="w-full bg-slate-200 dark:bg-slate-800 flex flex-col justify-end overflow-hidden rounded-xl min-h-[45vh] shadow-2xl relative"
