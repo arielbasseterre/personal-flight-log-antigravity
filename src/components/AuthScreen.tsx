@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { LogIn, UserPlus, Mail, Lock, Plane, ArrowRight, Loader2, CheckCircle, IdCard } from 'lucide-react';
 import { motion } from 'motion/react';
 import { isValidCuil } from '@/src/utils/cuil';
+import { PwaInstallBanner } from './PwaInstallBanner';
 
 export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => void }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -107,7 +108,8 @@ export const AuthScreen = ({ onRegisterSuccess }: { onRegisterSuccess?: () => vo
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 flex-1 max-w-sm mx-auto">
+    <div className="flex flex-col items-center justify-center p-6 flex-1 max-w-sm mx-auto w-full">
+      <PwaInstallBanner />
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
