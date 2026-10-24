@@ -18,3 +18,6 @@ LISTADO AEROPUERTOS ANAC.MD
 
 # Backups de Supabase: no versionar archivos comprimidos (se generan localmente)
 backups supabase automatizado/*.zip
+
+# Config local del agente (OpenCode)
+opencode.json
