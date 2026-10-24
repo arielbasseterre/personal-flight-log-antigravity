@@ -10,18 +10,18 @@ permissions:
 
 jobs:
   bot:
-    # playwright 1.64.1+ ya soporta Ubuntu 26.04 (ubuntu-latest)
-    runs-on: ubuntu-latest
+    # PRUEBA TEMPORAL: validar Ubuntu 26.04 (revertir a ubuntu-latest si da verde)
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: node_modules
           key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
@@ -30,7 +30,7 @@ jobs:
         run: npm ci || npm install
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-pw-${{ hashFiles('package-lock.json') }}
