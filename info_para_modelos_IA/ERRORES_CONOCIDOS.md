@@ -115,7 +115,12 @@ jobs:
     runs-on: ubuntu-24.04   # antes: ubuntu-latest (playwright 1.59.1 no soporta Ubuntu 26.04)
 ```
 
-**Cómo volver a `ubuntu-latest` (deuda técnica pendiente)**:
+**Cómo volver a `ubuntu-latest`** — ✅ **RESUELTO el 2026-10-24**:
+- Playwright actualizado `1.59.1` → **`1.64.1`** (npm) y `Dockerfile` → **`v1.64.1-jammy`** (obligatorio que vayan juntos: si cambia el npm sin la imagen, el Chromium del contenedor no coincide y el scraping falla con *"Executable doesn't exist at /ms-playwright/chromium-XXXX"*).
+- Workflow de vuelta a `runs-on: ubuntu-latest` (y `actions/checkout@v7`, `setup-node@v7`, `cache@v6` para sacar el warning de Node 20).
+- Validado con runs verdes: **#577** (`ubuntu-latest` = 24.04) y **#578** (`ubuntu-26.04` explícito). Además se probó en producción: sync manual de **ARMS** desde la app y sync de **ANAC** con la imagen nueva.
+
+El procedimiento queda registrado por si hay que repetirlo con una futura migración:
 1. Verificar que la versión nueva de Playwright tenga `ubuntu26.04-x64` en el registry (buscar en `nativeDeps.js` / `registry/index.js`).
 2. `npm i playwright@latest` + commit de `package.json` / `package-lock.json`.
 3. Probar con `runs-on: ubuntu-26.04` disparando `workflow_dispatch` (no tocar `ubuntu-latest` todavía).

@@ -11,7 +11,8 @@ Cuando completes un ítem, marcalo con `[x]` y anotá la fecha.
 
 > ✅ **COMPLETADO el 24/10/2026.** Playwright se actualizó a `1.64.1` (npm + Dockerfile `v1.64.1-jammy`)
 > y el workflow volvió a `ubuntu-latest`. Validado con dos runs verdes:
-> #577 (`ubuntu-latest` = 24.04) y #578 (`ubuntu-26.04` explícito). Sin acción pendiente.
+> #577 (`ubuntu-latest` = 24.04) y #578 (`ubuntu-26.04` explícito), más sync manual de ARMS
+> y de ANAC en producción con la imagen nueva. Sin acción pendiente.
 > Se deja el detalle abajo como referencia histórica / por si hay que repetir el proceso.
 
 | Dato | Valor |
