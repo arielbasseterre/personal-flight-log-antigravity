@@ -1,0 +1,35 @@
+name: Telegram Test
+
+# Prueba manual: envía un mensaje de prueba por Telegram al chat vinculado a tu cuenta.
+# No toca la base: solo lee profiles.telegram_chat_id y llama a la Bot API.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Email de tu cuenta en la app (para buscar tu telegram_chat_id)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Sin npm install: el script usa fetch nativo de Node 22
+      - name: Enviar mensaje de prueba
+        env:
+          TEST_EMAIL: ${{ inputs.email }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node telegram/test-notify.mjs

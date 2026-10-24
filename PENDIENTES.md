@@ -7,14 +7,18 @@ Cuando completes un ítem, marcalo con `[x]` y anotá la fecha.
 
 ## 🔔 Recordatorio: verificar soporte de Ubuntu 26.04 en Playwright
 
-- [ ] **Revisar si Playwright ya soporta Ubuntu 26.04** y, si sí, volver a `ubuntu-latest`.
+- [x] **Revisar si Playwright ya soporta Ubuntu 26.04** y, si sí, volver a `ubuntu-latest`.
+
+> ✅ **COMPLETADO el 24/10/2026.** Playwright se actualizó a `1.64.1` (npm + Dockerfile `v1.64.1-jammy`)
+> y el workflow volvió a `ubuntu-latest`. Validado con dos runs verdes:
+> #577 (`ubuntu-latest` = 24.04) y #578 (`ubuntu-26.04` explícito). Sin acción pendiente.
+> Se deja el detalle abajo como referencia histórica / por si hay que repetir el proceso.
 
 | Dato | Valor |
 |---|---|
-| **Próximo chequeo** | 24 de noviembre de 2026 (después de que GitHub complete la migración el 19/11/2026) |
-| **Cadencia sugerida** | cada 1 mes |
+| **Estado** | ✅ Completado (24/10/2026) |
 | **Archivo afectado** | `.github/workflows/telegram-bot.yml` |
-| **Valor actual** | `runs-on: ubuntu-24.04` (pin temporal) |
+| **Valor actual** | `runs-on: ubuntu-latest` + `playwright ^1.64.1` |
 
 ### Estado del último chequeo
 

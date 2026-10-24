@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   bot:
-    # PRUEBA TEMPORAL: validar Ubuntu 26.04 (revertir a ubuntu-latest si da verde)
-    runs-on: ubuntu-26.04
+    # Validado en Ubuntu 26.04 (run #578) y 24.04 (run #577) con playwright 1.64.1
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
