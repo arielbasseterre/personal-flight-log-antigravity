@@ -212,7 +212,8 @@ const CHANGELOG_DATA = [
     items: [
       "🤖 Avisos de programación por Telegram: vinculá tu cuenta y recibí un aviso automático cada vez que cambie tu programación ARMS, con los días que tuvieron novedades.",
       "🔗 Registro simple: generá un código en la app (Roster ARMS), enviá /registrar <codigo> al bot y listo. La vinculación se confirma al instante.",
-      "✨ El aviso te indica qué días cambiaron (ej. «días: 19/08, 20/08, 21/08») y ya deja tu roster actualizado, sin que tengas que hacer nada."
+      "✨ El aviso te indica qué días cambiaron (ej. «días: 19/08, 20/08, 21/08») y ya deja tu roster actualizado, sin que tengas que hacer nada.",
+      "🔧 Avisos de Telegram restablecidos: entre el 20 y el 24 de octubre el chequeo automático de ARMS estuvo interrumpido por un cambio en el entorno donde corre el bot. Ya se corrigió y volvió a funcionar con normalidad."
     ]
   },
   {
