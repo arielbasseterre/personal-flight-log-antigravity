@@ -99,3 +99,29 @@ Implementado en V2 línea ~2060 y V1 línea ~1340.
 1. `external_reference` del body del webhook
 2. Búsqueda por `subscription_id` en `profiles`
 3. Extraer de `back_url` de la suscripción en MP vía `PreApproval.get()`
+
+## 14. Cron de Telegram falla en 1 segundo (ubuntu-latest → Ubuntu 26.04)
+
+**Síntoma**: El workflow `Telegram Roster Bot` empieza a fallar en **todos** los runs (llega el correo "All jobs have failed" cada 30 min). El step `Install Chromium (with system deps)` falla en **~1 segundo** y `Run bot` queda `skipped` (el scraper de ARMS nunca arranca). Ocurrió del 2026-10-20 al 2026-10-24.
+
+**Causa**: GitHub migró el label `ubuntu-latest` de Ubuntu 24.04 a **Ubuntu 26.04** (rollout desde el 19/10/2026, completo el 19/11/2026 — [actions/runner-images#14748](https://github.com/actions/runner-images/issues/14748)). `playwright@1.59.1` solo trae builds hasta `ubuntu24.04-x64` (ver `node_modules/playwright-core/lib/server/registry/index.js`), así que `npx playwright install --with-deps chromium` aborta al instante por plataforma no soportada.
+
+**Ojo — no confundir con ARMS caído**: cuando ARMS falla, el error se captura por usuario (`telegram/index.ts`, catch de `checkRosters`) → el job termina **verde** y a lo sumo avisa por Telegram. Si el job falla entero, es entorno/credenciales, no ARMS.
+
+**Solución aplicada** (commit `60276e0`) en `.github/workflows/telegram-bot.yml`:
+```yaml
+jobs:
+  bot:
+    runs-on: ubuntu-24.04   # antes: ubuntu-latest (playwright 1.59.1 no soporta Ubuntu 26.04)
+```
+
+**Cómo volver a `ubuntu-latest` (deuda técnica pendiente)**:
+1. Verificar que la versión nueva de Playwright tenga `ubuntu26.04-x64` en el registry (buscar en `nativeDeps.js` / `registry/index.js`).
+2. `npm i playwright@latest` + commit de `package.json` / `package-lock.json`.
+3. Probar con `runs-on: ubuntu-26.04` disparando `workflow_dispatch` (no tocar `ubuntu-latest` todavía).
+4. Si el run da verde → cambiar a `ubuntu-latest` y borrar el pin.
+
+**Diagnóstico rápido sin `gh` CLI** (la API pública alcanza; los logs crudos sí requieren auth):
+- `GET https://api.github.com/repos/<owner>/<repo>/actions/runs?per_page=5` → conclusiones y `head_sha`
+- `GET https://api.github.com/repos/<owner>/<repo>/actions/runs/<run_id>/jobs` → qué step exacto falló
+- `GET .../check-runs/<id>/annotations` → anotaciones del runner (acá apareció el aviso de la migración a Ubuntu 26)
