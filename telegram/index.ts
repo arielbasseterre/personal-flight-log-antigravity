@@ -55,6 +55,14 @@ const checkRosters = async () => {
 
   const month = new Date().getMonth() + 1;
   const year = new Date().getFullYear();
+
+  // Contadores para el resumen final (permite ver de un vistazo si el scrape funcionó)
+  const startedAt = Date.now();
+  let okCount = 0;
+  let errCount = 0;
+  let noSessionCount = 0;
+  let changedCount = 0;
+
   const browser = await chromium.launch();
 
   try {
@@ -68,6 +76,7 @@ const checkRosters = async () => {
           .maybeSingle();
 
         if (!session?.session_data) {
+          noSessionCount++;
           await warn(p.id, p.telegram_chat_id, "⚠️ No tengo tu sesión de ARMS guardada. Sincronizá tu roster una vez desde la app (marcá 'recordar sesión').");
           continue;
         }
@@ -99,6 +108,7 @@ const checkRosters = async () => {
         if (existing && existing.roster_hash && existing.roster_hash !== hash) {
           const days = changedDaysText(existing.roster_json, entries);
           await sendMessage(p.telegram_chat_id, `📅 Hubo cambios en tu programación ARMS${days}. Ya actualizamos tu roster en la app.`);
+          changedCount++;
         }
 
         await supabase
@@ -107,7 +117,11 @@ const checkRosters = async () => {
             { user_id: p.id, month, year, roster_json: entries, roster_hash: hash, synced_at: new Date().toISOString() },
             { onConflict: "user_id,month,year" }
           );
+
+        okCount++;
+        console.log(`[ROSTER_CHECK] Usuario ${p.id} OK | ${entries.length} tramos`);
       } catch (e: any) {
+        errCount++;
         console.error(`[ROSTER_CHECK] Error usuario ${p.id}:`, e.message);
         const detalle = (e?.message || "").toString().slice(0, 120);
         await warn(p.id, p.telegram_chat_id, `⚠️ No pude revisar tu programación ARMS (sesión vencida o error).\nDetalle: ${detalle}\n\nRe-sincronizá tu roster en la app marcando 'recordar sesión'.`);
@@ -119,6 +133,12 @@ const checkRosters = async () => {
   } finally {
     await browser.close();
   }
+
+  const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+  console.log(
+    `[ROSTER_CHECK] Resumen: ${okCount} OK, ${errCount} con error, ${noSessionCount} sin sesión | ` +
+      `cambios notificados: ${changedCount} | total: ${profiles.length} usuario(s) | ${elapsed}s`
+  );
 };
 
 const main = async () => {
