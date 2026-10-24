@@ -27,7 +27,7 @@ const main = async () => {
   if (!sbKey) stop("Falta SUPABASE_SERVICE_ROLE_KEY");
   if (!token) stop("Falta TELEGRAM_BOT_TOKEN");
 
-  const url = `${sbUrl}/rest/v1/profiles?select=email,telegram_chat_id,full_name&email=eq.${encodeURIComponent(email)}`;
+  const url = `${sbUrl}/rest/v1/profiles?select=email,telegram_chat_id,first_name,last_name&email=eq.${encodeURIComponent(email)}`;
   const res = await fetch(url, {
     headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
   });
@@ -47,7 +47,8 @@ const main = async () => {
   }
 
   const masked = String(chatId).replace(/.(?=.{4})/g, "•");
-  console.log(`[TEST] Perfil encontrado: ${profile.email} | chat_id: ${masked}`);
+  const nombre = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim();
+  console.log(`[TEST] Perfil encontrado: ${profile.email}${nombre ? ` (${nombre})` : ""} | chat_id: ${masked}`);
 
   const text = [
     "✅ *Prueba de notificación del bot de roster*",
