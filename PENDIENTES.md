@@ -16,6 +16,15 @@ Cuando completes un ítem, marcalo con `[x]` y anotá la fecha.
 | **Archivo afectado** | `.github/workflows/telegram-bot.yml` |
 | **Valor actual** | `runs-on: ubuntu-24.04` (pin temporal) |
 
+### Estado del último chequeo
+
+- **2026-10-24**: ✅ **Sí hay soporte.** La última versión publicada es `playwright@1.64.1` y ya incluye
+  `ubuntu26.04-x64` tanto en los builds de Chromium (`registry/index.ts`) como en las dependencias
+  del sistema (`nativeDeps.ts`). El proyecto usa `1.59.1`, que solo llega a `ubuntu24.04`.
+  → Ya no hace falta esperar: se puede encarar el upgrade cuando se quiera (ver "Pasos" abajo).
+  Riesgo a validar: el salto 1.59 → 1.64 puede cambiar comportamiento del scraper de ARMS
+  (por eso conviene probar con `workflow_dispatch` sobre `ubuntu-26.04` antes de cambiar el pin).
+
 ### Por qué
 
 El 19/10/2026 GitHub empezó a migrar el label `ubuntu-latest` de **Ubuntu 24.04 → 26.04**
