@@ -20,18 +20,20 @@ FlightLog es una aplicación para **pilotos** que permite:
 - **Gestionar suscripción anual** via Mercado Pago
 - **Funcionar como PWA + app nativa** (Capacitor) en iOS y Android con soporte offline parcial
 
-Existen **dos versiones** activas:
+Existe **una sola versión activa**: la **V2**.
 
-| Versión | URL | Repositorio | Característica distintiva |
+| Versión | URL | Repositorio | Estado |
 |---|---|---|---|
-| **V2 (con roster)** | `https://personal-flight-log-antigravity-render.onrender.com` | `arielbasseterre/personal-flight-log-antigravity` | Roster ARMS + calendario ICS |
-| **V1 (sin roster)** | `https://flightlog-sin-roster.onrender.com` | `GRINGOSOFTtv-creator/FLIGHTLOG-SIN-ROSTER` | Trial 30 días |
+| **V2 (con roster)** | `https://personal-flight-log-antigravity-render.onrender.com` | `arielbasseterre/personal-flight-log-antigravity` | ✅ Activa y mantenida |
+| **V1 (sin roster)** | `https://flightlog-sin-roster.onrender.com` | `GRINGOSOFTtv-creator/FLIGHTLOG-SIN-ROSTER` | ❌ **Discontinuada el 27/10/2026** (sin usuarios activos) |
+
+> Todo este documento describe la **V2**. Las menciones a la V1 que quedan más abajo son **históricas**: no hay que replicar nada ahí ni pushear a ese repo.
 
 ---
 
 # 2. Estructura del Proyecto
 
-## V2 (`C:\Users\Ariel\Downloads\personal-flight-log`)
+## V2 (`C:\Users\Ariel\DESARROLLO DE APPS\personal-flight-log`)
 
 ```
 personal-flight-log/
@@ -81,7 +83,9 @@ personal-flight-log/
 └── package.json
 ```
 
-## V1 (`D:\app Antigravity\personal-flight-log sin roster`)
+## V1 (`D:\app Antigravity\personal-flight-log sin roster`) — archivo histórico
+
+> ❌ **Discontinuada el 27/10/2026.** Se conserva solo como referencia; no se edita ni se pushea.
 
 Misma estructura base pero con menos funcionalidades. Diferencias clave:
 
@@ -136,7 +140,9 @@ Misma estructura base pero con menos funcionalidades. Diferencias clave:
 
 ## Definidas en `.env` (local) o Render Dashboard (producción)
 
-| Variable | Dónde se usa | Descripción | V2 | V1 |
+> La columna **V1** es histórica (esa versión fue discontinuada el 27/10/2026).
+
+| Variable | Dónde se usa | Descripción | V2 | V1 (histórica) |
 |---|---|---|---|---|
 | `VITE_SUPABASE_URL` | `server.ts:130` | URL del proyecto Supabase | `https://mexnmpbpqtccaulekupo.supabase.co` | misma |
 | `SUPABASE_SERVICE_ROLE_KEY` | `server.ts:131` | Service role key (bypasea RLS) | — | — |
@@ -171,7 +177,7 @@ Misma estructura base pero con menos funcionalidades. Diferencias clave:
 - **Storage**: Bucket `guia` con PDFs de guía de usuario
 - **Edge Functions (legacy, no activas)**:
   - `welcome-email` — Enviaba welcome email via Resend (hoy se hace desde server.ts con Brevo)
-  - `send-bug-report-notification` — Solo en V1, enviaba notificación de bug via Resend
+  - `send-bug-report-notification` — Solo existió en la V1 (discontinuada), enviaba notificación de bug via Resend
 
 ## 5.2 Brevo (Email Transaccional)
 
@@ -210,27 +216,26 @@ Misma estructura base pero con menos funcionalidades. Diferencias clave:
 - **Mecanismo**: Scraping via Playwright para obtener el roster mensual
 - **Sincronización**: Se guarda el JSON del roster en `arms_roster` (user_id, month, year, roster_json)
 - **Sesiones**: Se almacenan en `arms_sessions` para no requerir login cada vez
-- **Solo V2**: La V1 no tiene roster ARMS funcional
+- **Roster ARMS**: exclusivo de la V2 (la V1 discontinuada nunca lo tuvo)
 
 ## 5.6 Render (Hosting)
 
 - **Cuenta**: Asociada al email de Ariel
-- **V2 URL**: `https://personal-flight-log-antigravity-render.onrender.com`
-- **V1 URL**: `https://flightlog-sin-roster.onrender.com`
+- **URL**: `https://personal-flight-log-antigravity-render.onrender.com`
+- **V1 URL (retirada)**: `https://flightlog-sin-roster.onrender.com` — servicio discontinuado el 27/10/2026
 - **Tipo**: Web Service con Docker (Playwright image)
-- **Dockerfile**: `mcr.microsoft.com/playwright:v1.59.1-jammy` → `npx tsx server.ts`
+- **Dockerfile**: `mcr.microsoft.com/playwright:v1.64.1-jammy` → `npx tsx server.ts`
 - **Auto-deploy**: Desde GitHub, rama `main`
 - **Variables de entorno**: Seteadas en Render Dashboard (ver sección 4)
 
 ## 5.7 GitHub
 
-| Versión | Repositorio | Rama principal |
-|---|---|---|
-| **V2** | `https://github.com/arielbasseterre/personal-flight-log-antigravity` | `main` |
-| **V1** | `https://github.com/GRINGOSOFTtv-creator/FLIGHTLOG-SIN-ROSTER` | `main` |
+| Repositorio | Rama principal |
+|---|---|
+| `https://github.com/arielbasseterre/personal-flight-log-antigravity` | `main` |
 
 - **Push**: Al pushear a `main`, Render auto-deployea
-- **V1 token GitHub**: Fine-grained PAT (personal access token)
+- **Repo V1 (histórico)**: `GRINGOSOFTtv-creator/FLIGHTLOG-SIN-ROSTER` — discontinuado el 27/10/2026. **No pushear**: si el servicio de Render sigue existiendo, un push dispararía un deploy.
 
 ## 5.8 Resend (Legacy)
 
@@ -415,7 +420,7 @@ sequenceDiagram
     participant DB as Supabase
     participant BR as Brevo
 
-    alt V1 — Registro con Trial
+    alt V1 — Registro con Trial (histórico, discontinuado)
         U->>FE: Completa formulario
         FE->>BE: POST /api/mercadopago/register-with-trial
         BE->>DB: Crea usuario Auth + perfil (trial 30d)
@@ -585,9 +590,11 @@ Tokens almacenados en tabla calendar_tokens con snapshot de settings.
 
 ---
 
-# 10. V1 vs V2 — Diferencias Completa
+# 10. Diferencias históricas V1 vs V2
 
-| Aspecto | V2 (con roster) | V1 (sin roster) |
+> La **V1 fue discontinuada el 27/10/2026**. Esta tabla se conserva como referencia de por qué la V2 es la única versión mantenida.
+
+| Aspecto | V2 (activa) | V1 (histórica, discontinuada) |
 |---|---|---|
 | **URL** | `personal-flight-log-antigravity-render.onrender.com` | `flightlog-sin-roster.onrender.com` |
 | **Repo GitHub** | `arielbasseterre/personal-flight-log-antigravity` | `GRINGOSOFTtv-creator/FLIGHTLOG-SIN-ROSTER` |
@@ -598,7 +605,7 @@ Tokens almacenados en tabla calendar_tokens con snapshot de settings.
 | **CORS** | ✅ Restringido a orígenes conocidos | ❌ Abierto (cualquier origen) |
 | **Service Worker** | ✅ Endpoint /sw.js con no-cache | ❌ No tiene |
 | **Schema SQL** | ✅ schema.sql consolidado (13 tablas) | ❌ Solo database.sql + migraciones |
-| **Trial 30 días** | ❌ No (solo V1) | ✅ register-with-trial |
+| **Trial 30 días** | ❌ No (solo el feature temporal de auto-renovación de pruebas vencidas) | ✅ register-with-trial |
 | **@mercadopago/sdk-react** | ❌ No usa | ✅ Dependencia presente |
 | **Edge Function bug report** | ❌ No (se hace en server.ts con Brevo) | ✅ send-bug-report-notification (legacy) |
 | **Tamaño server.ts** | ~2356 líneas | ~1711 líneas |
@@ -620,13 +627,22 @@ Tokens almacenados en tabla calendar_tokens con snapshot de settings.
 ## Dockerfile
 
 ```dockerfile
-FROM mcr.microsoft.com/playwright:v1.59.1-jammy
+# Imagen oficial de Playwright (Node + deps de Chromium). npm y esta imagen VAN JUNTOS.
+FROM mcr.microsoft.com/playwright:v1.64.1-jammy
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+COPY scripts/ ./scripts/
+RUN npm install --legacy-peer-deps
 COPY . .
-EXPOSE 10000
-CMD ["npx", "tsx", "server.ts"]
+ENV NODE_ENV=production
+RUN npm run build
+# Reloj + CA store: ANAC rechaza por clock drift y el CA se refresca en cada build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/Argentina/Buenos_Aires
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates ntpdate tzdata \
+    && rm -rf /var/lib/apt/lists/*
+EXPOSE 3000
+CMD ["bash", "-c", "ntpdate -s pool.ntp.org || true; (while true; do sleep 3600; ntpdate -s pool.ntp.org || true; done) & npx tsx server.ts"]
 ```
 
 Render asigna el puerto via variable `PORT` (10000 internamente).
@@ -708,12 +724,6 @@ npx tsc --noEmit             # Type check completo
 git add -A
 git commit -m "mensaje"
 git push origin main         # Render auto-deployea
-
-# --- V1 ---
-cd "D:\app Antigravity\personal-flight-log sin roster"
-git add -A
-git commit -m "mensaje"
-git push origin main
 
 # --- Docker local ---
 docker build -t flightlog .

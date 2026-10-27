@@ -1,4 +1,11 @@
 # Contexto de IA para el Proyecto: personal-flight-log
+## Estado del proyecto (27/10/2026): solo V2
+
+> La **V1 (sin roster)** fue **discontinuada el 27/10/2026** y ya no esta en uso.
+> Solo se mantiene la **V2** (este repositorio). Ya **no hay cambios que replicar entre versiones**:
+> la vieja "revision cruzada" quedo obsoleta. El codigo de la V1
+> (`D:\app Antigravity\personal-flight-log sin roster`) es archivo historico: no editar ni pushear
+> (su servicio de Render redeployaria).
 
 Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravity u otros entornos de desarrollo) alineado sobre el estado actual, la arquitectura, configuraciones críticas e historial del proyecto.
 
@@ -107,7 +114,7 @@ Este archivo sirve para mantener a cualquier modelo de IA (en VS Code, Antigravi
   - `airports.csv`: anac_code de 24 internacionales actualizado de `N/A` a su ICAO (ej. `SBGL`).
   - `server.ts` y `api/sync-anac.ts`: agregados 24 internacionales a `ANAC_MAPPINGS` (IATA->ICAO) como safety net.
 - **Confirmacion al eliminar registro (28-Jun-2026)**: Al presionar la X roja en el historial, ahora aparece modal con fecha, ruta y matricula del vuelo + boton rojo "Confirmar" (tipo danger, via `askConfirm`).
-- **NOTA: Revision cruzada entre versiones (28-Jun-2026)**: A partir de ahora, cualquier cambio en esta version debe evaluarse para aplicar tambien en la v1 (`D:\app Antigravity\personal-flight-log sin roster`). Se requiere consentimiento del usuario antes de replicar.
+- **NOTA: Revision cruzada entre versiones (28-Jun-2026) - OBSOLETA desde el 27/10/2026**: la V1 fue discontinuada, no hay nada que replicar. Todo cambio va solo a la V2.
 - **Mejoras en Sincronización de Roster ARMS (17-Jul-2026)**:
   - Incremento del timeout de sincronización de 25s a 120s en el frontend para evitar falsos errores de red al usar Playwright.
   - Creación del modal `TimeoutAlert` indicando que el servidor tardó demasiado al expirar el tiempo.
@@ -208,7 +215,7 @@ Panel de estadísticas mensuales en `ArmsRosterScreen.tsx`, calculado dinámicam
 - [x] Compatible retroactivamente con todos los rosters previamente sincronizados
 
 ### ✅ Completado — Trial 30 días (solo en v1, no portado a v2)
-v1 tiene `register-with-trial` con creación directa de usuario + 30d trial. v2 no lo implementa — los nuevos usuarios deben pagar directamente.
+- v1 tenia `register-with-trial` con creacion directa de usuario + 30d trial (**V1 discontinuada el 27/10/2026**). v2 no lo implementa: los nuevos usuarios deben pagar directamente.
 
 ### ✅ Completado — Renovación anticipada
 - [x] ProfileScreen: botón "Renovar" azul cuando falten ≤ 30 días (reemplaza "Cancelar Suscripción")

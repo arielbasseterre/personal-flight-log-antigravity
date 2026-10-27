@@ -71,11 +71,18 @@ No hacer nada: el pin a `ubuntu-24.04` sigue funcionando. Reprogramar el chequeo
 
 ## Otras mejoras opcionales (sin fecha)
 
+- [x] **Advisory de seguridad de Render (27/10/2026)**: `ca-certificates` agregado al `apt-get install`
+  del Dockerfile (refresca el CA store en cada build) y `process.version` + `process.versions.openssl`
+  al log de arranque de `server.ts`. Verificado en producción: `Node: v24.22.1 | OpenSSL: 3.5.9`.
+  Detalle completo: `info_para_modelos_IA/ERRORES_CONOCIDOS.md` → sección **15**.
+- [ ] **Revisar `npm audit`**: 31 vulnerabilidades reportadas (1 crítica). No está relacionado con el
+  advisory de Node/CA. Pendiente evaluar si la crítica es explotable en este stack.
+
 - [ ] **Anti-spam de errores del cron**: si el entorno de GitHub vuelve a romperse, hoy se generan
   ~48 correos de "All jobs have failed" por día. Idea: capturar los fallos de *entorno* en
   `telegram/index.ts` (no los de ARMS) con el mismo cooldown de 24 h que ya usa `warn()` en
   `app_config`, avisar 1 sola vez por Telegram y salir con código 0.
 - [ ] **Blindar el cron contra cambios de runner**: correr el job dentro del contenedor oficial de
-  Playwright (`mcr.microsoft.com/playwright:v1.59.1-noble`). Así el SO y las librerías quedan
+  Playwright (`mcr.microsoft.com/playwright:v1.64.1-noble`). Así el SO y las librerías quedan
   fijados por la imagen y ninguna migración de GitHub vuelve a romperlo.
   Costo: +1-2 min por run (pull de la imagen).

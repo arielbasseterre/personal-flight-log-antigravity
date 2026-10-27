@@ -57,15 +57,21 @@ const matchPreapproval = urlStr.match(/[?&](?:preapproval_id|id)=([^&?]+)/);
 **Solución**: `ignoreHTTPSErrors: true` en `browser.newContext()`.
 **Riesgo**: Bajo — solo afecta al tráfico hacia ANAC y ARMS, no hay datos sensibles en tránsito que no estén ya cifrados.
 
-## ¿Por qué separar V1 y V2 en dos repositorios?
+## ¿Por qué se discontinuó la V1? (27/10/2026)
 
-**Historia**: 
-1. V1 se creó primero (sin roster)
-2. Se añadió roster ARMS + calendario en V2
-3. Se mantuvieron ambas versiones porque hay usuarios en cada una
-4. V1 tiene trial 30 días, V2 requiere pago directo
+**Historia**:
+1. V1 se creó primero (sin roster).
+2. Se añadió roster ARMS + calendario en la V2.
+3. Se mantuvieron ambas versiones mientras hubo usuarios en cada una.
+4. La V1 se quedó sin usuarios activos.
 
-**Consecuencia**: Los cambios de seguridad/estructurales deben replicarse manualmente en ambas. Existe `NOTA: Revision cruzada entre versiones` en ai_context.md para recordarlo.
+**Decisión**: se **discontinuó la V1** y la V2 es la única versión mantenida.
+
+**Consecuencia**: desaparece la obligación de replicar cambios de seguridad/estructurales en dos lugares (antes existía la `NOTA: Revision cruzada entre versiones` en `ai_context.md`, hoy obsoleta). Todo cambio va únicamente a este repositorio.
+
+**Deuda que se saldó al discontinuarla**: la V1 seguía en `mcr.microsoft.com/playwright:v1.59.1-jammy` (imagen publicada el **2026-04-01**). Los tags de las imágenes de Playwright son inmutables, así que reconstruirla **no** habría actualizado su Node: se habría quedado con la versión de abril 2026, anterior a los parches de seguridad del 21/10/2026. Se retiró en lugar de actualizarla.
+
+**Nota**: el código de la V1 queda en `D:\app Antigravity\personal-flight-log sin roster` como archivo histórico. No editarlo ni pushear (dispararía un deploy en su servicio de Render).
 
 ## ¿Por qué `SUPABASE_SERVICE_ROLE_KEY` y no la anon key en server.ts?
 

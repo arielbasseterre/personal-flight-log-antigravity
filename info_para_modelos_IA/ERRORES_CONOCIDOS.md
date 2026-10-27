@@ -29,7 +29,7 @@
 ```typescript
 const matchPreapproval = urlStr.match(/[?&](?:preapproval_id|id)=([^&?]+)/);
 ```
-Implementado en V2 línea ~2060 y V1 línea ~1340.
+Implementado en V2 línea ~2060. *(V1 línea ~1340: histórico, la V1 fue discontinuada el 27/10/2026).*
 
 ## 3. MP checkout redirige a URL incorrecta (pantalla blanca post-pago)
 
@@ -37,17 +37,17 @@ Implementado en V2 línea ~2060 y V1 línea ~1340.
 **Causa**: `resolveFrontendUrl()` no encuentra la URL correcta porque depende de `req.headers.origin` que MP sobreescribe
 **Solución**: El callback ahora usa `req.query.frontend_url` como primera opción (enviado desde el frontend al crear la suscripción). Si no está, cae a `req.headers.origin/referer`, luego `VITE_API_URL`, luego URL hardcodeada.
 
-## 4. Trial sigue activo después de pagar (V1)
+## 4. Trial sigue activo después de pagar (V1 — histórico)
 
 **Síntoma**: Usuario paga pero sigue viendo "Período de prueba gratuito"
 **Causa**: El trial se detecta por `subscription_id = null`. Si el callback/webhook no setea `subscription_id`, el trial persiste.
-**Solución**: Verificar que el callback y webhook siempre seteen `subscription_id` al crear o actualizar el perfil. Implementado en ambos.
+**Solución**: Verificar que el callback y webhook siempre seteen `subscription_id` al crear o actualizar el perfil. Implementado en V2 (el trial como tal solo existió en la V1, discontinuada).
 
 ## 5. Webhook vs callback race condition
 
 **Síntoma**: El webhook de MP procesa la suscripción antes que el callback, y cuando el callback llega, `pending_registrations` ya no tiene el registro.
 **Causa**: MP envía webhook y redirect al callback simultáneamente. El webhook (async) procesa primero.
-**Solución**: El callback tiene fallback que busca `profiles WHERE subscription_id = sub.id`. Si existe, actualiza end_date en vez de crear. Implementado en V2 línea ~2262 y V1.
+**Solución**: El callback tiene fallback que busca `profiles WHERE subscription_id = sub.id`. Si existe, actualiza end_date en vez de crear. Implementado en V2 línea ~2262. *(V1: histórico, discontinuada).*
 
 ## 6. Playwright clock drift en Render
 
@@ -130,3 +130,27 @@ El procedimiento queda registrado por si hay que repetirlo con una futura migrac
 - `GET https://api.github.com/repos/<owner>/<repo>/actions/runs?per_page=5` → conclusiones y `head_sha`
 - `GET https://api.github.com/repos/<owner>/<repo>/actions/runs/<run_id>/jobs` → qué step exacto falló
 - `GET .../check-runs/<id>/annotations` → anotaciones del runner (acá apareció el aviso de la migración a Ubuntu 26)
+
+## 15. Advisory de seguridad de Render (Node.js / eMudhra / PHP2Shell) — 27/10/2026
+
+**Síntoma**: correo de Render con tres avisos: compromiso de CAs intermedias de **eMudhra** (19/10/2026), parches de **Node.js** (21/10/2026: bypass de la validación de hostname en TLS + RCE por descompresión Brotli) y **PHP2Shell** (21/10/2026).
+
+**Qué aplicaba**: solo **Node.js**. PHP no existe en el stack (Node + React + Docker sobre Ubuntu jammy). El punto de eMudhra se resuelve con el mismo update, porque Node trae su propio store de CAs bundleado en el binario.
+
+**Versiones mínimas**: Node `22.23.4`, `24.22.1` o `26.12.1`.
+
+**Verificación sin Render Shell** (el plan free no lo soporta): se agregó `process.version` + `process.versions.openssl` al log de arranque (`server.ts`). En Render → Logs:
+
+```
+[SERVER] Hora del servidor: 2026-10-27T21:12:49.604Z | TZ: America/Argentina/Buenos_Aires | Node: v24.22.1 | OpenSSL: 3.5.9
+```
+
+**Por qué ya estaba cubierto**: la imagen `mcr.microsoft.com/playwright:v1.64.1-jammy` fue publicada el **2026-10-23T00:30Z** e instala Node desde NodeSource `node_24.x` **en el build** → cualquier rebuild posterior al 21/10 trae el Node parcheado.
+
+**Dato clave para el futuro**: los tags de las imágenes de Playwright son **inmutables**. `v1.59.1-jammy` (publicada 2026-04-01) sigue apuntando al mismo manifiesto con Node de abril: **redesplegar no actualiza el runtime**, hay que cambiar el `FROM`. Esto es lo que habría dejado a la V1 vulnerable si hubiera seguido en uso.
+
+**Cambio aplicado** (commit `d6a7bda`): `ca-certificates` agregado al `apt-get install` del Dockerfile (refresca el store del sistema en cada build, que es lo que pide el advisory para servicios Docker) + `rm -rf /var/lib/apt/lists/*`.
+
+**Cómo verificar el Node de la imagen sin deployar**: consultar el manifiesto en MCR y mirar `created` del config del manifest amd64. Si la fecha es posterior al release del parche, el Node de adentro está parcheado.
+
+**Pendiente menor**: `npm audit` reportaba 31 vulnerabilidades (1 crítica) — no relacionado con este advisory, queda como tarea aparte.

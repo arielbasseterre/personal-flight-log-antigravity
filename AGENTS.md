@@ -1,5 +1,12 @@
 # Instrucciones Personalizadas para el Agente
 
+## Estado del proyecto — una sola versión activa (27/10/2026)
+
+- La **V1 (sin roster) fue discontinuada el 27/10/2026** y ya no está en uso.
+- Solo se mantiene la **V2**: este repositorio (`arielbasseterre/personal-flight-log-antigravity`).
+- **No hay cambios que replicar entre versiones**: todo cambio va únicamente acá.
+- El código de la V1 queda en `D:\app Antigravity\personal-flight-log sin roster` como archivo histórico: no editar ni pushear (su servicio de Render, si sigue existiendo, redeployaría).
+
 ## ⚠️ Regla de Oro — Base de Datos Supabase
 
 **Bajo ningún concepto** el agente debe ejecutar acciones destructivas en la base de datos de Supabase (DROP, DELETE, ALTER que elimine columnas, TRUNCATE, etc.).
@@ -22,11 +29,11 @@ El agente **NUNCA** debe ejecutar SQL contra Supabase. El usuario es el **único
 - Después de ejecutar, vuelve a la conducta por defecto (simular plan) salvo que el usuario indique otra cosa.
 - El usuario usa **opencode web**; no asumas que el modo del sistema es visible para él. La garantía de "no cambios" la da esta regla, no el indicador de la UI.
 
-## ⚠️ FEATURE TEMPORAL — Renovación automática de prueba (SOLO V2)
+## ⚠️ FEATURE TEMPORAL — Renovación automática de prueba
 
-**Contexto:** usuarios de la V2 con dificultades económicas temporales. Período de gracia: cuando la suscripción de **prueba** de un usuario está **vencida** (`subscription_end_date <= now`), al abrir la app se renueva automáticamente por **+30 días** (modo trial) y se muestra un banner. **Solo V2 — la V1 NO recibe estos cambios.**
+**Contexto:** usuarios con dificultades económicas temporales. Período de gracia: cuando la suscripción de **prueba** de un usuario está **vencida** (`subscription_end_date <= now`), al abrir la app se renueva automáticamente por **+30 días** (modo trial) y se muestra un banner.
 
-### Archivos modificados (V2)
+### Archivos modificados
 - `server.ts`: endpoint `POST /api/trial/auto-renew` (marcado `// ⚠️ TEMPORAL V2`).
 - `src/App.tsx`:
   - Estado `trialRenewalBanner`.
@@ -43,7 +50,7 @@ Frase disparadora: **"remové el feature temporal de renovación automática de 
    - Eliminar `appIsTrial` y restaurar el gating original: `if (user && !isSubscriptionActive)`.
    - Eliminar el banner descartable renderizado tras `{content}`.
 3. Quitar la importación de `getApiUrl` si quedó sin uso.
-4. Build + commit + push de la **V2**. NO tocar la V1.
+4. Build + commit + push.
 
 ## API Keys
 
@@ -124,9 +131,9 @@ Para entender la arquitectura, stack, estructura de directorios, cuentas de serv
 ## Producción / Render (IMPORTANTE)
 - **`app.set('trust proxy', true)`** es OBLIGATORIO en Express: Render agrega `X-Forwarded-For` y sin `trust proxy`, `express-rate-limit` lanza `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` → rompía el sync masivo en producción (a local no lo afecta).
 - **Manejador global de errores** al final del server (`app.use((err, req, res, next) => ...)`): evita que un error no manejado **tumbe el proceso** a mitad de un sync largo (se veía un reinicio "Detected service running on port 10000").
-- Diagnóstico de reloj: `[SERVER] Hora del servidor:` al arrancar + `/api/test-connectivity` devuelve `serverTime`/`serverTimeLocal`/`tz` (para verificar clock drift sin Render Shell). Dockerfile sincroniza reloj con `ntpdate` + `TZ=America/Argentina/Buenos_Aires` + `DEBIAN_FRONTEND=noninteractive` (sin esto, `apt-get install tzdata` cuelga el build con un prompt).
+- Diagnóstico de reloj y runtime: `[SERVER] Hora del servidor: … | TZ: … | Node: … | OpenSSL: …` al arrancar (permite verificar la versión de Node en producción sin Render Shell, que no existe en el plan free) + `/api/test-connectivity` devuelve `serverTime`/`serverTimeLocal`/`tz` (para verificar clock drift). Dockerfile sincroniza reloj con `ntpdate` + `TZ=America/Argentina/Buenos_Aires` + `DEBIAN_FRONTEND=noninteractive` (sin esto, `apt-get install tzdata` cuelga el build con un prompt) y refresca `ca-certificates` en cada build.
 
-## Roster ARMS (`api/arms-scraper.ts` — SOLO V2)
+## Roster ARMS (`api/arms-scraper.ts`)
 - **Setear el rango con la API del jQuery UI Datepicker** (`$('#txtFromDate').datepicker('setDate', new Date(...))`), NO asignar `input.value` directo (el datepicker readonly mantiene su valor interno → ARMS usaba el rango por defecto → tabla vacía).
 - **Tras clickear VIEW, esperar a que el grid tenga >1 fila** (polling ~15s): ARMS llena la tabla vía AJAX; capturar antes = tabla vacía (HTML ~1600 chars, 0 tramos).
 - **Parser**: regex de fecha con día `\d{1,2}` (ARMS puede renderizar "1-Aug-2026") + escanear hasta 6 celdas.
