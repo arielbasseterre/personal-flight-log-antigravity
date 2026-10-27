@@ -43,7 +43,12 @@ const formatCuil = (raw: string): string => {
 };
 
 // Diagnóstico de clock drift (ANAC rechaza con "ajusta la hora de su sistema" si el reloj está desviado)
-console.log("[SERVER] Hora del servidor:", new Date().toISOString(), "| TZ:", process.env.TZ || 'sistema');
+console.log(
+  "[SERVER] Hora del servidor:", new Date().toISOString(),
+  "| TZ:", process.env.TZ || 'sistema',
+  "| Node:", process.version,
+  "| OpenSSL:", process.versions.openssl
+);
 
 // --- Aeropuertos: fuente única = airports.csv (ANAC) ---
 import { ensureAirportsLoaded, resolveAirportCode } from "./src/utils/airports";

@@ -25,7 +25,9 @@ RUN npm run build
 # cuando el reloj del contenedor está desviado (clock drift de Render).
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/Argentina/Buenos_Aires
-RUN apt-get update && apt-get install -y --no-install-recommends ntpdate tzdata
+# ca-certificates se refresca a la ultima version de jammy en cada build (advisory eMudhra / Render)
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates ntpdate tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 # Exponer el puerto
 EXPOSE 3000
